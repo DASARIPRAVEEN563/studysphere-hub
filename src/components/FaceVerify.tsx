@@ -159,8 +159,15 @@ export function FaceVerify({ user, onVerified }: { user: User; onVerified: (u: U
     }
     setMail({ status: "sending", detail: `Sending confirmation to ${to}...` });
     try {
-      await sendFaceVerificationConfirmation({ data: { to, fullName: user.fullName } });
-      setMail({ status: "sent", detail: `Confirmation mail delivered to ${to}.` });
+      const r = await sendFaceVerificationConfirmation({
+        data: { to, fullName: user.fullName },
+      });
+      setMail({
+        status: "sent",
+        detail: `Delivered to ${to} from studentsnotessharing@gmail.com${
+          r?.messageId ? ` (ref ${r.messageId.slice(0, 8)})` : ""
+        }. If it is not in your inbox, check Spam / Promotions / Updates.`,
+      });
     } catch (error) {
       console.error("Face verification email failed", error);
       setMail({
