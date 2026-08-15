@@ -31,7 +31,7 @@ def public_note(note: dict) -> dict:
 
 
 def unique_subject(subject: str, department: str, year: str, semester: str) -> str:
-    """ds -> ds1 -> ds2 when the subject folder already exists in the same scope."""
+    """ds -> ds01 -> ds02 when the subject folder already exists in the same scope."""
     taken = {
         n["subject"].lower()
         for n in store.read("notes")
@@ -40,9 +40,9 @@ def unique_subject(subject: str, department: str, year: str, semester: str) -> s
     if subject.lower() not in taken:
         return subject
     index = 1
-    while f"{subject}{index}".lower() in taken:
+    while f"{subject}{index:02d}".lower() in taken:
         index += 1
-    return f"{subject}{index}"
+    return f"{subject}{index:02d}"
 
 
 def list_notes():

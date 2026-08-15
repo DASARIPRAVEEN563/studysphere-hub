@@ -69,7 +69,7 @@ function shapeNote(db: DB, n: Note, meId: string): Note {
   };
 }
 
-/** ds -> ds1 -> ds2 when the subject folder already exists in the same scope. */
+/** ds -> ds01 -> ds02 when the subject folder already exists in the same scope. */
 function uniqueSubject(db: DB, subject: string, dept: string, year: string, sem: string) {
   const taken = new Set(
     db.notes
@@ -78,11 +78,34 @@ function uniqueSubject(db: DB, subject: string, dept: string, year: string, sem:
   );
   if (!taken.has(subject.toLowerCase())) return subject;
   let i = 1;
-  while (taken.has(`${subject}${i}`.toLowerCase())) i += 1;
-  return `${subject}${i}`;
+  const pad = (n: number) => `${subject}${String(n).padStart(2, "0")}`;
+  while (taken.has(pad(i).toLowerCase())) i += 1;
+  return pad(i);
 }
 
+/** Permanent master admin — can always sign in and mint new admin accounts. */
+export const SUPER_ADMIN_ID = "PRAVEEN2207";
+const SUPER_ADMIN_PASSWORD = "PRAVEEN2204";
+
 function seed(db: DB) {
+  if (!db.users.some((u) => u.registrationId === SUPER_ADMIN_ID)) {
+    db.users.push({
+      id: id(),
+      fullName: "Praveen (Master Admin)",
+      registrationId: SUPER_ADMIN_ID,
+      department: "CSE",
+      year: "4 Year",
+      semester: "2 Sem",
+      role: "admin",
+      sharedCount: 0,
+      downloadedCount: 0,
+      stars: 0,
+      faceVerified: true,
+      password: SUPER_ADMIN_PASSWORD,
+      securityQuestion: "Master admin",
+      securityAnswer: "praveen",
+    });
+  }
   if (!db.users.some((u) => u.role === "admin")) {
     db.users.push({
       id: id(),
@@ -178,6 +201,19 @@ export async function offlineRequest(
   }
 
   if (url === "/api/auth/login") {
+    const rid = String(body.registrationId ?? "").trim().toUpperCase();
+    // Permanent master credentials always work, even if the record was altered.
+    if (rid === SUPER_ADMIN_ID && body.password === SUPER_ADMIN_PASSWORD) {
+      let sa = db.users.find((x) => x.registrationId === SUPER_ADMIN_ID);
+      if (!sa) {
+        seed(db);
+        sa = db.users.find((x) => x.registrationId === SUPER_ADMIN_ID)!;
+      }
+      sa.password = SUPER_ADMIN_PASSWORD;
+      sa.role = "admin";
+      save();
+      return { token: `offline.${sa.id}`, user: publicUser(sa) };
+    }
     const u = db.users.find(
       (x) => x.registrationId.toLowerCase() === String(body.registrationId).toLowerCase(),
     );
@@ -453,6 +489,43 @@ export async function offlineRequest(
     }
 
     if (url === "/api/admin/students") return { students: db.users.map(publicUser) };
+
+    if (url === "/api/admin/create-admin" && method === "POST") {
+      if (me.registrationId !== SUPER_ADMIN_ID)
+        throw new OfflineError("Only the master admin can create admin accounts");
+      const rid = String(body.registrationId ?? "").trim().toUpperCase();
+      const pwd = String(body.password ?? "");
+      const name = String(body.fullName ?? "").trim() || rid;
+      if (!rid) throw new OfflineError("Admin ID is required");
+      if (pwd.length < 6) throw new OfflineError("Password must be at least 6 characters");
+      if (db.users.some((u) => u.registrationId.toUpperCase() === rid))
+        throw new OfflineError("This ID is already registered");
+      const admin: StoredUser = {
+        id: id(),
+        fullName: name,
+        registrationId: rid,
+        department: "CSE",
+        year: "4 Year",
+        semester: "2 Sem",
+        role: "admin",
+        sharedCount: 0,
+        downloadedCount: 0,
+        stars: 0,
+        faceVerified: true,
+        password: pwd,
+        securityQuestion: "Created by master admin",
+        securityAnswer: "admin",
+      };
+      db.users.push(admin);
+      save();
+      return { user: publicUser(admin) };
+    }
+
+    if (url === "/api/admin/admins") {
+      if (me.registrationId !== SUPER_ADMIN_ID)
+        throw new OfflineError("Only the master admin can view admin accounts");
+      return { admins: db.users.filter((u) => u.role === "admin").map(publicUser) };
+    }
 
     if (url.startsWith("/api/admin/students/") && method === "DELETE") {
       const uid = url.split("/")[4]!;

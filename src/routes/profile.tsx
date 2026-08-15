@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AppShell, useRequireAuth } from "@/components/AppShell";
+import { AdminCreator } from "@/components/AdminCreator";
 import { btnClass, Field, inputClass } from "@/components/Field";
 import { BookLoader } from "@/components/BookLoader";
 import { FaceVerify } from "@/components/FaceVerify";
@@ -215,6 +216,7 @@ function ProfilePage() {
         </form>
         )}
         <FaceVerify user={user} onVerified={setUser} />
+        <AdminCreator user={user} />
         <ThemePicker />
         <ShareSite />
         </div>

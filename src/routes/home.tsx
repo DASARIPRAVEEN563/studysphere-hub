@@ -185,14 +185,6 @@ function HomeContent() {
             <div className="flex items-center justify-between gap-3 bg-black/70 px-4 py-3">
               <p className="text-sm font-bold text-white">{lightbox.title}</p>
               <div className="flex gap-2">
-                <a
-                  href={lightbox.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="rounded-full bg-white/15 px-3 py-1.5 text-xs font-bold text-white"
-                >
-                  Open original
-                </a>
                 <button
                   onClick={() => setLightbox(null)}
                   className="rounded-full bg-white/15 px-3 py-1.5 text-xs font-bold text-white"
