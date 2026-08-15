@@ -4,7 +4,7 @@
  * When it is unreachable (e.g. the hosted preview, or Flask not started),
  * these handlers keep the whole app usable with localStorage persistence.
  */
-import type { ContentItem, Note, User } from "./api";
+import type { ChatMessage, ChatThread, ContentItem, Feedback, Note, User } from "./api";
 
 const KEY = "sknsh_offline_db";
 
@@ -19,9 +19,11 @@ type DB = {
   notes: Note[];
   content: ContentItem[];
   files: Record<string, string>;
+  feedback: Feedback[];
+  chats: ChatMessage[];
 };
 
-const empty = (): DB => ({ users: [], notes: [], content: [], files: {} });
+const empty = (): DB => ({ users: [], notes: [], content: [], files: {}, feedback: [], chats: [] });
 
 function read(): DB {
   if (typeof window === "undefined") return empty();
@@ -41,7 +43,7 @@ const id = () => Math.random().toString(36).slice(2, 11);
 
 function publicUser(u: StoredUser): User {
   const { password: _p, securityAnswer: _a, securityQuestion: _q, ...rest } = u;
-  return rest;
+  return { stars: 0, faceVerified: false, faceImage: null, ...rest };
 }
 
 function seed(db: DB) {
@@ -56,6 +58,8 @@ function seed(db: DB) {
       role: "admin",
       sharedCount: 0,
       downloadedCount: 0,
+      stars: 0,
+      faceVerified: true,
       password: "admin123",
       securityQuestion: "What is your nickname?",
       securityAnswer: "admin",
