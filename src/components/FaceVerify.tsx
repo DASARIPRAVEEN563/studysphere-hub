@@ -15,6 +15,10 @@ export function FaceVerify({ user, onVerified }: { user: User; onVerified: (u: U
   const [live, setLive] = useState(false);
   const [busy, setBusy] = useState(false);
   const [hint, setHint] = useState("");
+  const [mail, setMail] = useState<{
+    status: "idle" | "queued" | "sending" | "sent" | "failed";
+    detail: string;
+  }>({ status: "idle", detail: "" });
 
   const hasEmail = Boolean(user.email && user.email.includes("@"));
 
@@ -121,38 +125,48 @@ export function FaceVerify({ user, onVerified }: { user: User; onVerified: (u: U
     if (busyRef.current) return;
     busyRef.current = true;
     setBusy(true);
+    setMail({ status: "queued", detail: `Queued for ${user.email ?? "your email"}...` });
     try {
       const r = await api<{ user: User; emailedTo?: string; emailSent?: boolean; message?: string }>(
         "/api/profile/face-verify",
         { method: "POST", body: { image, faces, email: user.email } },
       );
-      let emailSent = Boolean(r.emailSent);
-      if (!emailSent && user.email) {
-        try {
-          await sendFaceVerificationConfirmation({
-            data: { to: user.email, fullName: user.fullName },
-          });
-          emailSent = true;
-        } catch (emailError) {
-          console.error("Face verification email failed", emailError);
-        }
-      }
       auth.setUser(r.user);
       onVerified(r.user);
       stop();
-      toast.success("Face verified is successfully completed", {
-        description: emailSent
-          ? `A confirmation mail has been sent to ${r.emailedTo ?? user.email}.`
-          : `Mail could not be sent right now — check that the mail server is configured for ${
-              r.emailedTo ?? user.email
-            }.`,
-      });
+      toast.success("Face verified is successfully completed");
+      const to = r.emailedTo ?? user.email ?? "";
+      if (r.emailSent) {
+        setMail({ status: "sent", detail: `Confirmation mail delivered to ${to}.` });
+      } else {
+        void deliverEmail(to);
+      }
     } catch (e) {
+      setMail({ status: "idle", detail: "" });
       toast.error((e as Error).message);
       setHint("Verification failed — try blinking again.");
     } finally {
       busyRef.current = false;
       setBusy(false);
+    }
+  };
+
+  /** Email delivery runs independently — verification stays successful either way. */
+  const deliverEmail = async (to: string) => {
+    if (!to) {
+      setMail({ status: "failed", detail: "No email ID on file to notify." });
+      return;
+    }
+    setMail({ status: "sending", detail: `Sending confirmation to ${to}...` });
+    try {
+      await sendFaceVerificationConfirmation({ data: { to, fullName: user.fullName } });
+      setMail({ status: "sent", detail: `Confirmation mail delivered to ${to}.` });
+    } catch (error) {
+      console.error("Face verification email failed", error);
+      setMail({
+        status: "failed",
+        detail: `Mail to ${to} could not be delivered — verification is still saved.`,
+      });
     }
   };
 
