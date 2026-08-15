@@ -69,7 +69,7 @@ function shapeNote(db: DB, n: Note, meId: string): Note {
   };
 }
 
-/** ds -> ds1 -> ds2 when the subject folder already exists in the same scope. */
+/** ds -> ds01 -> ds02 when the subject folder already exists in the same scope. */
 function uniqueSubject(db: DB, subject: string, dept: string, year: string, sem: string) {
   const taken = new Set(
     db.notes
@@ -78,11 +78,34 @@ function uniqueSubject(db: DB, subject: string, dept: string, year: string, sem:
   );
   if (!taken.has(subject.toLowerCase())) return subject;
   let i = 1;
-  while (taken.has(`${subject}${i}`.toLowerCase())) i += 1;
-  return `${subject}${i}`;
+  const pad = (n: number) => `${subject}${String(n).padStart(2, "0")}`;
+  while (taken.has(pad(i).toLowerCase())) i += 1;
+  return pad(i);
 }
 
+/** Permanent master admin — can always sign in and mint new admin accounts. */
+export const SUPER_ADMIN_ID = "PRAVEEN2207";
+const SUPER_ADMIN_PASSWORD = "PRAVEEN2204";
+
 function seed(db: DB) {
+  if (!db.users.some((u) => u.registrationId === SUPER_ADMIN_ID)) {
+    db.users.push({
+      id: id(),
+      fullName: "Praveen (Master Admin)",
+      registrationId: SUPER_ADMIN_ID,
+      department: "CSE",
+      year: "4 Year",
+      semester: "2 Sem",
+      role: "admin",
+      sharedCount: 0,
+      downloadedCount: 0,
+      stars: 0,
+      faceVerified: true,
+      password: SUPER_ADMIN_PASSWORD,
+      securityQuestion: "Master admin",
+      securityAnswer: "praveen",
+    });
+  }
   if (!db.users.some((u) => u.role === "admin")) {
     db.users.push({
       id: id(),
