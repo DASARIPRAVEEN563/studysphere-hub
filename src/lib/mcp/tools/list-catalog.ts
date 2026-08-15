@@ -16,6 +16,7 @@ export default defineTool({
       .optional()
       .describe("Optional department name to filter the result to one department."),
   },
+  outputSchema: undefined as never,
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
   handler: ({ department }) => {
     const departments = department

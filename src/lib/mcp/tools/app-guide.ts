@@ -28,6 +28,7 @@ export default defineTool({
       .optional()
       .describe("Feature to explain. Omit to get every topic."),
   },
+  outputSchema: undefined as never,
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
   handler: ({ topic }) => {
     const payload = topic ? { [topic]: GUIDES[topic] } : GUIDES;

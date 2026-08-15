@@ -19,6 +19,7 @@ export default defineTool({
     filename: z.string().optional().describe("Filename to validate, e.g. 'unit1.pdf'."),
     sizeMb: z.number().positive().optional().describe("File size in megabytes to validate."),
   },
+  outputSchema: undefined as never,
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
   handler: ({ filename, sizeMb }) => {
     const problems: string[] = [];
