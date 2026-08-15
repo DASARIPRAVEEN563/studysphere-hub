@@ -1,8 +1,10 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { AppShell, useRequireAuth } from "@/components/AppShell";
-import { Skeletons } from "@/components/Field";
-import { api, DEPARTMENTS, type ContentItem } from "@/lib/api";
+import { BookLoader } from "@/components/BookLoader";
+import { btnClass, inputClass } from "@/components/Field";
+import { api, type ContentItem, type Feedback } from "@/lib/api";
 
 export const Route = createFileRoute("/home")({
   head: () => ({
@@ -26,6 +28,7 @@ const GROUPS = [
   { type: "gallery", label: "Gallery", accent: "from-violet to-blue" },
   { type: "promotion", label: "Promotions", accent: "from-cyan to-pink" },
   { type: "video", label: "Videos", accent: "from-blue to-violet" },
+  { type: "advertisement", label: "Advertisements", accent: "from-pink to-cyan" },
 ] as const;
 
 function HomePage() {
@@ -40,60 +43,18 @@ function HomePage() {
 
   return (
     <AppShell title={user ? `Welcome, ${user.fullName}` : "Home"}>
-      <section className="glass animate-rise mb-10 overflow-hidden rounded-3xl p-8">
-        <div className="flex flex-wrap items-center justify-between gap-6">
-          <div>
-            <p className="text-cyan text-sm font-semibold">
-              {user?.department} · {user?.year} · {user?.semester}
-            </p>
-            <h3 className="mt-2 max-w-lg text-3xl font-black">
-              Everything your semester needs, in one <span className="gradient-text">hub</span>.
-            </h3>
-            <div className="mt-5 flex flex-wrap gap-3">
-              <Link
-                to="/notes"
-                className="hero-gradient rounded-xl px-5 py-2.5 text-sm font-bold text-white shadow-lg transition-transform hover:-translate-y-0.5"
-              >
-                Browse Notes
-              </Link>
-              <Link
-                to="/share"
-                className="rounded-xl border border-white/20 px-5 py-2.5 text-sm font-bold transition-colors hover:bg-white/10"
-              >
-                Share Notes
-              </Link>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <Stat label="Notes Shared" value={user?.sharedCount ?? 0} />
-            <Stat label="Downloads" value={user?.downloadedCount ?? 0} />
-          </div>
-        </div>
-      </section>
-
-      <h3 className="mb-4 text-lg font-bold">Departments</h3>
-      <div className="mb-10 grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
-        {DEPARTMENTS.map((d, i) => (
-          <Link
-            key={d}
-            to="/notes"
-            search={{ dept: d }}
-            className="glass animate-rise group rounded-2xl p-5 transition-all hover:-translate-y-1 hover:shadow-2xl"
-            style={{ animationDelay: `${i * 50}ms` }}
-          >
-            <div className="hero-gradient mb-3 grid size-10 place-items-center rounded-xl text-white transition-transform group-hover:scale-110">
-              📁
-            </div>
-            <p className="font-bold">{d}</p>
-            <p className="text-muted-foreground text-xs">Open folder</p>
-          </Link>
-        ))}
-      </div>
-
       {items === null ? (
-        <Skeletons />
+        <BookLoader label="Loading updates" />
       ) : (
-        GROUPS.map((g) => {
+        <>
+        {!items.length && (
+          <div className="glass grid place-items-center rounded-3xl p-16 text-center">
+            <p className="text-muted-foreground">
+              No notices, timetables or gallery posts yet — the admin will publish them soon.
+            </p>
+          </div>
+        )}
+        {GROUPS.map((g) => {
           const list = items.filter((i) => i.type === g.type);
           if (!list.length) return null;
           return (
@@ -105,7 +66,7 @@ function HomePage() {
                     key={item.id}
                     className="glass animate-rise overflow-hidden rounded-2xl transition-transform hover:-translate-y-1"
                   >
-                    {item.url && (g.type === "gallery" || g.type === "promotion" || g.type === "timetable") && (
+                    {item.url && g.type !== "video" && (
                       <img
                         src={item.url}
                         alt={item.title}
@@ -135,17 +96,98 @@ function HomePage() {
               </div>
             </section>
           );
-        })
+        })}
+        </>
       )}
+
+      <FeedbackSection />
     </AppShell>
   );
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
+function FeedbackSection() {
+  const [list, setList] = useState<Feedback[] | null>(null);
+  const [rating, setRating] = useState(5);
+  const [hover, setHover] = useState(0);
+  const [comment, setComment] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const load = () =>
+    api<{ feedback: Feedback[] }>("/api/feedback")
+      .then((r) => setList(r.feedback))
+      .catch(() => setList([]));
+
+  useEffect(() => {
+    void load();
+  }, []);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      await api("/api/feedback", { body: { rating, comment } });
+      toast.success("Thanks for your feedback!");
+      setComment("");
+      setRating(5);
+      await load();
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
-    <div className="glass animate-float rounded-2xl px-6 py-4 text-center">
-      <p className="gradient-text text-3xl font-black">{value}</p>
-      <p className="text-muted-foreground text-xs">{label}</p>
-    </div>
+    <section className="mt-4 grid gap-6 lg:grid-cols-[1fr_1.2fr]">
+      <form onSubmit={submit} className="glass animate-rise space-y-4 rounded-3xl p-8">
+        <h3 className="text-lg font-black">Rate this hub</h3>
+        <div className="flex gap-1 text-3xl">
+          {[1, 2, 3, 4, 5].map((s) => (
+            <button
+              type="button"
+              key={s}
+              onClick={() => setRating(s)}
+              onMouseEnter={() => setHover(s)}
+              onMouseLeave={() => setHover(0)}
+              className="transition-transform hover:scale-125"
+              aria-label={`${s} star`}
+            >
+              <span className={(hover || rating) >= s ? "" : "opacity-30 grayscale"}>⭐</span>
+            </button>
+          ))}
+        </div>
+        <textarea
+          className={inputClass}
+          rows={3}
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+          placeholder="Share your experience..."
+          required
+        />
+        <button className={`${btnClass} w-full`} disabled={busy}>
+          {busy ? "Sending..." : "Submit Feedback"}
+        </button>
+      </form>
+
+      <div className="space-y-3">
+        <h3 className="text-lg font-bold">What students say</h3>
+        {list === null ? (
+          <BookLoader label="Loading feedback" />
+        ) : list.length ? (
+          list.slice(0, 8).map((f) => (
+            <article key={f.id} className="glass animate-rise rounded-2xl p-5">
+              <div className="flex items-center justify-between gap-3">
+                <p className="font-bold">{f.userName}</p>
+                <p className="text-sm">{"⭐".repeat(f.rating)}</p>
+              </div>
+              <p className="text-muted-foreground text-xs">{f.registrationId}</p>
+              <p className="mt-2 text-sm">{f.comment}</p>
+            </article>
+          ))
+        ) : (
+          <p className="text-muted-foreground text-sm">No feedback yet — be the first!</p>
+        )}
+      </div>
+    </section>
   );
 }
