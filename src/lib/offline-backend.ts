@@ -366,7 +366,7 @@ export async function offlineRequest(
 
     if (url === "/api/admin/chat") {
       const threads: ChatThread[] = db.users
-        .filter((u) => u.role !== "admin" && db.chats.some((c) => c.userId === u.id))
+        .filter((u) => u.role !== "admin")
         .map((u) => ({
           userId: u.id,
           fullName: u.fullName,
