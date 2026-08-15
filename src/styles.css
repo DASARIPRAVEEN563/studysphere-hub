@@ -247,3 +247,8 @@
   background-size: 200% auto;
   animation: shine 4s linear infinite;
 }
+
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+}
