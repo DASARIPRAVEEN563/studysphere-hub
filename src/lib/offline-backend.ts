@@ -428,6 +428,7 @@ export function offlineStudentsCsv(): string {
   const head = [
     "Full Name",
     "Registration ID",
+    "Email ID",
     "Department",
     "Year",
     "Semester",
@@ -442,6 +443,7 @@ export function offlineStudentsCsv(): string {
   const rows = db.users.map((u) => [
     u.fullName,
     u.registrationId,
+    u.email ?? "",
     u.department,
     u.year,
     u.semester,
