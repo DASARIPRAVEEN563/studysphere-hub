@@ -9,7 +9,6 @@ import {
   downloadStudentsExcel,
   SEMESTERS,
   YEARS,
-  type ChatThread,
   type ContentItem,
   type Feedback,
   type Note,
@@ -380,112 +379,6 @@ function StudentsAdmin() {
               </div>
             </article>
           ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ChatAdmin() {
-  const [threads, setThreads] = useState<ChatThread[] | null>(null);
-  const [active, setActive] = useState<string | null>(null);
-  const [text, setText] = useState("");
-
-  const load = () =>
-    api<{ threads: ChatThread[] }>("/api/admin/chat")
-      .then((r) => setThreads(r.threads))
-      .catch(() => setThreads([]));
-
-  useEffect(() => {
-    void load();
-    const t = setInterval(() => void load(), 5000);
-    return () => clearInterval(t);
-  }, []);
-
-  const thread = threads?.find((t) => t.userId === active) ?? null;
-
-  const reply = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!thread || !text.trim()) return;
-    try {
-      await api(`/api/admin/chat/${thread.userId}`, { body: { text } });
-      setText("");
-      await load();
-    } catch (err) {
-      toast.error((err as Error).message);
-    }
-  };
-
-  if (threads === null) return <Skeletons count={4} />;
-
-  return (
-    <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
-      <div className="space-y-3">
-        {!threads.length && <p className="text-muted-foreground text-sm">No messages yet.</p>}
-        {threads.map((t) => (
-          <button
-            key={t.userId}
-            onClick={() => setActive(t.userId)}
-            className={`glass flex w-full items-center gap-3 rounded-2xl p-4 text-left transition-all hover:-translate-y-0.5 ${
-              active === t.userId ? "ring-primary ring-2" : ""
-            }`}
-          >
-            <span className="hero-gradient grid size-10 place-items-center overflow-hidden rounded-xl font-black text-white">
-              {t.profilePicture ? (
-                <img src={t.profilePicture} alt={t.fullName} className="size-full object-cover" />
-              ) : (
-                t.fullName.charAt(0).toUpperCase()
-              )}
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate font-bold">{t.fullName}</span>
-              <span className="text-muted-foreground block truncate text-xs">
-                {t.messages[t.messages.length - 1]?.text}
-              </span>
-            </span>
-          </button>
-        ))}
-      </div>
-
-      {thread ? (
-        <div className="glass animate-rise flex h-[60vh] flex-col rounded-3xl p-6">
-          <div className="border-b border-white/10 pb-3">
-            <p className="font-black">{thread.fullName}</p>
-            <p className="text-muted-foreground text-xs">
-              {thread.registrationId} · {thread.department} · {thread.year} · {thread.semester}
-            </p>
-          </div>
-          <div className="flex-1 space-y-3 overflow-y-auto py-4">
-            {thread.messages.map((m) => (
-              <div
-                key={m.id}
-                className={`flex ${m.from === "admin" ? "justify-end" : "justify-start"}`}
-              >
-                <div
-                  className={`max-w-[75%] rounded-2xl px-4 py-2 text-sm ${
-                    m.from === "admin" ? "hero-gradient text-white" : "glass"
-                  }`}
-                >
-                  {m.text}
-                </div>
-              </div>
-            ))}
-          </div>
-          <form onSubmit={reply} className="flex gap-2 border-t border-white/10 pt-4">
-            <input
-              className={inputClass}
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder="Reply to student..."
-            />
-            <button className={btnClass}>Reply</button>
-          </form>
-        </div>
-      ) : (
-        <div className="glass grid place-items-center rounded-3xl p-16 text-center">
-          <p className="text-muted-foreground">
-            Select a student to view their details and reply.
-          </p>
         </div>
       )}
     </div>
