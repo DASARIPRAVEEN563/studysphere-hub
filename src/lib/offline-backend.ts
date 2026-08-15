@@ -5,6 +5,7 @@
  * these handlers keep the whole app usable with localStorage persistence.
  */
 import type { ChatMessage, ChatThread, ContentItem, Feedback, Note, User } from "./api";
+import { sendFaceVerificationConfirmation } from "./face-verification-email.functions";
 
 const KEY = "sknsh_offline_db";
 
@@ -237,10 +238,11 @@ export async function offlineRequest(
       faceVerifiedAt: new Date().toISOString(),
     });
     save();
+    await sendFaceVerificationConfirmation({ data: { to: String(me.email), fullName: me.fullName } });
     return {
       user: publicUser(me),
       emailedTo: me.email,
-      emailSent: false,
+      emailSent: true,
       message: "Face verified is successfully completed",
     };
   }
