@@ -47,10 +47,12 @@ function NotesPage() {
   const [subject, setSubject] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const [term, setTerm] = useState("");
+  const [dDept, setDDept] = useState("");
+  const [dYear, setDYear] = useState("");
+  const [dSem, setDSem] = useState("");
   const [fDept, setFDept] = useState("");
   const [fYear, setFYear] = useState("");
   const [fSem, setFSem] = useState("");
-  const [fSubject, setFSubject] = useState("");
 
   useEffect(() => {
     api<{ notes: Note[] }>("/api/notes")
@@ -72,13 +74,12 @@ function NotesPage() {
           (!fDept || n.department === fDept) &&
           (!fYear || n.year === fYear) &&
           (!fSem || n.semester === fSem) &&
-          (!fSubject || n.subject.toLowerCase().includes(fSubject.toLowerCase())) &&
           (!term ||
             n.subject.toLowerCase().includes(term.toLowerCase()) ||
             n.fileName.toLowerCase().includes(term.toLowerCase()) ||
             n.uploadedBy.toLowerCase().includes(term.toLowerCase())),
       ),
-    [notes, department, year, semester, subject, fDept, fYear, fSem, fSubject, term],
+    [notes, department, year, semester, subject, fDept, fYear, fSem, term],
   );
 
   const subjects = useMemo(
@@ -159,14 +160,17 @@ function NotesPage() {
         ))}
       </nav>
 
-      <section className="glass animate-rise mb-6 grid gap-3 rounded-2xl p-4 sm:grid-cols-2 lg:grid-cols-5">
-        <form
-          className="flex gap-2 sm:col-span-2 lg:col-span-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            setTerm(q.trim());
-          }}
-        >
+      <form
+        className="glass animate-rise mb-6 grid gap-3 rounded-2xl p-4 sm:grid-cols-2 lg:grid-cols-5"
+        onSubmit={(e) => {
+          e.preventDefault();
+          setTerm(q.trim());
+          setFDept(dDept);
+          setFYear(dYear);
+          setFSem(dSem);
+        }}
+      >
+        <div className="flex gap-2 sm:col-span-2 lg:col-span-2">
           <input
             className={inputClass}
             value={q}
@@ -180,20 +184,14 @@ function NotesPage() {
           >
             🔍
           </button>
-        </form>
-        <input
-          className={inputClass}
-          value={fSubject}
-          onChange={(e) => setFSubject(e.target.value)}
-          placeholder="Filter by subject name"
-        />
-        <select className={inputClass} value={fDept} onChange={(e) => setFDept(e.target.value)}>
+        </div>
+        <select className={inputClass} value={dDept} onChange={(e) => setDDept(e.target.value)}>
           <option value="" className="bg-card">All departments</option>
           {DEPARTMENTS.map((d) => (
             <option key={d} value={d} className="bg-card">{d}</option>
           ))}
         </select>
-        <select className={inputClass} value={fYear} onChange={(e) => setFYear(e.target.value)}>
+        <select className={inputClass} value={dYear} onChange={(e) => setDYear(e.target.value)}>
           <option value="" className="bg-card">All years</option>
           {YEARS.map((y) => (
             <option key={y} value={y} className="bg-card">{y}</option>
