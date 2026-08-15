@@ -67,9 +67,10 @@ function LoginPage() {
           </div>
           <Field label="Registration ID">
             <input
-              className={inputClass}
+              className={`${inputClass} uppercase`}
               value={registrationId}
-              onChange={(e) => setRegistrationId(e.target.value)}
+              onChange={(e) => setRegistrationId(e.target.value.toUpperCase())}
+              autoCapitalize="characters"
               required
             />
           </Field>
