@@ -50,6 +50,8 @@ function write(db: DB) {
 
 const id = () => Math.random().toString(36).slice(2, 11);
 
+const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
 function publicUser(u: StoredUser): User {
   const { password: _p, securityAnswer: _a, securityQuestion: _q, ...rest } = u;
   return { stars: 0, faceVerified: false, faceImage: null, ...rest };
@@ -208,6 +210,10 @@ export async function offlineRequest(
 
   if (url === "/api/profile") {
     if (method === "PUT") {
+      if (body.email !== undefined) {
+        const mail = String(body.email ?? "").trim();
+        if (mail && !EMAIL_RE.test(mail)) throw new OfflineError("Incorrect email ID");
+      }
       Object.assign(me, {
         department: body.department,
         year: body.year,
@@ -222,6 +228,7 @@ export async function offlineRequest(
 
   if (url === "/api/profile/face-verify" && method === "POST") {
     if (!me.email) throw new OfflineError("Add and save your email ID before face verification");
+    if (!EMAIL_RE.test(String(me.email))) throw new OfflineError("Incorrect email ID");
     if (body.faces !== undefined && Number(body.faces) !== 1)
       throw new OfflineError("Exactly one person must be in front of the camera");
     Object.assign(me, {
@@ -233,6 +240,7 @@ export async function offlineRequest(
     return {
       user: publicUser(me),
       emailedTo: me.email,
+      emailSent: false,
       message: "Face verified is successfully completed",
     };
   }
@@ -418,6 +426,16 @@ export async function offlineRequest(
     }
 
     if (url === "/api/admin/students") return { students: db.users.map(publicUser) };
+
+    if (url.startsWith("/api/admin/students/") && method === "DELETE") {
+      const uid = url.split("/")[4]!;
+      const idx = db.users.findIndex((u) => u.id === uid);
+      if (idx < 0) throw new OfflineError("Student not found");
+      if (db.users[idx]!.role === "admin") throw new OfflineError("Admin accounts cannot be deleted");
+      db.users.splice(idx, 1);
+      save();
+      return { message: "Student deleted" };
+    }
   }
 
   throw new OfflineError(`Offline mode does not support ${method} ${url}`);
@@ -427,33 +445,21 @@ export function offlineStudentsCsv(): string {
   const db = read();
   const head = [
     "Full Name",
-    "Registration ID",
     "Email ID",
+    "Registration ID",
     "Department",
     "Year",
     "Semester",
-    "Role",
-    "Notes Shared",
-    "Notes Downloaded",
-    "Stars",
-    "Face Verified",
-    "Face Verified At",
-    "Verified Image (data URL)",
   ];
-  const rows = db.users.map((u) => [
+  const rows = db.users
+    .filter((u) => u.role === "student")
+    .map((u) => [
     u.fullName,
-    u.registrationId,
     u.email ?? "",
+    u.registrationId,
     u.department,
     u.year,
     u.semester,
-    u.role,
-    String(u.sharedCount),
-    String(u.downloadedCount),
-    String(u.stars ?? 0),
-    u.faceVerified ? "YES" : "NO",
-    u.faceVerifiedAt ?? "",
-    u.faceImage ?? "",
   ]);
   return [head, ...rows].map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(",")).join("\n");
 }
