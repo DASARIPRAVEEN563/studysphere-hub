@@ -203,6 +203,7 @@ function ContentAdmin() {
     title: "",
     description: "",
     url: "",
+    badge: "",
   });
 
   const load = () =>
@@ -218,7 +219,7 @@ function ContentAdmin() {
     try {
       await api("/api/admin/content", { body: form });
       toast.success("Content published");
-      setForm({ ...form, title: "", description: "", url: "" });
+      setForm({ ...form, title: "", description: "", url: "", badge: "" });
       void load();
     } catch (err) {
       toast.error((err as Error).message);
@@ -287,6 +288,23 @@ function ContentAdmin() {
             placeholder="https://..."
           />
         </Field>
+        <Field label="Highlight badge (rotating)">
+          <select
+            className={inputClass}
+            value={form.badge}
+            onChange={(e) => setForm({ ...form, badge: e.target.value })}
+          >
+            {BADGES.map((b) => (
+              <option key={b || "none"} value={b} className="bg-card">
+                {b || "No badge"}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <p className="text-muted-foreground text-xs">
+          All media is auto-fitted to a uniform 16:9 frame on the home page, so images and videos
+          never look stretched.
+        </p>
         <button className={`${btnClass} w-full`}>Publish</button>
       </form>
 
@@ -295,10 +313,22 @@ function ContentAdmin() {
           <Skeletons count={4} />
         ) : (
           items.map((i) => (
-            <div key={i.id} className="glass animate-rise flex items-center gap-4 rounded-2xl p-4">
+            <div key={i.id} className="glass animate-rise flex flex-wrap items-center gap-3 rounded-2xl p-4">
+              {i.url && (
+                <img
+                  src={i.url}
+                  alt={i.title}
+                  className="border-border h-12 w-20 shrink-0 rounded-lg border object-cover"
+                />
+              )}
               <span className="bg-primary/20 text-cyan rounded-full px-3 py-1 text-xs font-bold uppercase">
                 {i.type}
               </span>
+              {i.badge && (
+                <span className="hero-gradient rounded-full px-2 py-0.5 text-[10px] font-black text-white">
+                  {i.badge}
+                </span>
+              )}
               <div className="min-w-0 flex-1">
                 <p className="truncate font-bold">{i.title}</p>
                 <p className="text-muted-foreground truncate text-xs">{i.description}</p>
