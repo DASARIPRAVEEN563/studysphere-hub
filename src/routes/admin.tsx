@@ -41,7 +41,7 @@ const CONTENT_TYPES = [
   "advertisement",
 ] as const;
 
-const TABS = ["notes", "content", "chat", "feedback", "students"] as const;
+const TABS = ["notes", "content", "feedback", "students"] as const;
 
 function AdminPage() {
   useRequireAuth("admin");
@@ -68,7 +68,6 @@ function AdminPage() {
     >
       {tab === "notes" && <NotesAdmin />}
       {tab === "content" && <ContentAdmin />}
-      {tab === "chat" && <ChatAdmin />}
       {tab === "feedback" && <FeedbackAdmin />}
       {tab === "students" && <StudentsAdmin />}
     </AppShell>

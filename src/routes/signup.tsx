@@ -50,7 +50,7 @@ function SignupPage() {
     try {
       const res = await api<{ token: string; user: User }>("/api/auth/signup", { body: form });
       auth.save(res.token, res.user);
-      setWelcome(res.user);
+          setWelcome(res.user);
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
