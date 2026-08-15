@@ -126,3 +126,13 @@ def export_students_xlsx():
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": 'attachment; filename="students.xlsx"'},
     )
+
+
+def delete_student(user_id: str):
+    user = store.find("users", id=user_id)
+    if not user:
+        return jsonify({"error": "Student not found"}), 404
+    if user.get("role") == "admin":
+        return jsonify({"error": "Admin accounts cannot be deleted"}), 400
+    store.delete("users", user_id)
+    return jsonify({"message": "Student deleted"})
