@@ -50,6 +50,9 @@ function toEmbed(url: string) {
 function HomeContent() {
   const user = useRequireAuth();
   const [items, setItems] = useState<ContentItem[] | null>(null);
+  const [lightbox, setLightbox] = useState<{ url: string; title: string; video: boolean } | null>(
+    null,
+  );
 
   useEffect(() => {
     api<{ content: ContentItem[] }>("/api/content")
@@ -88,7 +91,18 @@ function HomeContent() {
                       </span>
                     )}
                     {item.url && (
-                      <div className="bg-muted aspect-video w-full overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setLightbox({
+                            url: item.url!,
+                            title: item.title,
+                            video: g.type === "video",
+                          })
+                        }
+                        aria-label={`Open ${item.title}`}
+                        className="bg-muted group relative block aspect-video w-full cursor-zoom-in overflow-hidden"
+                      >
                         {g.type === "video" ? (
                           isEmbeddable(item.url) ? (
                             <iframe
@@ -96,20 +110,23 @@ function HomeContent() {
                               title={item.title}
                               loading="lazy"
                               allowFullScreen
-                              className="size-full border-0"
+                              className="pointer-events-none size-full border-0"
                             />
                           ) : (
-                            <video src={item.url} controls className="size-full object-cover" />
+                            <video src={item.url} className="size-full object-cover" />
                           )
                         ) : (
                           <img
                             src={item.url}
                             alt={item.title}
                             loading="lazy"
-                            className="size-full object-cover"
+                            className="size-full object-cover transition-transform duration-500 group-hover:scale-105"
                           />
                         )}
-                      </div>
+                        <span className="absolute right-2 bottom-2 rounded-full bg-black/60 px-2 py-1 text-[10px] font-bold text-white">
+                          {g.type === "video" ? "▶ Play" : "🔍 View"}
+                        </span>
+                      </button>
                     )}
                     <div className="p-5">
                       <div className={`mb-2 h-1 w-12 rounded-full bg-gradient-to-r ${g.accent}`} />
@@ -138,6 +155,55 @@ function HomeContent() {
       )}
 
       <FeedbackSection />
+      {lightbox && (
+        <div
+          onClick={() => setLightbox(null)}
+          className="fixed inset-0 z-[120] grid place-items-center bg-black/85 p-4 backdrop-blur-sm"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="animate-rise w-full max-w-4xl overflow-hidden rounded-2xl"
+          >
+            {lightbox.video ? (
+              isEmbeddable(lightbox.url) ? (
+                <iframe
+                  src={toEmbed(lightbox.url)}
+                  title={lightbox.title}
+                  allowFullScreen
+                  className="aspect-video w-full border-0"
+                />
+              ) : (
+                <video src={lightbox.url} controls autoPlay className="max-h-[80vh] w-full" />
+              )
+            ) : (
+              <img
+                src={lightbox.url}
+                alt={lightbox.title}
+                className="max-h-[80vh] w-full object-contain"
+              />
+            )}
+            <div className="flex items-center justify-between gap-3 bg-black/70 px-4 py-3">
+              <p className="text-sm font-bold text-white">{lightbox.title}</p>
+              <div className="flex gap-2">
+                <a
+                  href={lightbox.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-full bg-white/15 px-3 py-1.5 text-xs font-bold text-white"
+                >
+                  Open original
+                </a>
+                <button
+                  onClick={() => setLightbox(null)}
+                  className="rounded-full bg-white/15 px-3 py-1.5 text-xs font-bold text-white"
+                >
+                  Close ✕
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </AppShell>
   );
 }
