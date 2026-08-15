@@ -1,5 +1,5 @@
 export const API_BASE =
-  (import.meta.env.VITE_API_URL as string | undefined) ?? "http://localhost:5000";
+  (import.meta.env["VITE_API_URL"] as string | undefined) ?? "http://localhost:5000";
 
 export const DEPARTMENTS = [
   "BS&H",
@@ -91,8 +91,8 @@ export async function api<T = any>(
 ): Promise<T> {
   const headers: Record<string, string> = {};
   const token = auth.token();
-  if (token) headers.Authorization = `Bearer ${token}`;
-  let body: BodyInit | undefined;
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  let body: BodyInit | null = null;
   if (options.form) {
     body = options.form;
   } else if (options.body !== undefined) {
