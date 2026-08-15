@@ -81,7 +81,7 @@ export function AppShell({
             </span>
           </Link>
           <nav className="scrollbar-none -mx-1 flex min-w-0 flex-1 items-center gap-1 overflow-x-auto px-1">
-            {NAV.map((n) => (
+            {NAV.filter((n) => !(user?.role === "admin" && n.to === "/chat")).map((n) => (
               <Link
                 key={n.to}
                 to={n.to}
