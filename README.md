@@ -43,6 +43,33 @@ The subject is also stored separately as metadata in `backend/data/notes.json`.
 If the connector secrets are not present, the identical folder tree is created
 under `backend/uploads/` so the app still runs end to end.
 
+### Email (SMTP) for face verification confirmation
+
+When a student completes live face verification, the backend sends a
+confirmation email to the email ID saved in their profile.
+
+Add these lines to `backend/.env`:
+
+```env
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=studentsnotessharing@gmail.com
+SMTP_PASSWORD=your-gmail-app-password
+SMTP_FROM=studentsnotessharing@gmail.com
+```
+
+For Gmail, you must create an **App Password** (not your normal Gmail
+password):
+
+1. Go to <https://myaccount.google.com/apppasswords>.
+2. Sign in with `studentsnotessharing@gmail.com`.
+3. Select **Mail** → **Other (custom name)** → type `Notes Hub` → click **Generate**.
+4. Copy the 16-character password and paste it as `SMTP_PASSWORD`.
+5. Save `backend/.env` and restart the backend.
+
+If SMTP is not configured, the email is only logged in the console and face
+verification still succeeds.
+
 ### API
 
 | Method | Endpoint | Access |
