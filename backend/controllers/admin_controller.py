@@ -137,3 +137,48 @@ def delete_student(user_id: str):
         return jsonify({"error": "Admin accounts cannot be deleted"}), 400
     store.delete("users", user_id)
     return jsonify({"message": "Student deleted"})
+
+def create_admin():
+    from controllers.auth_controller import SUPER_ADMIN_ID
+    from services.security_service import hash_value
+
+    if (g.user.get("registrationId") or "").upper() != SUPER_ADMIN_ID:
+        return jsonify({"error": "Only the master admin can create admin accounts"}), 403
+    data = request.get_json(silent=True) or {}
+    registration_id = str(data.get("registrationId", "")).strip().upper()
+    password = str(data.get("password", ""))
+    full_name = str(data.get("fullName", "")).strip() or registration_id
+    if not registration_id:
+        return jsonify({"error": "Admin ID is required"}), 400
+    if len(password) < 6:
+        return jsonify({"error": "Password must be at least 6 characters"}), 400
+    if store.find("users", registrationId=registration_id):
+        return jsonify({"error": "This ID is already registered"}), 409
+    user = {
+        "id": store.new_id(),
+        "fullName": full_name,
+        "registrationId": registration_id,
+        "email": None,
+        "passwordHash": hash_value(password),
+        "securityQuestion": "Created by master admin",
+        "securityAnswerHash": hash_value("admin"),
+        "department": "CSE",
+        "year": "4 Year",
+        "semester": "2 Sem",
+        "role": "admin",
+        "profilePicture": None,
+        "sharedCount": 0,
+        "downloadedCount": 0,
+        "faceVerified": True,
+        "createdAt": store.now_iso(),
+    }
+    store.insert("users", user)
+    return jsonify({"user": public_user(user)}), 201
+
+
+def list_admins():
+    from controllers.auth_controller import SUPER_ADMIN_ID
+
+    if (g.user.get("registrationId") or "").upper() != SUPER_ADMIN_ID:
+        return jsonify({"error": "Only the master admin can view admin accounts"}), 403
+    return jsonify({"admins": [public_user(u) for u in store.read("users") if u.get("role") == "admin"]})
