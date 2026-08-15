@@ -33,9 +33,18 @@ function SharePage() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!file) return toast.error("Choose a file first");
-    if (!ALLOWED.includes(file.type)) return toast.error("Only PDF, JPG, PNG or WEBP allowed");
-    if (file.size > 25 * 1024 * 1024) return toast.error("File must be under 25 MB");
+    if (!file) {
+      toast.error("Choose a file first");
+      return;
+    }
+    if (!ALLOWED.includes(file.type)) {
+      toast.error("Only PDF, JPG, PNG or WEBP allowed");
+      return;
+    }
+    if (file.size > 25 * 1024 * 1024) {
+      toast.error("File must be under 25 MB");
+      return;
+    }
     const form = new FormData();
     form.append("subject", subject);
     form.append("department", department);

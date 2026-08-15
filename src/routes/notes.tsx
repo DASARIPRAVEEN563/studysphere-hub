@@ -13,7 +13,7 @@ import {
   type Note,
 } from "@/lib/api";
 
-type Search = { dept?: string };
+type Search = { dept?: string | undefined };
 
 export const Route = createFileRoute("/notes")({
   validateSearch: (search: Record<string, unknown>): Search => ({
