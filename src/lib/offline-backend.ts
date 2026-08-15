@@ -212,6 +212,7 @@ export async function offlineRequest(
         department: body.department,
         year: body.year,
         semester: body.semester,
+        email: body.email !== undefined ? body.email : (me.email ?? null),
         profilePicture: body.profilePicture ?? me.profilePicture ?? null,
       });
       save();
@@ -220,13 +221,20 @@ export async function offlineRequest(
   }
 
   if (url === "/api/profile/face-verify" && method === "POST") {
+    if (!me.email) throw new OfflineError("Add and save your email ID before face verification");
+    if (body.faces !== undefined && Number(body.faces) !== 1)
+      throw new OfflineError("Exactly one person must be in front of the camera");
     Object.assign(me, {
       faceImage: body.image,
       faceVerified: true,
       faceVerifiedAt: new Date().toISOString(),
     });
     save();
-    return { user: publicUser(me) };
+    return {
+      user: publicUser(me),
+      emailedTo: me.email,
+      message: "Face verified is successfully completed",
+    };
   }
 
   // ---- feedback ----
@@ -267,22 +275,50 @@ export async function offlineRequest(
 
   if (url === "/api/content") return { content: db.content };
 
-  if (url === "/api/notes") return { notes: db.notes };
+  if (url === "/api/notes") return { notes: db.notes.map((n) => shapeNote(db, n, me.id)) };
+
+  if (url.startsWith("/api/notes/") && url.endsWith("/like") && method === "POST") {
+    const nid = url.split("/")[3]!;
+    const note = db.notes.find((n) => n.id === nid);
+    if (!note) throw new OfflineError("Note not found");
+    db.likes = db.likes ?? {};
+    const list = db.likes[nid] ?? [];
+    db.likes[nid] = list.includes(me.id) ? list.filter((x) => x !== me.id) : [...list, me.id];
+    save();
+    return { note: shapeNote(db, note, me.id) };
+  }
+
+  if (url.startsWith("/api/notes/") && url.endsWith("/view")) {
+    const nid = url.split("/")[3]!;
+    const note = db.notes.find((n) => n.id === nid);
+    if (!note) throw new OfflineError("Note not found");
+    const data = db.files[nid];
+    if (!data) throw new OfflineError("File not found");
+    note.views = (note.views ?? 0) + 1;
+    save();
+    return { dataUrl: data, note: shapeNote(db, note, me.id) };
+  }
 
   if (url === "/api/notes/upload" && form) {
     const file = form.get("file") as File;
+    const department = String(form.get("department"));
+    const year = String(form.get("year"));
+    const semester = String(form.get("semester"));
     const note: Note = {
       id: id(),
-      subject: String(form.get("subject")),
+      subject: uniqueSubject(db, String(form.get("subject")).trim(), department, year, semester),
       fileName: file.name,
-      department: String(form.get("department")),
-      year: String(form.get("year")),
-      semester: String(form.get("semester")),
+      department,
+      year,
+      semester,
       mimeType: file.type,
       size: file.size,
       uploadedBy: me.fullName,
       uploadedAt: new Date().toISOString(),
       driveFileId: null,
+      likes: 0,
+      views: 0,
+      downloads: 0,
     };
     db.files[note.id] = await fileToDataUrl(file);
     db.notes.unshift(note);
@@ -298,6 +334,8 @@ export async function offlineRequest(
     const data = db.files[noteId];
     if (!data) throw new OfflineError("File not found");
     me.downloadedCount += 1;
+    const note = db.notes.find((n) => n.id === noteId);
+    if (note) note.downloads = (note.downloads ?? 0) + 1;
     save();
     return { dataUrl: data };
   }
