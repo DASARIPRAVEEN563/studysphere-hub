@@ -197,13 +197,13 @@ function NotesPage() {
             <option key={y} value={y} className="bg-card">{y}</option>
           ))}
         </select>
-        <select className={inputClass} value={fSem} onChange={(e) => setFSem(e.target.value)}>
+        <select className={inputClass} value={dSem} onChange={(e) => setDSem(e.target.value)}>
           <option value="" className="bg-card">All semesters</option>
           {SEMESTERS.map((s) => (
             <option key={s} value={s} className="bg-card">{s}</option>
           ))}
         </select>
-      </section>
+      </form>
 
       {notes === null ? (
         <BookLoader label="Opening library" />
