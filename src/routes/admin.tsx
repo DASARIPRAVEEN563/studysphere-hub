@@ -360,6 +360,8 @@ function ChatAdmin() {
   const [text, setText] = useState("");
   const [announcement, setAnnouncement] = useState("");
   const [busy, setBusy] = useState(false);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [allUsers, setAllUsers] = useState(true);
 
   const load = () =>
     api<{ threads: ChatThread[] }>("/api/admin/chat")
@@ -395,12 +397,24 @@ function ChatAdmin() {
   const broadcast = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!announcement.trim()) return;
+    const list = threads ?? [];
+    if (!allUsers && !selected.length) {
+      toast.error("Tick at least one student, or choose all students");
+      return;
+    }
     setBusy(true);
     try {
-      const r = await api<{ sent: number }>("/api/admin/chat/broadcast", {
-        body: { text: announcement },
-      });
-      toast.success(`Announcement sent to ${r.sent ?? "all"} students`);
+      if (allUsers) {
+        const r = await api<{ sent: number }>("/api/admin/chat/broadcast", {
+          body: { text: announcement },
+        });
+        toast.success(`Announcement sent to ${r.sent ?? list.length} students`);
+      } else {
+        await Promise.all(
+          selected.map((uid) => api(`/api/admin/chat/${uid}`, { body: { text: announcement } })),
+        );
+        toast.success(`Announcement sent to ${selected.length} student(s)`);
+      }
       setAnnouncement("");
       await load();
     } catch (err) {
@@ -412,19 +426,49 @@ function ChatAdmin() {
 
   if (threads === null) return <Skeletons count={4} />;
 
+  const toggle = (uid: string) =>
+    setSelected((p) => (p.includes(uid) ? p.filter((x) => x !== uid) : [...p, uid]));
+
   return (
     <div className="space-y-6">
       <form onSubmit={broadcast} className="glass animate-rise space-y-3 rounded-3xl p-6">
-        <h3 className="text-lg font-black">📢 Announcement to all students</h3>
+        <h3 className="text-lg font-black">📢 Announcement</h3>
+        <label className="flex items-center gap-2 text-sm font-bold">
+          <input
+            type="checkbox"
+            className="size-4 accent-[var(--primary)]"
+            checked={allUsers}
+            onChange={(e) => setAllUsers(e.target.checked)}
+          />
+          Send to all students
+        </label>
+        {!allUsers && (
+          <div className="max-h-40 space-y-1 overflow-y-auto rounded-2xl border border-border p-2">
+            {threads.map((t) => (
+              <label key={t.userId} className="flex items-center gap-2 rounded-xl p-1.5 text-sm">
+                <input
+                  type="checkbox"
+                  className="size-4 accent-[var(--primary)]"
+                  checked={selected.includes(t.userId)}
+                  onChange={() => toggle(t.userId)}
+                />
+                <span className="truncate">
+                  {t.fullName} · <span className="text-muted-foreground">{t.registrationId}</span>
+                </span>
+              </label>
+            ))}
+            {!threads.length && <p className="text-muted-foreground text-sm">No students yet.</p>}
+          </div>
+        )}
         <textarea
           className={inputClass}
           rows={2}
           value={announcement}
           onChange={(e) => setAnnouncement(e.target.value)}
-          placeholder="Type an announcement — every student receives it in their chat."
+          placeholder="Type an announcement — selected students receive it in their chat."
         />
         <button className={btnClass} disabled={busy}>
-          Send to everyone
+          {allUsers ? "Send to everyone" : `Send to ${selected.length} selected`}
         </button>
       </form>
 

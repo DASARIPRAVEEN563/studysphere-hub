@@ -38,18 +38,6 @@ export function ShareSite() {
     window.open("https://www.instagram.com/", "_blank", "noopener");
   };
 
-  const nativeShare = async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: "Students Ka Notes Sharing Hub", text: MESSAGE, url: SITE_URL });
-      } catch {
-        /* dismissed */
-      }
-    } else {
-      void copy();
-    }
-  };
-
   return (
     <section className="glass animate-rise rounded-3xl p-6">
       <h3 className="text-lg font-black">Share this website</h3>
