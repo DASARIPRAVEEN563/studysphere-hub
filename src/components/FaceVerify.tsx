@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { api, auth, type User } from "@/lib/api";
+import { sendFaceVerificationConfirmation } from "@/lib/face-verification-email.functions";
 import { btnClass, ghostBtnClass } from "./Field";
 
 type Detector = { detect: (src: CanvasImageSource) => Promise<unknown[]> };
@@ -125,11 +126,22 @@ export function FaceVerify({ user, onVerified }: { user: User; onVerified: (u: U
         "/api/profile/face-verify",
         { method: "POST", body: { image, faces, email: user.email } },
       );
+      let emailSent = Boolean(r.emailSent);
+      if (!emailSent && user.email) {
+        try {
+          await sendFaceVerificationConfirmation({
+            data: { to: user.email, fullName: user.fullName },
+          });
+          emailSent = true;
+        } catch (emailError) {
+          console.error("Face verification email failed", emailError);
+        }
+      }
       auth.setUser(r.user);
       onVerified(r.user);
       stop();
       toast.success("Face verified is successfully completed", {
-        description: r.emailSent
+        description: emailSent
           ? `A confirmation mail has been sent to ${r.emailedTo ?? user.email}.`
           : `Mail could not be sent right now — check that the mail server is configured for ${
               r.emailedTo ?? user.email
