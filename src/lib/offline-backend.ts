@@ -238,11 +238,19 @@ export async function offlineRequest(
       faceVerifiedAt: new Date().toISOString(),
     });
     save();
-    await sendFaceVerificationConfirmation({ data: { to: String(me.email), fullName: me.fullName } });
+    let emailSent = false;
+    try {
+      await sendFaceVerificationConfirmation({
+        data: { to: String(me.email), fullName: me.fullName },
+      });
+      emailSent = true;
+    } catch (error) {
+      console.error("Face verification email failed", error);
+    }
     return {
       user: publicUser(me),
       emailedTo: me.email,
-      emailSent: true,
+      emailSent,
       message: "Face verified is successfully completed",
     };
   }
