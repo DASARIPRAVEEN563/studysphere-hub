@@ -4,7 +4,7 @@
  * When it is unreachable (e.g. the hosted preview, or Flask not started),
  * these handlers keep the whole app usable with localStorage persistence.
  */
-import type { ContentItem, Note, User } from "./api";
+import type { ChatMessage, ChatThread, ContentItem, Feedback, Note, User } from "./api";
 
 const KEY = "sknsh_offline_db";
 
@@ -19,9 +19,11 @@ type DB = {
   notes: Note[];
   content: ContentItem[];
   files: Record<string, string>;
+  feedback: Feedback[];
+  chats: ChatMessage[];
 };
 
-const empty = (): DB => ({ users: [], notes: [], content: [], files: {} });
+const empty = (): DB => ({ users: [], notes: [], content: [], files: {}, feedback: [], chats: [] });
 
 function read(): DB {
   if (typeof window === "undefined") return empty();
@@ -41,7 +43,7 @@ const id = () => Math.random().toString(36).slice(2, 11);
 
 function publicUser(u: StoredUser): User {
   const { password: _p, securityAnswer: _a, securityQuestion: _q, ...rest } = u;
-  return rest;
+  return { stars: 0, faceVerified: false, faceImage: null, ...rest };
 }
 
 function seed(db: DB) {
@@ -56,6 +58,8 @@ function seed(db: DB) {
       role: "admin",
       sharedCount: 0,
       downloadedCount: 0,
+      stars: 0,
+      faceVerified: true,
       password: "admin123",
       securityQuestion: "What is your nickname?",
       securityAnswer: "admin",
@@ -125,6 +129,9 @@ export async function offlineRequest(
       role: "student",
       sharedCount: 0,
       downloadedCount: 0,
+      stars: 0,
+      faceVerified: false,
+      faceImage: null,
       password: body.password,
       securityQuestion: body.securityQuestion,
       securityAnswer: String(body.securityAnswer).trim().toLowerCase(),
@@ -179,6 +186,52 @@ export async function offlineRequest(
     return { user: publicUser(me) };
   }
 
+  if (url === "/api/profile/face-verify" && method === "POST") {
+    Object.assign(me, {
+      faceImage: body.image,
+      faceVerified: true,
+      faceVerifiedAt: new Date().toISOString(),
+    });
+    save();
+    return { user: publicUser(me) };
+  }
+
+  // ---- feedback ----
+  if (url === "/api/feedback") {
+    if (method === "POST") {
+      const item: Feedback = {
+        id: id(),
+        userName: me.fullName,
+        registrationId: me.registrationId,
+        rating: Number(body.rating) || 5,
+        comment: String(body.comment ?? ""),
+        createdAt: new Date().toISOString(),
+      };
+      db.feedback.unshift(item);
+      save();
+      return { item };
+    }
+    return { feedback: db.feedback };
+  }
+
+  // ---- chat with admin ----
+  if (url === "/api/chat") {
+    if (method === "POST") {
+      const msg: ChatMessage = {
+        id: id(),
+        userId: me.id,
+        from: me.role === "admin" ? "admin" : "user",
+        text: String(body.text ?? "").trim(),
+        createdAt: new Date().toISOString(),
+      };
+      if (!msg.text) throw new OfflineError("Message is empty");
+      db.chats.push(msg);
+      save();
+      return { message: msg };
+    }
+    return { messages: db.chats.filter((m) => m.userId === me.id) };
+  }
+
   if (url === "/api/content") return { content: db.content };
 
   if (url === "/api/notes") return { notes: db.notes };
@@ -201,11 +254,13 @@ export async function offlineRequest(
     db.files[note.id] = await fileToDataUrl(file);
     db.notes.unshift(note);
     me.sharedCount += 1;
+    me.stars = (me.stars ?? 0) + 1;
     save();
-    return { note };
+    return { note, stars: me.stars };
   }
 
   if (url.startsWith("/api/notes/") && url.endsWith("/download")) {
+    if (!me.faceVerified) throw new OfflineError("You are not face verified");
     const noteId = url.split("/")[3]!;
     const data = db.files[noteId];
     if (!data) throw new OfflineError("File not found");
@@ -219,6 +274,39 @@ export async function offlineRequest(
     if (me.role !== "admin") throw new OfflineError("Admin access required");
 
     if (url === "/api/admin/notes") return { notes: db.notes };
+
+    if (url === "/api/admin/chat") {
+      const threads: ChatThread[] = db.users
+        .filter((u) => u.role !== "admin" && db.chats.some((c) => c.userId === u.id))
+        .map((u) => ({
+          userId: u.id,
+          fullName: u.fullName,
+          registrationId: u.registrationId,
+          department: u.department,
+          year: u.year,
+          semester: u.semester,
+          profilePicture: u.profilePicture ?? null,
+          messages: db.chats.filter((c) => c.userId === u.id),
+        }));
+      return { threads };
+    }
+
+    if (url.startsWith("/api/admin/chat/") && method === "POST") {
+      const uid = url.split("/")[4]!;
+      const msg: ChatMessage = {
+        id: id(),
+        userId: uid,
+        from: "admin",
+        text: String(body.text ?? "").trim(),
+        createdAt: new Date().toISOString(),
+      };
+      if (!msg.text) throw new OfflineError("Message is empty");
+      db.chats.push(msg);
+      save();
+      return { message: msg };
+    }
+
+    if (url === "/api/admin/feedback") return { feedback: db.feedback };
 
     if (url === "/api/admin/content" && method === "POST") {
       const item: ContentItem = {
@@ -275,6 +363,10 @@ export function offlineStudentsCsv(): string {
     "Role",
     "Notes Shared",
     "Notes Downloaded",
+    "Stars",
+    "Face Verified",
+    "Face Verified At",
+    "Verified Image (data URL)",
   ];
   const rows = db.users.map((u) => [
     u.fullName,
@@ -285,6 +377,10 @@ export function offlineStudentsCsv(): string {
     u.role,
     String(u.sharedCount),
     String(u.downloadedCount),
+    String(u.stars ?? 0),
+    u.faceVerified ? "YES" : "NO",
+    u.faceVerifiedAt ?? "",
+    u.faceImage ?? "",
   ]);
   return [head, ...rows].map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(",")).join("\n");
 }

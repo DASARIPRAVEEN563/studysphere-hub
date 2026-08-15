@@ -14,6 +14,8 @@ FILES = {
     "users": os.path.join(DATA_DIR, "users.json"),
     "notes": os.path.join(DATA_DIR, "notes.json"),
     "content": os.path.join(DATA_DIR, "content.json"),
+    "feedback": os.path.join(DATA_DIR, "feedback.json"),
+    "chats": os.path.join(DATA_DIR, "chats.json"),
 }
 
 

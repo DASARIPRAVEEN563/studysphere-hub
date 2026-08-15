@@ -1,6 +1,6 @@
 from flask import Blueprint
 
-from controllers import admin_controller
+from controllers import admin_controller, chat_controller, feedback_controller
 from middleware.auth_middleware import require_admin
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/api/admin")
@@ -41,4 +41,19 @@ admin_bp.add_url_rule(
     "/students.xlsx",
     view_func=require_admin(admin_controller.export_students_xlsx),
     methods=["GET"],
+)
+admin_bp.add_url_rule(
+    "/students", view_func=require_admin(admin_controller.list_students), methods=["GET"]
+)
+admin_bp.add_url_rule(
+    "/chat", view_func=require_admin(chat_controller.admin_threads), methods=["GET"]
+)
+admin_bp.add_url_rule(
+    "/chat/<user_id>",
+    view_func=require_admin(chat_controller.admin_reply),
+    methods=["POST"],
+    endpoint="admin_chat_reply",
+)
+admin_bp.add_url_rule(
+    "/feedback", view_func=require_admin(feedback_controller.list_feedback), methods=["GET"]
 )

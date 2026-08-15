@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AppShell, useRequireAuth } from "@/components/AppShell";
 import { btnClass, Field, inputClass } from "@/components/Field";
+import { BookLoader } from "@/components/BookLoader";
+import { FaceVerify } from "@/components/FaceVerify";
 import { api, auth, DEPARTMENTS, SEMESTERS, YEARS, type User } from "@/lib/api";
 
 export const Route = createFileRoute("/profile")({
@@ -24,6 +26,7 @@ function ProfilePage() {
   const cached = useRequireAuth();
   const [user, setUser] = useState<User | null>(cached);
   const [saving, setSaving] = useState(false);
+  const [editing, setEditing] = useState(false);
 
   useEffect(() => {
     api<{ user: User }>("/api/profile")
@@ -51,6 +54,7 @@ function ProfilePage() {
       setUser(r.user);
       auth.setUser(r.user);
       toast.success("Profile updated");
+      setEditing(false);
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
@@ -65,7 +69,12 @@ function ProfilePage() {
     reader.readAsDataURL(file);
   };
 
-  if (!user) return <AppShell title="My Profile"><div className="glass h-64 animate-pulse rounded-3xl" /></AppShell>;
+  if (!user)
+    return (
+      <AppShell title="My Profile">
+        <BookLoader label="Loading profile" />
+      </AppShell>
+    );
 
   return (
     <AppShell title="My Profile">
@@ -83,7 +92,7 @@ function ProfilePage() {
           <span className="bg-primary/20 text-cyan mt-2 inline-block rounded-full px-3 py-1 text-xs font-bold uppercase">
             {user.role}
           </span>
-          <div className="mt-6 grid grid-cols-2 gap-3">
+          <div className="mt-6 grid grid-cols-3 gap-3">
             <div className="glass animate-float rounded-2xl p-4">
               <p className="gradient-text text-3xl font-black">{user.sharedCount}</p>
               <p className="text-muted-foreground text-xs">Notes Shared</p>
@@ -92,11 +101,48 @@ function ProfilePage() {
               <p className="gradient-text text-3xl font-black">{user.downloadedCount}</p>
               <p className="text-muted-foreground text-xs">Notes Downloaded</p>
             </div>
+            <div className="glass animate-float rounded-2xl p-4" style={{ animationDelay: "600ms" }}>
+              <p className="text-3xl font-black">⭐ {user.stars ?? 0}</p>
+              <p className="text-muted-foreground text-xs">Stars Earned</p>
+            </div>
+          </div>
+          <div className="mt-4 flex flex-wrap justify-center gap-1 text-lg">
+            {Array.from({ length: Math.min(user.stars ?? 0, 20) }).map((_, i) => (
+              <span key={i} className="animate-star-pop" style={{ animationDelay: `${i * 60}ms` }}>
+                ⭐
+              </span>
+            ))}
           </div>
         </section>
 
+        <div className="space-y-6">
+        {!editing ? (
+          <section className="glass animate-rise relative rounded-3xl p-8">
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              aria-label="Edit profile"
+              className="hero-gradient absolute top-4 right-4 grid size-10 place-items-center rounded-xl text-white shadow-lg transition-transform hover:scale-110"
+            >
+              ✏️
+            </button>
+            <h3 className="text-lg font-black">Academic details</h3>
+            <dl className="mt-5 grid gap-3 sm:grid-cols-3">
+              {[
+                ["Department", user.department],
+                ["Year", user.year],
+                ["Semester", user.semester],
+              ].map(([k, v]) => (
+                <div key={k} className="glass rounded-2xl p-4">
+                  <dt className="text-muted-foreground text-xs font-semibold uppercase">{k}</dt>
+                  <dd className="mt-1 font-bold">{v}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+        ) : (
         <form onSubmit={save} className="glass animate-rise space-y-5 rounded-3xl p-8">
-          <h3 className="text-lg font-black">Academic details</h3>
+          <h3 className="text-lg font-black">Edit academic details</h3>
           <div className="grid gap-4 sm:grid-cols-3">
             <Field label="Department">
               <select
@@ -149,7 +195,13 @@ function ProfilePage() {
           <button className={btnClass} disabled={saving}>
             {saving ? "Saving..." : "Save Changes"}
           </button>
+          <button type="button" onClick={() => setEditing(false)} className="ml-3 text-sm font-semibold underline">
+            Cancel
+          </button>
         </form>
+        )}
+        <FaceVerify user={user} onVerified={setUser} />
+        </div>
       </div>
     </AppShell>
   );

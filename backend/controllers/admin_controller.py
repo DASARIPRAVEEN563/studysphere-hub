@@ -4,11 +4,12 @@ from flask import Response, jsonify, request
 
 from controllers.auth_controller import DEPARTMENTS, SEMESTERS, YEARS
 from controllers.notes_controller import public_note
+from models.user import public_user
 from models import store
 from services import drive_service
 from services.excel_service import build_students_workbook
 
-CONTENT_TYPES = ["gallery", "timetable", "promotion", "video", "notice"]
+CONTENT_TYPES = ["gallery", "timetable", "promotion", "video", "notice", "advertisement"]
 
 
 def admin_list_notes():
@@ -108,6 +109,12 @@ def delete_content(content_id: str):
     if not store.delete("content", content_id):
         return jsonify({"error": "Content not found"}), 404
     return jsonify({"message": "Content deleted"})
+
+
+def list_students():
+    users = [u for u in store.read("users") if u.get("role") == "student"]
+    users.sort(key=lambda u: u.get("fullName", "").lower())
+    return jsonify({"students": [public_user(u) for u in users]})
 
 
 def export_students_xlsx():

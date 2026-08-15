@@ -11,6 +11,10 @@ PUBLIC_FIELDS = (
     "profilePicture",
     "sharedCount",
     "downloadedCount",
+    "stars",
+    "faceVerified",
+    "faceImage",
+    "faceVerifiedAt",
 )
 
 

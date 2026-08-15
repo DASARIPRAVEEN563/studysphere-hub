@@ -3,7 +3,9 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { AppShell, useRequireAuth } from "@/components/AppShell";
 import { btnClass, Field, inputClass } from "@/components/Field";
+import { StarReward } from "@/components/StarReward";
 import { api, auth, DEPARTMENTS, SEMESTERS, YEARS } from "@/lib/api";
+import { ensureFaceVerified } from "@/lib/verify";
 
 export const Route = createFileRoute("/share")({
   head: () => ({
@@ -30,9 +32,11 @@ function SharePage() {
   const [semester, setSemester] = useState<string>(SEMESTERS[0]);
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
+  const [reward, setReward] = useState<number | null>(null);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!ensureFaceVerified("share")) return;
     if (!file) {
       toast.error("Choose a file first");
       return;
@@ -55,7 +59,9 @@ function SharePage() {
     try {
       await api("/api/notes/upload", { form });
       const u = auth.user();
-      if (u) auth.setUser({ ...u, sharedCount: u.sharedCount + 1 });
+      const stars = (u?.stars ?? 0) + 1;
+      if (u) auth.setUser({ ...u, sharedCount: u.sharedCount + 1, stars });
+      setReward(stars);
       toast.success("Note uploaded to Google Drive successfully!");
       setSubject("");
       setFile(null);
@@ -68,6 +74,7 @@ function SharePage() {
 
   return (
     <AppShell title="Share Notes">
+      {reward !== null && <StarReward stars={reward} onDone={() => setReward(null)} />}
       <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
         <form onSubmit={submit} className="glass animate-rise space-y-5 rounded-3xl p-8">
           <div className="grid gap-4 sm:grid-cols-2">
@@ -143,7 +150,7 @@ function SharePage() {
         └── ${semester}
             └── ${file?.name ?? "your-file.pdf"}`}
           </pre>
-          <div className="mt-6 grid grid-cols-2 gap-3 text-center">
+          <div className="mt-6 grid grid-cols-3 gap-3 text-center">
             <div className="glass rounded-2xl p-4">
               <p className="gradient-text text-2xl font-black">{user?.sharedCount ?? 0}</p>
               <p className="text-muted-foreground text-xs">Shared</p>
@@ -151,6 +158,10 @@ function SharePage() {
             <div className="glass rounded-2xl p-4">
               <p className="gradient-text text-2xl font-black">{user?.downloadedCount ?? 0}</p>
               <p className="text-muted-foreground text-xs">Downloaded</p>
+            </div>
+            <div className="glass rounded-2xl p-4">
+              <p className="text-2xl font-black">⭐ {user?.stars ?? 0}</p>
+              <p className="text-muted-foreground text-xs">Stars</p>
             </div>
           </div>
         </aside>

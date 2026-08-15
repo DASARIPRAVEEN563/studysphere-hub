@@ -10,4 +10,6 @@ profile_bp.add_url_rule(
 )
 profile_bp.add_url_rule(
     "", view_func=require_auth(profile_controller.update_profile), methods=["PUT"]
+)profile_bp.add_url_rule(
+    "/face-verify", view_func=require_auth(profile_controller.verify_face), methods=["POST"]
 )
