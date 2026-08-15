@@ -3,6 +3,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { AnimatedTitle } from "@/components/AnimatedTitle";
 import { btnClass, Field, inputClass } from "@/components/Field";
+import { WelcomeOverlay } from "@/components/WelcomeOverlay";
 import { api, auth, DEPARTMENTS, SEMESTERS, YEARS, type User } from "@/lib/api";
 
 export const Route = createFileRoute("/signup")({
@@ -30,6 +31,7 @@ const QUESTIONS = [
 function SignupPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [welcome, setWelcome] = useState<User | null>(null);
   const [form, setForm] = useState({
     fullName: "",
     registrationId: "",
@@ -48,8 +50,7 @@ function SignupPage() {
     try {
       const res = await api<{ token: string; user: User }>("/api/auth/signup", { body: form });
       auth.save(res.token, res.user);
-      toast.success(`Welcome aboard, ${res.user.fullName}!`);
-      navigate({ to: "/home" });
+      setWelcome(res.user);
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
@@ -59,6 +60,13 @@ function SignupPage() {
 
   return (
     <div className="grid min-h-screen place-items-center px-4 py-12">
+      {welcome && (
+        <WelcomeOverlay
+          name={welcome.fullName}
+          subtitle="Your account is ready — opening your home page..."
+          onDone={() => navigate({ to: "/home", replace: true })}
+        />
+      )}
       <div className="w-full max-w-2xl">
         <AnimatedTitle className="mb-8 text-center text-2xl sm:text-3xl" />
         <form onSubmit={submit} className="glass animate-rise space-y-5 rounded-3xl p-8">
