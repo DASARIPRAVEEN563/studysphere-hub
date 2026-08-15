@@ -4,7 +4,6 @@ export const API_BASE =
   (import.meta.env["VITE_API_URL"] as string | undefined) ?? "http://localhost:5000";
 
 export const DEPARTMENTS = [
-  "BS&H",
   "AMIL & CSM",
   "CSE",
   "ECE",
@@ -19,6 +18,7 @@ export type User = {
   id: string;
   fullName: string;
   registrationId: string;
+  email?: string | null;
   department: string;
   year: string;
   semester: string;
@@ -44,6 +44,10 @@ export type Note = {
   uploadedBy: string;
   uploadedAt: string;
   driveFileId?: string | null;
+  likes?: number;
+  likedByMe?: boolean;
+  views?: number;
+  downloads?: number;
 };
 
 export type ContentItem = {
@@ -199,5 +203,32 @@ export async function downloadStudentsExcel() {
     saveBlobUrl(url, "students.csv");
     URL.revokeObjectURL(url);
     return "students.csv";
+  }
+}
+
+/** Opens the file in a new tab (counts as a view) instead of downloading it. */
+export async function viewNote(note: Note) {
+  const token = auth.token();
+  try {
+    const res = await fetch(`${API_BASE}/api/notes/${note.id}/view`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) throw new Error("Could not open this file");
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank", "noopener");
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  } catch (err) {
+    if (!isNetworkError(err)) throw err;
+    const { dataUrl } = await offlineRequest(`/api/notes/${note.id}/view`, "GET", token, undefined);
+    const win = window.open();
+    if (win) {
+      win.document.write(
+        note.mimeType === "application/pdf"
+          ? `<iframe src="${dataUrl}" style="border:0;width:100%;height:100%"></iframe>`
+          : `<img src="${dataUrl}" style="max-width:100%" alt="${note.fileName}" />`,
+      );
+      win.document.title = note.fileName;
+    }
   }
 }

@@ -10,6 +10,7 @@ import {
   DEPARTMENTS,
   downloadNote,
   SEMESTERS,
+  viewNote,
   YEARS,
   type Note,
 } from "@/lib/api";
@@ -45,9 +46,11 @@ function NotesPage() {
   const [semester, setSemester] = useState<string | null>(null);
   const [subject, setSubject] = useState<string | null>(null);
   const [q, setQ] = useState("");
+  const [term, setTerm] = useState("");
   const [fDept, setFDept] = useState("");
   const [fYear, setFYear] = useState("");
   const [fSem, setFSem] = useState("");
+  const [fSubject, setFSubject] = useState("");
 
   useEffect(() => {
     api<{ notes: Note[] }>("/api/notes")
@@ -69,12 +72,13 @@ function NotesPage() {
           (!fDept || n.department === fDept) &&
           (!fYear || n.year === fYear) &&
           (!fSem || n.semester === fSem) &&
-          (!q ||
-            n.subject.toLowerCase().includes(q.toLowerCase()) ||
-            n.fileName.toLowerCase().includes(q.toLowerCase()) ||
-            n.uploadedBy.toLowerCase().includes(q.toLowerCase())),
+          (!fSubject || n.subject.toLowerCase().includes(fSubject.toLowerCase())) &&
+          (!term ||
+            n.subject.toLowerCase().includes(term.toLowerCase()) ||
+            n.fileName.toLowerCase().includes(term.toLowerCase()) ||
+            n.uploadedBy.toLowerCase().includes(term.toLowerCase())),
       ),
-    [notes, department, year, semester, subject, fDept, fYear, fSem, q],
+    [notes, department, year, semester, subject, fDept, fYear, fSem, fSubject, term],
   );
 
   const subjects = useMemo(
@@ -104,7 +108,32 @@ function NotesPage() {
       await downloadNote(note);
       const u = auth.user();
       if (u) auth.setUser({ ...u, downloadedCount: u.downloadedCount + 1 });
+      setNotes((prev) =>
+        (prev ?? []).map((n) =>
+          n.id === note.id ? { ...n, downloads: (n.downloads ?? 0) + 1 } : n,
+        ),
+      );
       toast.success(`Downloaded ${note.fileName}`);
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
+
+  const view = async (note: Note) => {
+    try {
+      await viewNote(note);
+      setNotes((prev) =>
+        (prev ?? []).map((n) => (n.id === note.id ? { ...n, views: (n.views ?? 0) + 1 } : n)),
+      );
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
+
+  const like = async (note: Note) => {
+    try {
+      const r = await api<{ note: Note }>(`/api/notes/${note.id}/like`, { method: "POST" });
+      setNotes((prev) => (prev ?? []).map((n) => (n.id === note.id ? { ...n, ...r.note } : n)));
     } catch (e) {
       toast.error((e as Error).message);
     }
@@ -130,12 +159,33 @@ function NotesPage() {
         ))}
       </nav>
 
-      <section className="glass animate-rise mb-6 grid gap-3 rounded-2xl p-4 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="glass animate-rise mb-6 grid gap-3 rounded-2xl p-4 sm:grid-cols-2 lg:grid-cols-5">
+        <form
+          className="flex gap-2 sm:col-span-2 lg:col-span-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            setTerm(q.trim());
+          }}
+        >
+          <input
+            className={inputClass}
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search subject, file or student"
+          />
+          <button
+            type="submit"
+            aria-label="Search"
+            className="hero-gradient grid size-10 shrink-0 place-items-center rounded-xl text-white shadow-lg transition-transform hover:scale-110"
+          >
+            🔍
+          </button>
+        </form>
         <input
           className={inputClass}
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="🔍 Search subject, file or student"
+          value={fSubject}
+          onChange={(e) => setFSubject(e.target.value)}
+          placeholder="Filter by subject name"
         />
         <select className={inputClass} value={fDept} onChange={(e) => setFDept(e.target.value)}>
           <option value="" className="bg-card">All departments</option>
@@ -204,9 +254,25 @@ function NotesPage() {
                 {(n.size / 1024).toFixed(0)} KB · {new Date(n.uploadedAt).toLocaleDateString()}
               </p>
               <p className="text-pink mt-1 text-xs font-semibold">Shared by {n.uploadedBy}</p>
-              <button onClick={() => download(n)} className={`${ghostBtnClass} mt-4 w-full`}>
-                Download
-              </button>
+              <div className="text-muted-foreground mt-3 flex flex-wrap items-center gap-3 text-xs font-semibold">
+                <button
+                  onClick={() => like(n)}
+                  className={`transition-transform hover:scale-110 ${n.likedByMe ? "text-pink" : ""}`}
+                  title="Rate this file"
+                >
+                  {n.likedByMe ? "❤️" : "🤍"} {n.likes ?? 0} rating(s)
+                </button>
+                <span>👁 {n.views ?? 0} views</span>
+                <span>⬇ {n.downloads ?? 0} downloads</span>
+              </div>
+              <div className="mt-4 flex gap-2">
+                <button onClick={() => view(n)} className={`${ghostBtnClass} flex-1`}>
+                  View
+                </button>
+                <button onClick={() => download(n)} className={`${ghostBtnClass} flex-1`}>
+                  Download
+                </button>
+              </div>
             </article>
           ))}
         </div>
@@ -237,9 +303,14 @@ function NotesPage() {
                       Shared by {n.uploadedBy} · {new Date(n.uploadedAt).toLocaleDateString()}
                     </p>
                   </div>
-                  <button onClick={() => download(n)} className={ghostBtnClass}>
-                    Get
-                  </button>
+                  <div className="flex shrink-0 gap-2">
+                    <button onClick={() => view(n)} className={ghostBtnClass}>
+                      View
+                    </button>
+                    <button onClick={() => download(n)} className={ghostBtnClass}>
+                      Get
+                    </button>
+                  </div>
                 </article>
               ))}
             </div>

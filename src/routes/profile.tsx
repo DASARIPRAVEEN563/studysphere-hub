@@ -48,6 +48,7 @@ function ProfilePage() {
           department: user.department,
           year: user.year,
           semester: user.semester,
+          email: user.email ?? "",
           profilePicture: user.profilePicture,
         },
       });
@@ -127,8 +128,9 @@ function ProfilePage() {
               ✏️
             </button>
             <h3 className="text-lg font-black">Academic details</h3>
-            <dl className="mt-5 grid gap-3 sm:grid-cols-3">
+            <dl className="mt-5 grid gap-3 sm:grid-cols-2">
               {[
+                ["Email ID", user.email || "Not added yet"],
                 ["Department", user.department],
                 ["Year", user.year],
                 ["Semester", user.semester],
@@ -143,6 +145,16 @@ function ProfilePage() {
         ) : (
         <form onSubmit={save} className="glass animate-rise space-y-5 rounded-3xl p-8">
           <h3 className="text-lg font-black">Edit academic details</h3>
+          <Field label="Email ID (required for face verification)">
+            <input
+              type="email"
+              className={inputClass}
+              value={user.email ?? ""}
+              onChange={(e) => setUser({ ...user, email: e.target.value })}
+              placeholder="you@example.com"
+              required
+            />
+          </Field>
           <div className="grid gap-4 sm:grid-cols-3">
             <Field label="Department">
               <select

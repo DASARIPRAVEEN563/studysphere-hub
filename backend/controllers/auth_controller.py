@@ -4,7 +4,7 @@ from models import store
 from models.user import public_user
 from services.security_service import create_token, hash_value, verify_value
 
-DEPARTMENTS = ["BS&H", "AMIL & CSM", "CSE", "ECE", "EEE", "MECH", "CIVIL"]
+DEPARTMENTS = ["AMIL & CSM", "CSE", "ECE", "EEE", "MECH", "CIVIL"]
 YEARS = ["1 Year", "2 Year", "3 Year", "4 Year"]
 SEMESTERS = ["1 Sem", "2 Sem"]
 
@@ -30,6 +30,7 @@ def signup():
         "id": store.new_id(),
         "fullName": data["fullName"].strip(),
         "registrationId": registration_id,
+        "email": (data.get("email") or "").strip() or None,
         "passwordHash": hash_value(data["password"]),
         "securityQuestion": data["securityQuestion"].strip(),
         "securityAnswerHash": hash_value(data["securityAnswer"].strip().lower()),

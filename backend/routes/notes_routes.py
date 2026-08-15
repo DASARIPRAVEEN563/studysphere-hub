@@ -14,3 +14,9 @@ notes_bp.add_url_rule(
     view_func=require_auth(notes_controller.download_note),
     methods=["GET"],
 )
+notes_bp.add_url_rule(
+    "/<note_id>/view", view_func=require_auth(notes_controller.view_note), methods=["GET"]
+)
+notes_bp.add_url_rule(
+    "/<note_id>/like", view_func=require_auth(notes_controller.like_note), methods=["POST"]
+)

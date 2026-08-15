@@ -50,7 +50,7 @@ function SignupPage() {
     try {
       const res = await api<{ token: string; user: User }>("/api/auth/signup", { body: form });
       auth.save(res.token, res.user);
-      setWelcome(res.user);
+          setWelcome(res.user);
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
@@ -63,8 +63,8 @@ function SignupPage() {
       {welcome && (
         <WelcomeOverlay
           name={welcome.fullName}
-          subtitle="Your account is ready — opening your home page..."
-          onDone={() => navigate({ to: "/home", replace: true })}
+          subtitle="Account ready — let's complete your face verification..."
+          onDone={() => navigate({ to: "/profile", replace: true })}
         />
       )}
       <div className="w-full max-w-2xl">
@@ -82,9 +82,10 @@ function SignupPage() {
             </Field>
             <Field label="Registration ID">
               <input
-                className={inputClass}
+                className={`${inputClass} uppercase`}
                 value={form.registrationId}
-                onChange={(e) => set("registrationId", e.target.value)}
+                onChange={(e) => set("registrationId", e.target.value.toUpperCase())}
+                autoCapitalize="characters"
                 required
               />
             </Field>
@@ -152,9 +153,10 @@ function SignupPage() {
             </Field>
             <Field label="Security Answer">
               <input
-                className={inputClass}
+                className={`${inputClass} uppercase`}
                 value={form.securityAnswer}
-                onChange={(e) => set("securityAnswer", e.target.value)}
+                onChange={(e) => set("securityAnswer", e.target.value.toUpperCase())}
+                autoCapitalize="characters"
                 required
               />
             </Field>

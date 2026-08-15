@@ -9,6 +9,8 @@ from services.file_validation import validate
 
 
 def public_note(note: dict) -> dict:
+    liked_by = note.get("likedBy") or []
+    me = getattr(g, "user", None) or {}
     return {
         "id": note["id"],
         "subject": note["subject"],
@@ -21,7 +23,26 @@ def public_note(note: dict) -> dict:
         "uploadedBy": note["uploadedByName"],
         "uploadedAt": note["uploadedAt"],
         "driveFileId": note.get("driveFileId"),
+        "likes": len(liked_by),
+        "likedByMe": me.get("id") in liked_by,
+        "views": int(note.get("views", 0)),
+        "downloads": int(note.get("downloads", 0)),
     }
+
+
+def unique_subject(subject: str, department: str, year: str, semester: str) -> str:
+    """ds -> ds1 -> ds2 when the subject folder already exists in the same scope."""
+    taken = {
+        n["subject"].lower()
+        for n in store.read("notes")
+        if n["department"] == department and n["year"] == year and n["semester"] == semester
+    }
+    if subject.lower() not in taken:
+        return subject
+    index = 1
+    while f"{subject}{index}".lower() in taken:
+        index += 1
+    return f"{subject}{index}"
 
 
 def list_notes():
@@ -53,6 +74,7 @@ def upload_note():
     if not ok:
         return jsonify({"error": error}), 400
 
+    subject = unique_subject(subject, department, year, semester)
     ext = os.path.splitext(upload.filename)[1].lower()
     stored_name = f"{subject}{ext}"
     existing = [
@@ -84,6 +106,9 @@ def upload_note():
         "uploadedAt": store.now_iso(),
         "driveFileId": stored["driveFileId"],
         "storagePath": stored["storagePath"],
+        "likedBy": [],
+        "views": 0,
+        "downloads": 0,
     }
     store.insert("notes", note)
     stars = int(g.user.get("stars", 0)) + 1
@@ -109,6 +134,7 @@ def download_note(note_id: str):
     store.update(
         "users", g.user["id"], {"downloadedCount": int(g.user.get("downloadedCount", 0)) + 1}
     )
+    store.update("notes", note["id"], {"downloads": int(note.get("downloads", 0)) + 1})
     return Response(
         payload,
         mimetype=note["mimeType"],
@@ -117,3 +143,35 @@ def download_note(note_id: str):
             "Content-Length": str(len(payload)),
         },
     )
+
+
+def view_note(note_id: str):
+    note = store.find("notes", id=note_id)
+    if not note:
+        return jsonify({"error": "Note not found"}), 404
+    try:
+        payload = drive_service.download_file(note)
+    except FileNotFoundError:
+        return jsonify({"error": "Stored file is missing"}), 410
+    store.update("notes", note["id"], {"views": int(note.get("views", 0)) + 1})
+    return Response(
+        payload,
+        mimetype=note["mimeType"],
+        headers={
+            "Content-Disposition": f'inline; filename="{note["fileName"]}"',
+            "Content-Length": str(len(payload)),
+        },
+    )
+
+
+def like_note(note_id: str):
+    note = store.find("notes", id=note_id)
+    if not note:
+        return jsonify({"error": "Note not found"}), 404
+    liked_by = list(note.get("likedBy") or [])
+    if g.user["id"] in liked_by:
+        liked_by.remove(g.user["id"])
+    else:
+        liked_by.append(g.user["id"])
+    updated = store.update("notes", note_id, {"likedBy": liked_by})
+    return jsonify({"note": public_note(updated)})

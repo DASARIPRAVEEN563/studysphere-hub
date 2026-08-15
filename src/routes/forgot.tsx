@@ -71,9 +71,10 @@ function ForgotPage() {
             <form onSubmit={getQuestion} className="space-y-5">
               <Field label="Registration ID">
                 <input
-                  className={inputClass}
+                  className={`${inputClass} uppercase`}
                   value={registrationId}
-                  onChange={(e) => setRegistrationId(e.target.value)}
+                  onChange={(e) => setRegistrationId(e.target.value.toUpperCase())}
+                  autoCapitalize="characters"
                   required
                 />
               </Field>
@@ -86,9 +87,10 @@ function ForgotPage() {
               <p className="bg-primary/15 text-cyan rounded-xl px-4 py-3 text-sm">{question}</p>
               <Field label="Your Answer">
                 <input
-                  className={inputClass}
+                  className={`${inputClass} uppercase`}
                   value={answer}
-                  onChange={(e) => setAnswer(e.target.value)}
+                  onChange={(e) => setAnswer(e.target.value.toUpperCase())}
+                  autoCapitalize="characters"
                   required
                 />
               </Field>
