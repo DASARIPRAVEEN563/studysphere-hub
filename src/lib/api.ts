@@ -205,3 +205,30 @@ export async function downloadStudentsExcel() {
     return "students.csv";
   }
 }
+
+/** Opens the file in a new tab (counts as a view) instead of downloading it. */
+export async function viewNote(note: Note) {
+  const token = auth.token();
+  try {
+    const res = await fetch(`${API_BASE}/api/notes/${note.id}/view`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) throw new Error("Could not open this file");
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank", "noopener");
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  } catch (err) {
+    if (!isNetworkError(err)) throw err;
+    const { dataUrl } = await offlineRequest(`/api/notes/${note.id}/view`, "GET", token, undefined);
+    const win = window.open();
+    if (win) {
+      win.document.write(
+        note.mimeType === "application/pdf"
+          ? `<iframe src="${dataUrl}" style="border:0;width:100%;height:100%"></iframe>`
+          : `<img src="${dataUrl}" style="max-width:100%" alt="${note.fileName}" />`,
+      );
+      win.document.title = note.fileName;
+    }
+  }
+}
