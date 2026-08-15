@@ -1,8 +1,13 @@
+import re
+
 from flask import g, jsonify, request
 
 from controllers.auth_controller import DEPARTMENTS, SEMESTERS, YEARS
 from models import store
 from models.user import public_user
+from services.email_service import send_face_verified_email
+
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 def get_profile():
@@ -19,6 +24,11 @@ def update_profile():
         patch["year"] = data["year"]
     if data.get("semester") in SEMESTERS:
         patch["semester"] = data["semester"]
+    if "email" in data:
+        email = str(data.get("email") or "").strip()
+        if email and not EMAIL_RE.match(email):
+            return jsonify({"error": "Enter a valid email ID"}), 400
+        patch["email"] = email or None
     if "profilePicture" in data:
         picture = data["profilePicture"]
         if picture and not str(picture).startswith(("data:image/", "http://", "https://")):
@@ -33,6 +43,13 @@ def update_profile():
 def verify_face():
     data = request.get_json(silent=True) or {}
     image = data.get("image")
+    user = store.find("users", id=g.user["id"]) or g.user
+    email = user.get("email")
+    if not email:
+        return jsonify({"error": "Add and save your email ID before face verification"}), 400
+    faces = data.get("faces")
+    if faces is not None and int(faces) != 1:
+        return jsonify({"error": "Exactly one person must be in front of the camera"}), 400
     if not image or not str(image).startswith("data:image/"):
         return jsonify({"error": "A live camera capture is required"}), 400
     updated = store.update(
@@ -40,4 +57,12 @@ def verify_face():
         g.user["id"],
         {"faceImage": image, "faceVerified": True, "faceVerifiedAt": store.now_iso()},
     )
-    return jsonify({"user": public_user(updated)})
+    sent = send_face_verified_email(email, updated.get("fullName", ""))
+    return jsonify(
+        {
+            "user": public_user(updated),
+            "emailedTo": email,
+            "emailSent": sent,
+            "message": "Face verified is successfully completed",
+        }
+    )

@@ -4,6 +4,7 @@ PUBLIC_FIELDS = (
     "id",
     "fullName",
     "registrationId",
+    "email",
     "department",
     "year",
     "semester",
