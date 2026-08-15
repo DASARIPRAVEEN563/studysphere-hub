@@ -21,9 +21,18 @@ type DB = {
   files: Record<string, string>;
   feedback: Feedback[];
   chats: ChatMessage[];
+  likes?: Record<string, string[]>;
 };
 
-const empty = (): DB => ({ users: [], notes: [], content: [], files: {}, feedback: [], chats: [] });
+const empty = (): DB => ({
+  users: [],
+  notes: [],
+  content: [],
+  files: {},
+  feedback: [],
+  chats: [],
+  likes: {},
+});
 
 function read(): DB {
   if (typeof window === "undefined") return empty();
@@ -44,6 +53,30 @@ const id = () => Math.random().toString(36).slice(2, 11);
 function publicUser(u: StoredUser): User {
   const { password: _p, securityAnswer: _a, securityQuestion: _q, ...rest } = u;
   return { stars: 0, faceVerified: false, faceImage: null, ...rest };
+}
+
+function shapeNote(db: DB, n: Note, meId: string): Note {
+  const likedBy = db.likes?.[n.id] ?? [];
+  return {
+    ...n,
+    likes: likedBy.length,
+    likedByMe: likedBy.includes(meId),
+    views: n.views ?? 0,
+    downloads: n.downloads ?? 0,
+  };
+}
+
+/** ds -> ds1 -> ds2 when the subject folder already exists in the same scope. */
+function uniqueSubject(db: DB, subject: string, dept: string, year: string, sem: string) {
+  const taken = new Set(
+    db.notes
+      .filter((n) => n.department === dept && n.year === year && n.semester === sem)
+      .map((n) => n.subject.toLowerCase()),
+  );
+  if (!taken.has(subject.toLowerCase())) return subject;
+  let i = 1;
+  while (taken.has(`${subject}${i}`.toLowerCase())) i += 1;
+  return `${subject}${i}`;
 }
 
 function seed(db: DB) {
