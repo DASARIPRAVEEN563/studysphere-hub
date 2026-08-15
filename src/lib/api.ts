@@ -4,7 +4,6 @@ export const API_BASE =
   (import.meta.env["VITE_API_URL"] as string | undefined) ?? "http://localhost:5000";
 
 export const DEPARTMENTS = [
-  "BS&H",
   "AMIL & CSM",
   "CSE",
   "ECE",
@@ -19,6 +18,7 @@ export type User = {
   id: string;
   fullName: string;
   registrationId: string;
+  email?: string | null;
   department: string;
   year: string;
   semester: string;
@@ -44,6 +44,10 @@ export type Note = {
   uploadedBy: string;
   uploadedAt: string;
   driveFileId?: string | null;
+  likes?: number;
+  likedByMe?: boolean;
+  views?: number;
+  downloads?: number;
 };
 
 export type ContentItem = {
