@@ -1,0 +1,94 @@
+{
+  "version": 1,
+  "sdk_version": "0.26.2",
+  "path": "/mcp",
+  "auth": {
+    "type": "none"
+  },
+  "mcp": {
+    "server": {
+      "name": "studysphere-hub",
+      "version": "0.1.0",
+      "title": "StudySphere Hub"
+    },
+    "tools": [
+      {
+        "name": "list_catalog",
+        "title": "List notes catalog structure",
+        "description": "List the departments, years and semesters used to organise notes in StudySphere Hub.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "department": {
+              "description": "Optional department name to filter the result to one department.",
+              "type": "string"
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "check_upload_rules",
+        "title": "Check note upload rules",
+        "description": "Return the allowed file types and size limit for shared notes, and optionally validate a filename and size against them.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "filename": {
+              "description": "Filename to validate, e.g. 'unit1.pdf'.",
+              "type": "string"
+            },
+            "sizeMb": {
+              "description": "File size in megabytes to validate.",
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_app_guide",
+        "title": "Get app guide",
+        "description": "Explain how a feature of StudySphere Hub works (signup, face-verification, notes, share, profile, chat, admin).",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "topic": {
+              "description": "Feature to explain. Omit to get every topic.",
+              "type": "string",
+              "enum": [
+                "signup",
+                "face-verification",
+                "notes",
+                "share",
+                "profile",
+                "chat",
+                "admin"
+              ]
+            }
+          }
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}
