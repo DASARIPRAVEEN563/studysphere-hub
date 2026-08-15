@@ -1,78 +1,92 @@
-"""Google Drive storage using a service account.
+"""Google Drive storage via the Lovable connector gateway.
 
 Folder layout:
     STUDENTS KA NOTES SHARING HUB / <Department> / <Year> / <Semester> / file
 
-If no service-account key is configured the same layout is mirrored on the
+If the Lovable connector is not configured, the same layout is mirrored on the
 local ``uploads/`` folder so the app stays fully functional offline.
 """
 import io
+import json
 import os
 import shutil
+
+import requests
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-SCOPES = ["https://www.googleapis.com/auth/drive"]
+GATEWAY_BASE = "https://connector-gateway.lovable.dev/google_drive"
 FOLDER_MIME = "application/vnd.google-apps.folder"
 
-_service = None
 _folder_cache: dict = {}
 
 
-def _key_path():
-    path = os.environ.get("GOOGLE_SERVICE_ACCOUNT_FILE", "service-account.json")
-    if not os.path.isabs(path):
-        path = os.path.join(BASE_DIR, path)
-    return path if os.path.exists(path) else None
+def _api_key_headers():
+    lov_key = os.environ.get("LOVABLE_API_KEY")
+    conn_key = os.environ.get("GOOGLE_DRIVE_API_KEY")
+    if not lov_key or not conn_key:
+        return None
+    return {
+        "Authorization": f"Bearer {lov_key}",
+        "X-Connection-Api-Key": conn_key,
+    }
 
 
 def drive_enabled() -> bool:
-    return _key_path() is not None
+    return _api_key_headers() is not None
 
 
-def _client():
-    global _service
-    if _service is not None:
-        return _service
-    key = _key_path()
-    if not key:
-        return None
-    from google.oauth2 import service_account
-    from googleapiclient.discovery import build
-
-    creds = service_account.Credentials.from_service_account_file(key, scopes=SCOPES)
-    _service = build("drive", "v3", credentials=creds, cache_discovery=False)
-    return _service
+def _request(method: str, path: str, **kwargs):
+    headers = _api_key_headers()
+    if not headers:
+        raise RuntimeError("Lovable Google Drive connector is not configured")
+    kwargs.setdefault("headers", {})
+    kwargs["headers"].update(headers)
+    url = f"{GATEWAY_BASE}{path}"
+    response = requests.request(method, url, timeout=60, **kwargs)
+    if not response.ok:
+        raise RuntimeError(f"Drive gateway error {response.status_code}: {response.text}")
+    return response
 
 
-def _ensure_folder(service, name: str, parent: str | None) -> str:
+def _ensure_folder(name: str, parent: str | None) -> str:
     cache_key = f"{parent or 'root'}::{name}"
     if cache_key in _folder_cache:
         return _folder_cache[cache_key]
     safe = name.replace("'", "\\'")
-    query = f"name = '{safe}' and mimeType = '{FOLDER_MIME}' and trashed = false"
+    q = f"name = '{safe}' and mimeType = '{FOLDER_MIME}' and trashed = false"
     if parent:
-        query += f" and '{parent}' in parents"
-    found = service.files().list(q=query, fields="files(id)", pageSize=1).execute().get("files", [])
-    if found:
-        folder_id = found[0]["id"]
+        q += f" and '{parent}' in parents"
+    resp = _request(
+        "GET",
+        "/drive/v3/files",
+        params={"q": q, "fields": "files(id)", "pageSize": "1"},
+    )
+    files = resp.json().get("files", [])
+    if files:
+        folder_id = files[0]["id"]
     else:
         body = {"name": name, "mimeType": FOLDER_MIME}
         if parent:
             body["parents"] = [parent]
-        folder_id = service.files().create(body=body, fields="id").execute()["id"]
+        resp = _request(
+            "POST",
+            "/drive/v3/files",
+            params={"fields": "id"},
+            json=body,
+        )
+        folder_id = resp.json()["id"]
     _folder_cache[cache_key] = folder_id
     return folder_id
 
 
-def _folder_chain(service, department: str, year: str, semester: str) -> str:
+def _folder_chain(department: str, year: str, semester: str) -> str:
     root_name = os.environ.get("DRIVE_ROOT_FOLDER", "STUDENTS KA NOTES SHARING HUB")
-    parent = os.environ.get("GOOGLE_DRIVE_PARENT_ID") or None
-    folder = _ensure_folder(service, root_name, parent)
+    folder = _ensure_folder(root_name, None)
     for part in (department, year, semester):
-        folder = _ensure_folder(service, part, folder)
+        folder = _ensure_folder(part, folder)
     return folder
 
 
@@ -85,18 +99,20 @@ def _local_path(department: str, year: str, semester: str, file_name: str) -> st
 
 def upload_file(payload: bytes, file_name: str, mime_type: str, department: str, year: str, semester: str) -> dict:
     """Store the file and return {'driveFileId', 'storagePath'}."""
-    service = _client()
-    if service:
-        from googleapiclient.http import MediaIoBaseUpload
-
-        folder_id = _folder_chain(service, department, year, semester)
-        media = MediaIoBaseUpload(io.BytesIO(payload), mimetype=mime_type, resumable=False)
-        created = (
-            service.files()
-            .create(body={"name": file_name, "parents": [folder_id]}, media_body=media, fields="id")
-            .execute()
+    if drive_enabled():
+        folder_id = _folder_chain(department, year, semester)
+        metadata = {"name": file_name, "parents": [folder_id]}
+        files = {
+            "metadata": (None, json.dumps(metadata), "application/json; charset=UTF-8"),
+            "file": (file_name, io.BytesIO(payload), mime_type),
+        }
+        resp = _request(
+            "POST",
+            "/upload/drive/v3/files",
+            params={"uploadType": "multipart", "fields": "id"},
+            files=files,
         )
-        return {"driveFileId": created["id"], "storagePath": None}
+        return {"driveFileId": resp.json()["id"], "storagePath": None}
 
     path = _local_path(department, year, semester, file_name)
     with open(path, "wb") as fh:
@@ -105,17 +121,13 @@ def upload_file(payload: bytes, file_name: str, mime_type: str, department: str,
 
 
 def download_file(note: dict) -> bytes:
-    service = _client()
-    if note.get("driveFileId") and service:
-        from googleapiclient.http import MediaIoBaseDownload
-
-        buf = io.BytesIO()
-        request = service.files().get_media(fileId=note["driveFileId"])
-        downloader = MediaIoBaseDownload(buf, request)
-        done = False
-        while not done:
-            _, done = downloader.next_chunk()
-        return buf.getvalue()
+    if note.get("driveFileId") and drive_enabled():
+        resp = _request(
+            "GET",
+            f"/drive/v3/files/{note['driveFileId']}",
+            params={"alt": "media"},
+        )
+        return resp.content
 
     path = os.path.join(BASE_DIR, note.get("storagePath") or "")
     if not os.path.exists(path):
@@ -125,14 +137,19 @@ def download_file(note: dict) -> bytes:
 
 
 def move_file(note: dict, department: str, year: str, semester: str) -> dict:
-    service = _client()
-    if note.get("driveFileId") and service:
-        target = _folder_chain(service, department, year, semester)
-        meta = service.files().get(fileId=note["driveFileId"], fields="parents").execute()
-        previous = ",".join(meta.get("parents", []))
-        service.files().update(
-            fileId=note["driveFileId"], addParents=target, removeParents=previous, fields="id"
-        ).execute()
+    if note.get("driveFileId") and drive_enabled():
+        target = _folder_chain(department, year, semester)
+        resp = _request(
+            "GET",
+            f"/drive/v3/files/{note['driveFileId']}",
+            params={"fields": "parents"},
+        )
+        previous = ",".join(resp.json().get("parents", []))
+        _request(
+            "PATCH",
+            f"/drive/v3/files/{note['driveFileId']}",
+            params={"addParents": target, "removeParents": previous, "fields": "id"},
+        )
         return {"driveFileId": note["driveFileId"], "storagePath": None}
 
     old = os.path.join(BASE_DIR, note.get("storagePath") or "")
@@ -143,9 +160,13 @@ def move_file(note: dict, department: str, year: str, semester: str) -> dict:
 
 
 def rename_file(note: dict, new_file_name: str) -> dict:
-    service = _client()
-    if note.get("driveFileId") and service:
-        service.files().update(fileId=note["driveFileId"], body={"name": new_file_name}).execute()
+    if note.get("driveFileId") and drive_enabled():
+        _request(
+            "PATCH",
+            f"/drive/v3/files/{note['driveFileId']}",
+            params={"fields": "id"},
+            json={"name": new_file_name},
+        )
         return {"driveFileId": note["driveFileId"], "storagePath": None}
 
     old = os.path.join(BASE_DIR, note.get("storagePath") or "")
@@ -156,10 +177,9 @@ def rename_file(note: dict, new_file_name: str) -> dict:
 
 
 def delete_file(note: dict) -> None:
-    service = _client()
-    if note.get("driveFileId") and service:
+    if note.get("driveFileId") and drive_enabled():
         try:
-            service.files().delete(fileId=note["driveFileId"]).execute()
+            _request("DELETE", f"/drive/v3/files/{note['driveFileId']}")
         except Exception:  # already gone
             pass
         return
