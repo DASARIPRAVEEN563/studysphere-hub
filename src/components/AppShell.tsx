@@ -3,6 +3,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { auth, type User } from "@/lib/api";
 import { PageName } from "./AnimatedTitle";
+import { BookLoaderOverlay } from "./BookLoader";
 
 export function useAuthUser() {
   const [user, setUser] = useState<User | null>(null);
@@ -36,6 +37,7 @@ const NAV = [
   { to: "/home", label: "Home" },
   { to: "/notes", label: "Notes" },
   { to: "/share", label: "Share Notes" },
+  { to: "/chat", label: "Chat with Admin" },
   { to: "/profile", label: "Profile" },
 ] as const;
 
@@ -51,6 +53,14 @@ export function AppShell({
   const { user } = useAuthUser();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const isRouterLoading = useRouterState({ select: (s) => s.status === "pending" });
+  const [flipping, setFlipping] = useState(true);
+
+  useEffect(() => {
+    setFlipping(true);
+    const t = setTimeout(() => setFlipping(false), 850);
+    return () => clearTimeout(t);
+  }, [pathname]);
 
   const logout = () => {
     auth.clear();
@@ -60,6 +70,7 @@ export function AppShell({
 
   return (
     <div className="min-h-screen">
+      {(flipping || isRouterLoading) && <BookLoaderOverlay label={title} />}
       <header className="glass sticky top-0 z-40 rounded-none border-x-0 border-t-0">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3 px-4 py-3">
           <Link to="/home" className="flex items-center gap-2">
