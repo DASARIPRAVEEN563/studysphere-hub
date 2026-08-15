@@ -3,7 +3,7 @@ import { z } from "zod";
 import { sendFaceVerificationEmail } from "./face-verification-email.server";
 
 export const sendFaceVerificationConfirmation = createServerFn({ method: "POST" })
-  .inputValidator((data) =>
+  .validator((data) =>
     z
       .object({
         to: z.string().trim().email("Incorrect email ID").max(254),
