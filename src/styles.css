@@ -222,6 +222,14 @@
   0% { top: 0%; }
   100% { top: 100%; }
 }
+@keyframes badge-swing {
+  0%, 100% { transform: rotate(-8deg) scale(1); }
+  50% { transform: rotate(8deg) scale(1.08); }
+}
+@keyframes badge-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
 
 @utility animate-float { animation: float-slow 5s ease-in-out infinite; }
 @utility animate-rise { animation: rise-in 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
@@ -233,6 +241,8 @@
 @utility animate-star-burst { animation: star-burst 1s ease-out forwards; }
 @utility animate-star-pop { animation: star-pop 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
 @utility animate-scan { animation: scan-line 1.8s ease-in-out infinite alternate; }
+@utility animate-badge { animation: badge-swing 2.4s ease-in-out infinite; }
+@utility animate-badge-spin { animation: badge-spin 9s linear infinite; }
 @utility animate-shine {
   background-size: 200% auto;
   animation: shine 4s linear infinite;
