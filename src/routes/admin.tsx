@@ -320,6 +320,14 @@ function ContentAdmin() {
 
 function StudentsAdmin() {
   const [busy, setBusy] = useState(false);
+  const [students, setStudents] = useState<User[] | null>(null);
+
+  useEffect(() => {
+    api<{ students: User[] }>("/api/admin/students")
+      .then((r) => setStudents(r.students))
+      .catch(() => setStudents([]));
+  }, []);
+
   const exportExcel = async () => {
     setBusy(true);
     try {
@@ -332,16 +340,183 @@ function StudentsAdmin() {
     }
   };
   return (
+    <div className="space-y-6">
     <div className="glass animate-rise max-w-xl rounded-3xl p-8">
       <h3 className="text-lg font-black">Student data export</h3>
       <p className="text-muted-foreground mt-2 text-sm">
         Exports full name, registration ID, password hash, security question, security answer hash,
-        department, year, semester, notes sharing count and downloaded notes count. Plaintext
-        passwords are never exported.
+        department, year, semester, notes sharing count, downloaded notes count, stars and the live
+        face-verification image of each verified student. Plaintext passwords are never exported.
       </p>
       <button onClick={exportExcel} className={`${btnClass} mt-6`} disabled={busy}>
         {busy ? "Preparing..." : "Download students.xlsx"}
       </button>
+    </div>
+
+      {students === null ? (
+        <Skeletons count={3} />
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {students.map((s) => (
+            <article key={s.id} className="glass animate-rise flex gap-4 rounded-2xl p-5">
+              <div className="size-16 shrink-0 overflow-hidden rounded-xl bg-black/30">
+                {s.faceImage ? (
+                  <img src={s.faceImage} alt={s.fullName} className="size-full object-cover" />
+                ) : (
+                  <div className="text-muted-foreground grid size-full place-items-center text-xs">
+                    No face
+                  </div>
+                )}
+              </div>
+              <div className="min-w-0">
+                <p className="truncate font-bold">{s.fullName}</p>
+                <p className="text-muted-foreground text-xs">{s.registrationId}</p>
+                <p className="text-cyan text-xs">
+                  {s.department} · {s.year} · {s.semester}
+                </p>
+                <p className="mt-1 text-xs">
+                  ⭐ {s.stars ?? 0} · {s.sharedCount} shared · {s.downloadedCount} downloaded ·{" "}
+                  {s.faceVerified ? "Verified" : "Unverified"}
+                </p>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ChatAdmin() {
+  const [threads, setThreads] = useState<ChatThread[] | null>(null);
+  const [active, setActive] = useState<string | null>(null);
+  const [text, setText] = useState("");
+
+  const load = () =>
+    api<{ threads: ChatThread[] }>("/api/admin/chat")
+      .then((r) => setThreads(r.threads))
+      .catch(() => setThreads([]));
+
+  useEffect(() => {
+    void load();
+    const t = setInterval(() => void load(), 5000);
+    return () => clearInterval(t);
+  }, []);
+
+  const thread = threads?.find((t) => t.userId === active) ?? null;
+
+  const reply = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!thread || !text.trim()) return;
+    try {
+      await api(`/api/admin/chat/${thread.userId}`, { body: { text } });
+      setText("");
+      await load();
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
+  };
+
+  if (threads === null) return <Skeletons count={4} />;
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
+      <div className="space-y-3">
+        {!threads.length && <p className="text-muted-foreground text-sm">No messages yet.</p>}
+        {threads.map((t) => (
+          <button
+            key={t.userId}
+            onClick={() => setActive(t.userId)}
+            className={`glass flex w-full items-center gap-3 rounded-2xl p-4 text-left transition-all hover:-translate-y-0.5 ${
+              active === t.userId ? "ring-primary ring-2" : ""
+            }`}
+          >
+            <span className="hero-gradient grid size-10 place-items-center overflow-hidden rounded-xl font-black text-white">
+              {t.profilePicture ? (
+                <img src={t.profilePicture} alt={t.fullName} className="size-full object-cover" />
+              ) : (
+                t.fullName.charAt(0).toUpperCase()
+              )}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate font-bold">{t.fullName}</span>
+              <span className="text-muted-foreground block truncate text-xs">
+                {t.messages[t.messages.length - 1]?.text}
+              </span>
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {thread ? (
+        <div className="glass animate-rise flex h-[60vh] flex-col rounded-3xl p-6">
+          <div className="border-b border-white/10 pb-3">
+            <p className="font-black">{thread.fullName}</p>
+            <p className="text-muted-foreground text-xs">
+              {thread.registrationId} · {thread.department} · {thread.year} · {thread.semester}
+            </p>
+          </div>
+          <div className="flex-1 space-y-3 overflow-y-auto py-4">
+            {thread.messages.map((m) => (
+              <div
+                key={m.id}
+                className={`flex ${m.from === "admin" ? "justify-end" : "justify-start"}`}
+              >
+                <div
+                  className={`max-w-[75%] rounded-2xl px-4 py-2 text-sm ${
+                    m.from === "admin" ? "hero-gradient text-white" : "glass"
+                  }`}
+                >
+                  {m.text}
+                </div>
+              </div>
+            ))}
+          </div>
+          <form onSubmit={reply} className="flex gap-2 border-t border-white/10 pt-4">
+            <input
+              className={inputClass}
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder="Reply to student..."
+            />
+            <button className={btnClass}>Reply</button>
+          </form>
+        </div>
+      ) : (
+        <div className="glass grid place-items-center rounded-3xl p-16 text-center">
+          <p className="text-muted-foreground">
+            Select a student to view their details and reply.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FeedbackAdmin() {
+  const [list, setList] = useState<Feedback[] | null>(null);
+  useEffect(() => {
+    api<{ feedback: Feedback[] }>("/api/admin/feedback")
+      .then((r) => setList(r.feedback))
+      .catch(() => setList([]));
+  }, []);
+  if (list === null) return <Skeletons count={4} />;
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {!list.length && <p className="text-muted-foreground text-sm">No feedback yet.</p>}
+      {list.map((f) => (
+        <article key={f.id} className="glass animate-rise rounded-2xl p-5">
+          <div className="flex items-center justify-between">
+            <p className="font-bold">{f.userName}</p>
+            <p>{"⭐".repeat(f.rating)}</p>
+          </div>
+          <p className="text-muted-foreground text-xs">{f.registrationId}</p>
+          <p className="mt-2 text-sm">{f.comment}</p>
+          <p className="text-muted-foreground mt-2 text-xs">
+            {new Date(f.createdAt).toLocaleString()}
+          </p>
+        </article>
+      ))}
     </div>
   );
 }
