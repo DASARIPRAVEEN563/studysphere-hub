@@ -224,6 +224,40 @@ export function FaceVerify({ user, onVerified }: { user: User; onVerified: (u: U
               Verified on {new Date(user.faceVerifiedAt).toLocaleString()}
             </p>
           )}
+          {mail.status !== "idle" && (
+            <div
+              className={`rounded-xl px-3 py-2 text-xs font-semibold ${
+                mail.status === "sent"
+                  ? "bg-cyan/15 text-cyan"
+                  : mail.status === "failed"
+                    ? "bg-destructive/15 text-destructive"
+                    : "bg-primary/15 text-primary"
+              }`}
+              role="status"
+              aria-live="polite"
+            >
+              <span className="flex items-center gap-2">
+                <span
+                  className={
+                    mail.status === "queued" || mail.status === "sending"
+                      ? "size-2 animate-ping rounded-full bg-current"
+                      : "size-2 rounded-full bg-current"
+                  }
+                />
+                Email {mail.status}
+              </span>
+              <span className="mt-1 block font-medium opacity-90">{mail.detail}</span>
+              {mail.status === "failed" && (
+                <button
+                  type="button"
+                  onClick={() => void deliverEmail(user.email ?? "")}
+                  className="mt-2 underline"
+                >
+                  Retry sending
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </section>
