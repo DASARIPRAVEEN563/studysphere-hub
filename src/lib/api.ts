@@ -1,3 +1,5 @@
+import { offlineRequest, offlineStudentsCsv } from "./offline-backend";
+
 export const API_BASE =
   (import.meta.env["VITE_API_URL"] as string | undefined) ?? "http://localhost:5000";
 
@@ -78,6 +80,19 @@ export const auth = {
   },
 };
 
+function isNetworkError(err: unknown) {
+  return err instanceof TypeError || (err as Error)?.message === "Failed to fetch";
+}
+
+function saveBlobUrl(url: string, fileName: string) {
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
 async function handle(res: Response) {
   const text = await res.text();
   const data = text ? JSON.parse(text) : {};
@@ -99,42 +114,58 @@ export async function api<T = any>(
     headers["Content-Type"] = "application/json";
     body = JSON.stringify(options.body);
   }
-  const res = await fetch(`${API_BASE}${path}`, {
-    method: options.method ?? (body ? "POST" : "GET"),
-    headers,
-    body,
-  });
-  return handle(res) as Promise<T>;
+  const method = options.method ?? (body ? "POST" : "GET");
+  try {
+    const res = await fetch(`${API_BASE}${path}`, { method, headers, body });
+    return (await handle(res)) as T;
+  } catch (err) {
+    if (!isNetworkError(err)) throw err;
+    // Flask backend unreachable -> use the in-browser fallback backend.
+    return (await offlineRequest(path, method, token, options.body, options.form)) as T;
+  }
 }
 
 export async function downloadNote(note: Note) {
   const token = auth.token();
-  const res = await fetch(`${API_BASE}/api/notes/${note.id}/download`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  });
-  if (!res.ok) throw new Error("Download failed");
-  const blob = await res.blob();
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = note.fileName;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
+  try {
+    const res = await fetch(`${API_BASE}/api/notes/${note.id}/download`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) throw new Error("Download failed");
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    saveBlobUrl(url, note.fileName);
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    if (!isNetworkError(err)) throw err;
+    const { dataUrl } = await offlineRequest(
+      `/api/notes/${note.id}/download`,
+      "GET",
+      token,
+      undefined,
+    );
+    saveBlobUrl(dataUrl, note.fileName);
+  }
 }
 
 export async function downloadStudentsExcel() {
   const token = auth.token();
-  const res = await fetch(`${API_BASE}/api/admin/students.xlsx`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  });
-  if (!res.ok) throw new Error("Export failed");
-  const blob = await res.blob();
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "students.xlsx";
-  a.click();
-  URL.revokeObjectURL(url);
+  try {
+    const res = await fetch(`${API_BASE}/api/admin/students.xlsx`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) throw new Error("Export failed");
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    saveBlobUrl(url, "students.xlsx");
+    URL.revokeObjectURL(url);
+    return "students.xlsx";
+  } catch (err) {
+    if (!isNetworkError(err)) throw err;
+    const csv = offlineStudentsCsv();
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    saveBlobUrl(url, "students.csv");
+    URL.revokeObjectURL(url);
+    return "students.csv";
+  }
 }
