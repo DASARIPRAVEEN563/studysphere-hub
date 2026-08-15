@@ -26,6 +26,10 @@ export type User = {
   profilePicture?: string | null;
   sharedCount: number;
   downloadedCount: number;
+  stars?: number;
+  faceVerified?: boolean;
+  faceImage?: string | null;
+  faceVerifiedAt?: string | null;
 };
 
 export type Note = {
@@ -44,11 +48,39 @@ export type Note = {
 
 export type ContentItem = {
   id: string;
-  type: "gallery" | "timetable" | "promotion" | "video" | "notice";
+  type: "gallery" | "timetable" | "promotion" | "video" | "notice" | "advertisement";
   title: string;
   description?: string;
   url?: string;
   createdAt: string;
+};
+
+export type Feedback = {
+  id: string;
+  userName: string;
+  registrationId: string;
+  rating: number;
+  comment: string;
+  createdAt: string;
+};
+
+export type ChatMessage = {
+  id: string;
+  userId: string;
+  from: "user" | "admin";
+  text: string;
+  createdAt: string;
+};
+
+export type ChatThread = {
+  userId: string;
+  fullName: string;
+  registrationId: string;
+  department: string;
+  year: string;
+  semester: string;
+  profilePicture?: string | null;
+  messages: ChatMessage[];
 };
 
 const TOKEN_KEY = "sknsh_token";

@@ -203,10 +203,36 @@
   60% { opacity: 1; transform: translateY(-6px) rotate(2deg); }
   100% { opacity: 1; transform: none; }
 }
+@keyframes page-flip {
+  0% { transform: rotateY(0deg); opacity: 1; }
+  50% { transform: rotateY(-115deg); opacity: 0.75; }
+  100% { transform: rotateY(-180deg); opacity: 1; }
+}
+@keyframes star-burst {
+  0% { opacity: 0; transform: translate(0, 0) scale(0.2) rotate(0deg); }
+  35% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--sx), var(--sy)) scale(1.3) rotate(240deg); }
+}
+@keyframes star-pop {
+  0% { opacity: 0; transform: scale(0.2) rotate(-30deg); }
+  55% { opacity: 1; transform: scale(1.25) rotate(8deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0deg); }
+}
+@keyframes scan-line {
+  0% { top: 0%; }
+  100% { top: 100%; }
+}
 
 @utility animate-float { animation: float-slow 5s ease-in-out infinite; }
 @utility animate-rise { animation: rise-in 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
 @utility animate-letter { animation: letter-pop 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+@utility animate-page-flip {
+  transform-origin: left center;
+  animation: page-flip 1.1s cubic-bezier(0.4, 0.1, 0.3, 1) infinite;
+}
+@utility animate-star-burst { animation: star-burst 1s ease-out forwards; }
+@utility animate-star-pop { animation: star-pop 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+@utility animate-scan { animation: scan-line 1.8s ease-in-out infinite alternate; }
 @utility animate-shine {
   background-size: 200% auto;
   animation: shine 4s linear infinite;
