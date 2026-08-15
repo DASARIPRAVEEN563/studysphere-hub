@@ -18,13 +18,20 @@ python app.py
 A bootstrap admin account is created on first run using `ADMIN_ID` /
 `ADMIN_PASSWORD` from `.env` (default `ADMIN001` / `Admin@12345`).
 
-### Google Drive
+### Google Drive (via Lovable connector)
 
-1. Create a Google Cloud project and enable the **Google Drive API**.
-2. Create a **service account** and download its JSON key as
-   `backend/service-account.json` (no Gmail password is ever used).
-3. Optionally share a Drive folder with the service-account email and set
-   `GOOGLE_DRIVE_PARENT_ID` to that folder ID.
+The backend stores uploaded notes in the Google Drive account connected
+through Lovable's Google Drive connector. No service-account JSON key is
+required.
+
+1. In Lovable, go to **Project Settings → Connectors** and connect
+   **Google Drive** with the account you want to use.
+2. The connector provides two secrets:
+   - `LOVABLE_API_KEY`
+   - `GOOGLE_DRIVE_API_KEY`
+3. These secrets are already written to `backend/.env` when you connect from
+   this chat. If you recreate the project elsewhere, copy the values from
+   **Project Settings → Secrets** into `backend/.env`.
 
 Files are stored as:
 
@@ -33,7 +40,7 @@ STUDENTS KA NOTES SHARING HUB/<Department>/<Year>/<Semester>/<Subject>.pdf
 ```
 
 The subject is also stored separately as metadata in `backend/data/notes.json`.
-If no service-account key is present, the identical folder tree is created
+If the connector secrets are not present, the identical folder tree is created
 under `backend/uploads/` so the app still runs end to end.
 
 ### API
