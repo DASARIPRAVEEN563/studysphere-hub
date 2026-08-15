@@ -17,23 +17,6 @@ const LINKS = [
     href: () =>
       `https://t.me/share/url?url=${encodeURIComponent(SITE_URL)}&text=${encodeURIComponent(MESSAGE)}`,
   },
-  {
-    label: "Facebook",
-    icon: "📘",
-    href: () => `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(SITE_URL)}`,
-  },
-  {
-    label: "X",
-    icon: "✖️",
-    href: () =>
-      `https://twitter.com/intent/tweet?url=${encodeURIComponent(SITE_URL)}&text=${encodeURIComponent(MESSAGE)}`,
-  },
-  {
-    label: "Email",
-    icon: "✉️",
-    href: () =>
-      `mailto:?subject=${encodeURIComponent("Students Ka Notes Sharing Hub")}&body=${encodeURIComponent(`${MESSAGE} ${SITE_URL}`)}`,
-  },
 ];
 
 /** Share-the-website options shown on the profile page. */
@@ -73,7 +56,7 @@ export function ShareSite() {
       <p className="text-muted-foreground mt-1 text-sm">
         Invite your classmates — more notes for everyone.
       </p>
-      <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-4">
+      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
         {LINKS.map((l) => (
           <a
             key={l.label}
@@ -98,14 +81,7 @@ export function ShareSite() {
           className="glass flex flex-col items-center gap-1 rounded-2xl px-2 py-3 text-xs font-bold transition-transform hover:-translate-y-1"
         >
           <span className="text-xl">🔗</span>
-          Copy link
-        </button>
-        <button
-          onClick={nativeShare}
-          className="hero-gradient flex flex-col items-center gap-1 rounded-2xl px-2 py-3 text-xs font-bold text-white transition-transform hover:-translate-y-1"
-        >
-          <span className="text-xl">📤</span>
-          More
+          Link
         </button>
       </div>
     </section>
