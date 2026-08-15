@@ -46,7 +46,7 @@ function Index() {
           <p className="text-muted-foreground animate-rise mt-6 text-sm tracking-[0.3em] uppercase">
             Loading your hub...
           </p>
-          <div className="mx-auto mt-6 h-1 w-56 overflow-hidden rounded-full bg-white/10">
+          <div className="mx-auto mt-6 h-1 w-56 overflow-hidden rounded-full bg-muted">
             <div className="hero-gradient animate-shine h-full w-full" />
           </div>
         </div>

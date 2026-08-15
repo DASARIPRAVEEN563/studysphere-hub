@@ -61,7 +61,7 @@ function ChatPage() {
   return (
     <AppShell title="Chat with Admin">
       <div className="glass animate-rise mx-auto flex h-[65vh] max-w-3xl flex-col rounded-3xl p-6">
-        <div className="flex items-center gap-3 border-b border-white/10 pb-4">
+        <div className="flex items-center gap-3 border-b border-border pb-4">
           <span className="hero-gradient grid size-10 place-items-center rounded-xl text-lg">💬</span>
           <div>
             <p className="font-black">Admin Support</p>
@@ -98,7 +98,7 @@ function ChatPage() {
           <div ref={endRef} />
         </div>
 
-        <form onSubmit={send} className="flex gap-2 border-t border-white/10 pt-4">
+        <form onSubmit={send} className="flex gap-2 border-t border-border pt-4">
           <input
             className={inputClass}
             value={text}

@@ -46,7 +46,6 @@ function NotesPage() {
   const [semester, setSemester] = useState<string | null>(null);
   const [subject, setSubject] = useState<string | null>(null);
   const [q, setQ] = useState("");
-  const [term, setTerm] = useState("");
   const [dDept, setDDept] = useState("");
   const [dYear, setDYear] = useState("");
   const [dSem, setDSem] = useState("");
@@ -60,6 +59,24 @@ function NotesPage() {
       });
   }, []);
 
+  const term = q.trim();
+
+  /** Live subject search: prefix matches first, then any-position matches. */
+  const searchResults = useMemo(() => {
+    if (!term) return [];
+    const t = term.toLowerCase();
+    const all = notes ?? [];
+    const starts = all.filter((n) => n.subject.toLowerCase().startsWith(t));
+    const rest = all.filter(
+      (n) =>
+        !n.subject.toLowerCase().startsWith(t) &&
+        (n.subject.toLowerCase().includes(t) ||
+          n.fileName.toLowerCase().includes(t) ||
+          n.uploadedBy.toLowerCase().includes(t)),
+    );
+    return [...starts, ...rest];
+  }, [notes, term]);
+
   const scoped = useMemo(
     () =>
       (notes ?? []).filter(
@@ -67,13 +84,9 @@ function NotesPage() {
           (!department || n.department === department) &&
           (!year || n.year === year) &&
           (!semester || n.semester === semester) &&
-          (!subject || n.subject === subject) &&
-          (!term ||
-            n.subject.toLowerCase().includes(term.toLowerCase()) ||
-            n.fileName.toLowerCase().includes(term.toLowerCase()) ||
-            n.uploadedBy.toLowerCase().includes(term.toLowerCase())),
+          (!subject || n.subject === subject),
       ),
-    [notes, department, year, semester, subject, term],
+    [notes, department, year, semester, subject],
   );
 
   const subjects = useMemo(
@@ -158,7 +171,6 @@ function NotesPage() {
         className="glass animate-rise mb-6 grid gap-3 rounded-2xl p-4 sm:grid-cols-2 lg:grid-cols-5"
         onSubmit={(e) => {
           e.preventDefault();
-          setTerm(q.trim());
           setDepartment(dDept || null);
           setYear(dDept && dYear ? dYear : null);
           setSemester(dDept && dYear && dSem ? dSem : null);
@@ -170,7 +182,7 @@ function NotesPage() {
             className={inputClass}
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search subject, file or student"
+            placeholder="Search by subject name (type 'n' for all n… subjects)"
           />
           <button
             type="submit"
@@ -223,6 +235,17 @@ function NotesPage() {
 
       {notes === null ? (
         <BookLoader label="Opening library" />
+      ) : term ? (
+        searchResults.length ? (
+          <section>
+            <h3 className="mb-4 text-lg font-bold">
+              {searchResults.length} result(s) for “{term}”
+            </h3>
+            <FileGrid notes={searchResults} onView={view} onDownload={download} onLike={like} />
+          </section>
+        ) : (
+          <Empty text={`No subject or file matches “${term}”.`} />
+        )
       ) : !department ? (
         <Grid
           items={DEPARTMENTS.map((d) => ({ label: d, sub: "Department" }))}
@@ -253,43 +276,7 @@ function NotesPage() {
           <Empty text="No subjects uploaded here yet." />
         )
       ) : scoped.length ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {scoped.map((n, i) => (
-            <article
-              key={n.id}
-              className="glass animate-rise rounded-2xl p-5 transition-all hover:-translate-y-1 hover:shadow-2xl"
-              style={{ animationDelay: `${i * 40}ms` }}
-            >
-              <p className="text-cyan text-xs font-semibold uppercase">{n.subject}</p>
-              <p className="mt-1 truncate font-bold" title={n.fileName}>
-                {n.fileName}
-              </p>
-              <p className="text-muted-foreground mt-1 text-xs">
-                {(n.size / 1024).toFixed(0)} KB · {new Date(n.uploadedAt).toLocaleDateString()}
-              </p>
-              <p className="text-pink mt-1 text-xs font-semibold">Shared by {n.uploadedBy}</p>
-              <div className="text-muted-foreground mt-3 flex flex-wrap items-center gap-3 text-xs font-semibold">
-                <button
-                  onClick={() => like(n)}
-                  className={`transition-transform hover:scale-110 ${n.likedByMe ? "text-pink" : ""}`}
-                  title="Rate this file"
-                >
-                  {n.likedByMe ? "❤️" : "🤍"} {n.likes ?? 0} rating(s)
-                </button>
-                <span>👁 {n.views ?? 0} views</span>
-                <span>⬇ {n.downloads ?? 0} downloads</span>
-              </div>
-              <div className="mt-4 flex gap-2">
-                <button onClick={() => view(n)} className={`${ghostBtnClass} flex-1`}>
-                  View
-                </button>
-                <button onClick={() => download(n)} className={`${ghostBtnClass} flex-1`}>
-                  Download
-                </button>
-              </div>
-            </article>
-          ))}
-        </div>
+        <FileGrid notes={scoped} onView={view} onDownload={download} onLike={like} />
       ) : (
         <Empty text="No files for this subject yet." />
       )}
@@ -334,6 +321,58 @@ function NotesPage() {
         </section>
       )}
     </AppShell>
+  );
+}
+
+function FileGrid({
+  notes,
+  onView,
+  onDownload,
+  onLike,
+}: {
+  notes: Note[];
+  onView: (n: Note) => void;
+  onDownload: (n: Note) => void;
+  onLike: (n: Note) => void;
+}) {
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {notes.map((n, i) => (
+        <article
+          key={n.id}
+          className="glass animate-rise rounded-2xl p-5 transition-all hover:-translate-y-1 hover:shadow-2xl"
+          style={{ animationDelay: `${i * 40}ms` }}
+        >
+          <p className="text-cyan text-xs font-semibold uppercase">{n.subject}</p>
+          <p className="mt-1 truncate font-bold" title={n.fileName}>
+            {n.fileName}
+          </p>
+          <p className="text-muted-foreground mt-1 text-xs">
+            {n.department} · {n.year} · {n.semester} · {(n.size / 1024).toFixed(0)} KB
+          </p>
+          <p className="text-pink mt-1 text-xs font-semibold">Shared by {n.uploadedBy}</p>
+          <div className="text-muted-foreground mt-3 flex flex-wrap items-center gap-3 text-xs font-semibold">
+            <button
+              onClick={() => onLike(n)}
+              className={`transition-transform hover:scale-110 ${n.likedByMe ? "text-pink" : ""}`}
+              title="Rate this file"
+            >
+              {n.likedByMe ? "❤️" : "🤍"} {n.likes ?? 0} rating(s)
+            </button>
+            <span>👁 {n.views ?? 0} views</span>
+            <span>⬇ {n.downloads ?? 0} downloads</span>
+          </div>
+          <div className="mt-4 flex gap-2">
+            <button onClick={() => onView(n)} className={`${ghostBtnClass} flex-1`}>
+              View
+            </button>
+            <button onClick={() => onDownload(n)} className={`${ghostBtnClass} flex-1`}>
+              Download
+            </button>
+          </div>
+        </article>
+      ))}
+    </div>
   );
 }
 

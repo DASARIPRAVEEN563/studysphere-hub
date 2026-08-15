@@ -56,6 +56,7 @@ export type ContentItem = {
   title: string;
   description?: string;
   url?: string;
+  badge?: string;
   createdAt: string;
 };
 

@@ -72,7 +72,7 @@ export function AppShell({
     <div className="min-h-screen">
       {(flipping || isRouterLoading) && <BookLoaderOverlay label={title} />}
       <header className="glass sticky top-0 z-40 rounded-none border-x-0 border-t-0">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3 px-4 py-3">
+        <div className="mx-auto flex max-w-7xl items-center gap-2 px-3 py-2.5 sm:gap-3 sm:px-4 sm:py-3">
           <Link to="/home" className="flex items-center gap-2">
             <span className="hero-gradient glow grid size-9 place-items-center rounded-xl text-lg font-black text-white">
               S
@@ -81,12 +81,12 @@ export function AppShell({
               SKNSH
             </span>
           </Link>
-          <nav className="flex flex-1 flex-wrap items-center gap-1">
+          <nav className="scrollbar-none -mx-1 flex min-w-0 flex-1 items-center gap-1 overflow-x-auto px-1">
             {NAV.map((n) => (
               <Link
                 key={n.to}
                 to={n.to}
-                className={`rounded-full px-3 py-1.5 text-sm font-medium transition-all hover:bg-white/10 ${
+                className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-all hover:bg-primary/10 sm:text-sm ${
                   pathname === n.to
                     ? "hero-gradient text-white shadow-lg"
                     : "text-muted-foreground"
@@ -98,7 +98,7 @@ export function AppShell({
             {user?.role === "admin" && (
               <Link
                 to="/admin"
-                className={`rounded-full px-3 py-1.5 text-sm font-medium transition-all hover:bg-white/10 ${
+                className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-all hover:bg-primary/10 sm:text-sm ${
                   pathname === "/admin" ? "hero-gradient text-white" : "text-pink"
                 }`}
               >
@@ -113,7 +113,7 @@ export function AppShell({
               </span>
               <button
                 onClick={logout}
-                className="rounded-full border border-white/15 px-3 py-1.5 text-sm font-medium transition-colors hover:bg-white/10"
+                className="rounded-full border border-border px-3 py-1.5 text-sm font-medium transition-colors hover:bg-muted"
               >
                 Logout
               </button>
@@ -121,8 +121,8 @@ export function AppShell({
           )}
         </div>
       </header>
-      <main className="mx-auto max-w-7xl px-4 py-8">
-        <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+      <main className="mx-auto max-w-7xl px-3 py-6 sm:px-4 sm:py-8">
+        <div className="mb-6 flex flex-wrap items-end justify-between gap-3 sm:mb-8 sm:gap-4">
           <PageName name={title} />
           {actions}
         </div>

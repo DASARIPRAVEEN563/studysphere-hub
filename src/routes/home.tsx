@@ -32,6 +32,22 @@ const GROUPS = [
 ] as const;
 
 function HomePage() {
+  return <HomeContent />;
+}
+
+function isEmbeddable(url: string) {
+  return /youtube\.com|youtu\.be|vimeo\.com|drive\.google\.com/.test(url);
+}
+
+function toEmbed(url: string) {
+  const yt = url.match(/(?:youtu\.be\/|v=)([\w-]{6,})/);
+  if (yt) return `https://www.youtube.com/embed/${yt[1]}`;
+  const vm = url.match(/vimeo\.com\/(\d+)/);
+  if (vm) return `https://player.vimeo.com/video/${vm[1]}`;
+  return url.replace("/view", "/preview");
+}
+
+function HomeContent() {
   const user = useRequireAuth();
   const [items, setItems] = useState<ContentItem[] | null>(null);
 
@@ -64,15 +80,36 @@ function HomePage() {
                 {list.map((item) => (
                   <article
                     key={item.id}
-                    className="glass animate-rise overflow-hidden rounded-2xl transition-transform hover:-translate-y-1"
+                    className="glass animate-rise relative overflow-hidden rounded-2xl transition-transform hover:-translate-y-1"
                   >
-                    {item.url && g.type !== "video" && (
-                      <img
-                        src={item.url}
-                        alt={item.title}
-                        loading="lazy"
-                        className="h-40 w-full object-cover"
-                      />
+                    {item.badge && (
+                      <span className="hero-gradient animate-badge absolute top-3 right-3 z-10 rounded-full px-3 py-1 text-[10px] font-black tracking-wider text-white shadow-lg">
+                        {item.badge}
+                      </span>
+                    )}
+                    {item.url && (
+                      <div className="bg-muted aspect-video w-full overflow-hidden">
+                        {g.type === "video" ? (
+                          isEmbeddable(item.url) ? (
+                            <iframe
+                              src={toEmbed(item.url)}
+                              title={item.title}
+                              loading="lazy"
+                              allowFullScreen
+                              className="size-full border-0"
+                            />
+                          ) : (
+                            <video src={item.url} controls className="size-full object-cover" />
+                          )
+                        ) : (
+                          <img
+                            src={item.url}
+                            alt={item.title}
+                            loading="lazy"
+                            className="size-full object-cover"
+                          />
+                        )}
+                      </div>
                     )}
                     <div className="p-5">
                       <div className={`mb-2 h-1 w-12 rounded-full bg-gradient-to-r ${g.accent}`} />

@@ -62,4 +62,9 @@ admin_bp.add_url_rule(
 )
 admin_bp.add_url_rule(
     "/feedback", view_func=require_admin(feedback_controller.list_feedback), methods=["GET"]
+)admin_bp.add_url_rule(
+    "/chat/broadcast",
+    view_func=require_admin(chat_controller.admin_broadcast),
+    methods=["POST"],
+    endpoint="admin_chat_broadcast",
 )

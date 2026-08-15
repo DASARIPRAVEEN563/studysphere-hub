@@ -366,7 +366,7 @@ export async function offlineRequest(
 
     if (url === "/api/admin/chat") {
       const threads: ChatThread[] = db.users
-        .filter((u) => u.role !== "admin" && db.chats.some((c) => c.userId === u.id))
+        .filter((u) => u.role !== "admin")
         .map((u) => ({
           userId: u.id,
           fullName: u.fullName,
@@ -381,6 +381,22 @@ export async function offlineRequest(
     }
 
     if (url.startsWith("/api/admin/chat/") && method === "POST") {
+      if (url === "/api/admin/chat/broadcast") {
+        const text = String(body.text ?? "").trim();
+        if (!text) throw new OfflineError("Message is empty");
+        const students = db.users.filter((u) => u.role !== "admin");
+        students.forEach((u) =>
+          db.chats.push({
+            id: id(),
+            userId: u.id,
+            from: "admin",
+            text,
+            createdAt: new Date().toISOString(),
+          }),
+        );
+        save();
+        return { sent: students.length };
+      }
       const uid = url.split("/")[4]!;
       const msg: ChatMessage = {
         id: id(),
@@ -404,6 +420,7 @@ export async function offlineRequest(
         title: body.title,
         description: body.description || undefined,
         url: body.url || undefined,
+        badge: body.badge || undefined,
         createdAt: new Date().toISOString(),
       };
       db.content.unshift(item);

@@ -7,7 +7,7 @@ export function BookLoader({ label = "Loading" }: { label?: string }) {
         {[0, 1, 2].map((i) => (
           <div
             key={i}
-            className="animate-page-flip absolute inset-y-2 left-1/2 w-1/2 rounded-r-xl border border-white/20 bg-white/10"
+            className="animate-page-flip absolute inset-y-2 left-1/2 w-1/2 rounded-r-xl border border-white/20 bg-muted"
             style={{ animationDelay: `${i * 0.22}s` }}
           />
         ))}

@@ -177,6 +177,27 @@ export function FaceVerify({ user, onVerified }: { user: User; onVerified: (u: U
     }
   };
 
+  if (user.faceVerified && !live) {
+    return (
+      <section className="glass animate-rise flex flex-wrap items-center gap-3 rounded-3xl p-5">
+        <span className="hero-gradient grid size-11 shrink-0 place-items-center rounded-full text-lg text-white shadow-lg">
+          ✓
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="font-black">Face verified</p>
+          <p className="text-muted-foreground text-xs">
+            {user.faceVerifiedAt
+              ? `Verified on ${new Date(user.faceVerifiedAt).toLocaleDateString()}`
+              : "You can share and download notes."}
+          </p>
+        </div>
+        <button onClick={start} type="button" className="text-primary text-xs font-bold underline">
+          Re-verify
+        </button>
+      </section>
+    );
+  }
+
   return (
     <section className="glass animate-rise rounded-3xl p-6">
       <div className="flex items-center justify-between gap-3">
@@ -201,7 +222,7 @@ export function FaceVerify({ user, onVerified }: { user: User; onVerified: (u: U
       )}
 
       <div className="mt-4 grid gap-4 sm:grid-cols-[220px_1fr]">
-        <div className="border-primary/40 relative aspect-[4/3] overflow-hidden rounded-2xl border-2 border-dashed bg-black/30">
+        <div className="border-primary/40 relative aspect-[4/3] overflow-hidden rounded-2xl border-2 border-dashed bg-muted">
           {live ? (
             <>
               <video ref={videoRef} playsInline muted className="size-full object-cover" />

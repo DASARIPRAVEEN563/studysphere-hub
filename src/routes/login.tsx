@@ -39,6 +39,10 @@ function LoginPage() {
         body: { registrationId, password },
       });
       auth.save(res.token, res.user);
+      if (res.user.role === "admin") {
+        auth.clear();
+        throw new Error("Admin accounts must sign in from the Admin login page");
+      }
       setWelcome(res.user);
     } catch (err) {
       toast.error((err as Error).message);
@@ -53,9 +57,7 @@ function LoginPage() {
         <WelcomeOverlay
           name={welcome.fullName}
           subtitle="Taking you to your hub..."
-          onDone={() =>
-            navigate({ to: welcome.role === "admin" ? "/admin" : "/home", replace: true })
-          }
+          onDone={() => navigate({ to: "/home", replace: true })}
         />
       )}
       <div className="w-full max-w-md">

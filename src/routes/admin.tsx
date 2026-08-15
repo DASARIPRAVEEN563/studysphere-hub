@@ -9,6 +9,7 @@ import {
   downloadStudentsExcel,
   SEMESTERS,
   YEARS,
+  type ChatThread,
   type ContentItem,
   type Feedback,
   type Note,
@@ -40,7 +41,9 @@ const CONTENT_TYPES = [
   "advertisement",
 ] as const;
 
-const TABS = ["notes", "content", "feedback", "students"] as const;
+const TABS = ["notes", "content", "chat", "feedback", "students"] as const;
+
+const BADGES = ["", "NEW", "IMPORTANT", "URGENT", "HOT", "EVENT", "UPDATE"] as const;
 
 function AdminPage() {
   useRequireAuth("admin");
@@ -50,12 +53,12 @@ function AdminPage() {
     <AppShell
       title="Admin Portal"
       actions={
-        <div className="flex flex-wrap gap-2">
+        <div className="-mx-1 flex w-full gap-2 overflow-x-auto px-1 pb-1 sm:flex-wrap sm:overflow-visible">
           {TABS.map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`rounded-full px-4 py-2 text-sm font-bold capitalize transition-all ${
+              className={`shrink-0 rounded-full px-4 py-2 text-sm font-bold capitalize transition-all ${
                 tab === t ? "hero-gradient text-white shadow-lg" : "glass"
               }`}
             >
@@ -67,6 +70,7 @@ function AdminPage() {
     >
       {tab === "notes" && <NotesAdmin />}
       {tab === "content" && <ContentAdmin />}
+      {tab === "chat" && <ChatAdmin />}
       {tab === "feedback" && <FeedbackAdmin />}
       {tab === "students" && <StudentsAdmin />}
     </AppShell>
@@ -199,6 +203,7 @@ function ContentAdmin() {
     title: "",
     description: "",
     url: "",
+    badge: "",
   });
 
   const load = () =>
@@ -214,7 +219,7 @@ function ContentAdmin() {
     try {
       await api("/api/admin/content", { body: form });
       toast.success("Content published");
-      setForm({ ...form, title: "", description: "", url: "" });
+      setForm({ ...form, title: "", description: "", url: "", badge: "" });
       void load();
     } catch (err) {
       toast.error((err as Error).message);
@@ -283,6 +288,23 @@ function ContentAdmin() {
             placeholder="https://..."
           />
         </Field>
+        <Field label="Highlight badge (rotating)">
+          <select
+            className={inputClass}
+            value={form.badge}
+            onChange={(e) => setForm({ ...form, badge: e.target.value })}
+          >
+            {BADGES.map((b) => (
+              <option key={b || "none"} value={b} className="bg-card">
+                {b || "No badge"}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <p className="text-muted-foreground text-xs">
+          All media is auto-fitted to a uniform 16:9 frame on the home page, so images and videos
+          never look stretched.
+        </p>
         <button className={`${btnClass} w-full`}>Publish</button>
       </form>
 
@@ -291,10 +313,22 @@ function ContentAdmin() {
           <Skeletons count={4} />
         ) : (
           items.map((i) => (
-            <div key={i.id} className="glass animate-rise flex items-center gap-4 rounded-2xl p-4">
+            <div key={i.id} className="glass animate-rise flex flex-wrap items-center gap-3 rounded-2xl p-4">
+              {i.url && (
+                <img
+                  src={i.url}
+                  alt={i.title}
+                  className="border-border h-12 w-20 shrink-0 rounded-lg border object-cover"
+                />
+              )}
               <span className="bg-primary/20 text-cyan rounded-full px-3 py-1 text-xs font-bold uppercase">
                 {i.type}
               </span>
+              {i.badge && (
+                <span className="hero-gradient rounded-full px-2 py-0.5 text-[10px] font-black text-white">
+                  {i.badge}
+                </span>
+              )}
               <div className="min-w-0 flex-1">
                 <p className="truncate font-bold">{i.title}</p>
                 <p className="text-muted-foreground truncate text-xs">{i.description}</p>
@@ -317,6 +351,173 @@ function ContentAdmin() {
 }
 
 function StudentsAdmin() {
+  return <StudentsAdminInner />;
+}
+
+function ChatAdmin() {
+  const [threads, setThreads] = useState<ChatThread[] | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [text, setText] = useState("");
+  const [announcement, setAnnouncement] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const load = () =>
+    api<{ threads: ChatThread[] }>("/api/admin/chat")
+      .then((r) => setThreads(r.threads))
+      .catch((e) => {
+        toast.error((e as Error).message);
+        setThreads([]);
+      });
+
+  useEffect(() => {
+    void load();
+    const t = setInterval(() => void load(), 5000);
+    return () => clearInterval(t);
+  }, []);
+
+  const active = (threads ?? []).find((t) => t.userId === activeId) ?? null;
+
+  const reply = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!active || !text.trim()) return;
+    setBusy(true);
+    try {
+      await api(`/api/admin/chat/${active.userId}`, { body: { text } });
+      setText("");
+      await load();
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const broadcast = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!announcement.trim()) return;
+    setBusy(true);
+    try {
+      const r = await api<{ sent: number }>("/api/admin/chat/broadcast", {
+        body: { text: announcement },
+      });
+      toast.success(`Announcement sent to ${r.sent ?? "all"} students`);
+      setAnnouncement("");
+      await load();
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (threads === null) return <Skeletons count={4} />;
+
+  return (
+    <div className="space-y-6">
+      <form onSubmit={broadcast} className="glass animate-rise space-y-3 rounded-3xl p-6">
+        <h3 className="text-lg font-black">📢 Announcement to all students</h3>
+        <textarea
+          className={inputClass}
+          rows={2}
+          value={announcement}
+          onChange={(e) => setAnnouncement(e.target.value)}
+          placeholder="Type an announcement — every student receives it in their chat."
+        />
+        <button className={btnClass} disabled={busy}>
+          Send to everyone
+        </button>
+      </form>
+
+      <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
+        <div className="space-y-2">
+          {!threads.length && <p className="text-muted-foreground text-sm">No students yet.</p>}
+          {threads.map((t) => {
+            const last = t.messages[t.messages.length - 1];
+            return (
+              <button
+                key={t.userId}
+                onClick={() => setActiveId(t.userId)}
+                className={`glass flex w-full items-center gap-3 rounded-2xl p-3 text-left transition-all ${
+                  activeId === t.userId ? "ring-primary ring-2" : ""
+                }`}
+              >
+                <span className="hero-gradient grid size-10 shrink-0 place-items-center overflow-hidden rounded-full font-black text-white">
+                  {t.profilePicture ? (
+                    <img src={t.profilePicture} alt={t.fullName} className="size-full object-cover" />
+                  ) : (
+                    t.fullName.charAt(0).toUpperCase()
+                  )}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-bold">{t.fullName}</span>
+                  <span className="text-muted-foreground block truncate text-xs">
+                    {t.registrationId} · {t.department} · {t.year} · {t.semester}
+                  </span>
+                  <span className="text-muted-foreground block truncate text-xs">
+                    {last ? last.text : "No messages yet"}
+                  </span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="glass flex h-[60vh] flex-col rounded-3xl p-4">
+          {!active ? (
+            <p className="text-muted-foreground m-auto text-sm">
+              Select a student to read and reply to their messages.
+            </p>
+          ) : (
+            <>
+              <div className="border-border border-b pb-3">
+                <p className="font-black">{active.fullName}</p>
+                <p className="text-muted-foreground text-xs">
+                  {active.registrationId} · {active.department} · {active.year} · {active.semester}
+                </p>
+              </div>
+              <div className="flex-1 space-y-2 overflow-y-auto py-3">
+                {!active.messages.length && (
+                  <p className="text-muted-foreground text-center text-sm">No messages yet.</p>
+                )}
+                {active.messages.map((m) => (
+                  <div
+                    key={m.id}
+                    className={`flex ${m.from === "admin" ? "justify-end" : "justify-start"}`}
+                  >
+                    <div
+                      className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm ${
+                        m.from === "admin" ? "hero-gradient text-white" : "bg-muted"
+                      }`}
+                    >
+                      <p>{m.text}</p>
+                      <p className="mt-1 text-[10px] opacity-70">
+                        {m.from === "admin" ? "You" : active.fullName} ·{" "}
+                        {new Date(m.createdAt).toLocaleTimeString()}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <form onSubmit={reply} className="border-border flex gap-2 border-t pt-3">
+                <input
+                  className={inputClass}
+                  value={text}
+                  onChange={(e) => setText(e.target.value)}
+                  placeholder={`Reply to ${active.fullName}...`}
+                />
+                <button className={btnClass} disabled={busy}>
+                  Send
+                </button>
+              </form>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StudentsAdminInner() {
   const [busy, setBusy] = useState(false);
   const [students, setStudents] = useState<User[] | null>(null);
 
@@ -367,7 +568,7 @@ function StudentsAdmin() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {students.map((s) => (
             <article key={s.id} className="glass animate-rise flex gap-4 rounded-2xl p-5">
-              <div className="size-16 shrink-0 overflow-hidden rounded-xl bg-black/30">
+              <div className="size-16 shrink-0 overflow-hidden rounded-xl bg-muted">
                 {s.faceImage ? (
                   <img src={s.faceImage} alt={s.fullName} className="size-full object-cover" />
                 ) : (
