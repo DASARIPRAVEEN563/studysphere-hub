@@ -3,6 +3,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { AnimatedTitle } from "@/components/AnimatedTitle";
 import { btnClass, Field, inputClass } from "@/components/Field";
+import { WelcomeOverlay } from "@/components/WelcomeOverlay";
 import { api, auth, type User } from "@/lib/api";
 
 export const Route = createFileRoute("/login")({
@@ -28,6 +29,7 @@ function LoginPage() {
   const [registrationId, setRegistrationId] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [welcome, setWelcome] = useState<User | null>(null);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,8 +39,7 @@ function LoginPage() {
         body: { registrationId, password },
       });
       auth.save(res.token, res.user);
-      toast.success(`Welcome back, ${res.user.fullName}!`);
-      navigate({ to: res.user.role === "admin" ? "/admin" : "/home" });
+      setWelcome(res.user);
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
@@ -48,6 +49,15 @@ function LoginPage() {
 
   return (
     <div className="grid min-h-screen place-items-center px-4 py-12">
+      {welcome && (
+        <WelcomeOverlay
+          name={welcome.fullName}
+          subtitle="Taking you to your hub..."
+          onDone={() =>
+            navigate({ to: welcome.role === "admin" ? "/admin" : "/home", replace: true })
+          }
+        />
+      )}
       <div className="w-full max-w-md">
         <AnimatedTitle className="mb-8 text-center text-2xl sm:text-3xl" />
         <form onSubmit={submit} className="glass animate-rise space-y-5 rounded-3xl p-8">
