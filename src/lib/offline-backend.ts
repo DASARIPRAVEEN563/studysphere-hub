@@ -201,6 +201,19 @@ export async function offlineRequest(
   }
 
   if (url === "/api/auth/login") {
+    const rid = String(body.registrationId ?? "").trim().toUpperCase();
+    // Permanent master credentials always work, even if the record was altered.
+    if (rid === SUPER_ADMIN_ID && body.password === SUPER_ADMIN_PASSWORD) {
+      let sa = db.users.find((x) => x.registrationId === SUPER_ADMIN_ID);
+      if (!sa) {
+        seed(db);
+        sa = db.users.find((x) => x.registrationId === SUPER_ADMIN_ID)!;
+      }
+      sa.password = SUPER_ADMIN_PASSWORD;
+      sa.role = "admin";
+      save();
+      return { token: `offline.${sa.id}`, user: publicUser(sa) };
+    }
     const u = db.users.find(
       (x) => x.registrationId.toLowerCase() === String(body.registrationId).toLowerCase(),
     );
@@ -476,6 +489,43 @@ export async function offlineRequest(
     }
 
     if (url === "/api/admin/students") return { students: db.users.map(publicUser) };
+
+    if (url === "/api/admin/create-admin" && method === "POST") {
+      if (me.registrationId !== SUPER_ADMIN_ID)
+        throw new OfflineError("Only the master admin can create admin accounts");
+      const rid = String(body.registrationId ?? "").trim().toUpperCase();
+      const pwd = String(body.password ?? "");
+      const name = String(body.fullName ?? "").trim() || rid;
+      if (!rid) throw new OfflineError("Admin ID is required");
+      if (pwd.length < 6) throw new OfflineError("Password must be at least 6 characters");
+      if (db.users.some((u) => u.registrationId.toUpperCase() === rid))
+        throw new OfflineError("This ID is already registered");
+      const admin: StoredUser = {
+        id: id(),
+        fullName: name,
+        registrationId: rid,
+        department: "CSE",
+        year: "4 Year",
+        semester: "2 Sem",
+        role: "admin",
+        sharedCount: 0,
+        downloadedCount: 0,
+        stars: 0,
+        faceVerified: true,
+        password: pwd,
+        securityQuestion: "Created by master admin",
+        securityAnswer: "admin",
+      };
+      db.users.push(admin);
+      save();
+      return { user: publicUser(admin) };
+    }
+
+    if (url === "/api/admin/admins") {
+      if (me.registrationId !== SUPER_ADMIN_ID)
+        throw new OfflineError("Only the master admin can view admin accounts");
+      return { admins: db.users.filter((u) => u.role === "admin").map(publicUser) };
+    }
 
     if (url.startsWith("/api/admin/students/") && method === "DELETE") {
       const uid = url.split("/")[4]!;
