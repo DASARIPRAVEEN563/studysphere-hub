@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { Logo3D } from "./Logo3D";
 
 /** Full-screen animated "Welcome <name>" splash shown after login / signup. */
 export function WelcomeOverlay({
@@ -20,9 +21,7 @@ export function WelcomeOverlay({
   return (
     <div className="bg-background/95 fixed inset-0 z-[100] grid place-items-center px-6 backdrop-blur-xl">
       <div className="text-center">
-        <div className="hero-gradient glow animate-float mx-auto mb-8 grid size-24 place-items-center rounded-full text-4xl font-black text-white">
-          {name.charAt(0).toUpperCase()}
-        </div>
+        <Logo3D size={110} className="animate-float mx-auto mb-8" />
         <p className="text-cyan animate-rise text-xs font-semibold tracking-[0.4em] uppercase">
           Students Ka Notes Sharing Hub
         </p>

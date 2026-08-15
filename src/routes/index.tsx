@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { AnimatedTitle } from "@/components/AnimatedTitle";
+import { Logo3D } from "@/components/Logo3D";
 import { auth } from "@/lib/api";
 
 export const Route = createFileRoute("/")({
@@ -39,9 +40,7 @@ function Index() {
   return (
       <div className="bg-background grid min-h-screen place-items-center px-4">
         <div className="text-center">
-          <div className="hero-gradient glow animate-float mx-auto mb-8 grid size-24 place-items-center rounded-3xl text-4xl font-black text-white">
-            S
-          </div>
+          <Logo3D size={130} className="animate-float mx-auto mb-8" />
           <AnimatedTitle className="text-3xl sm:text-5xl" />
           <p className="text-muted-foreground animate-rise mt-6 text-sm tracking-[0.3em] uppercase">
             Loading your hub...
