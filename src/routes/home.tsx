@@ -32,6 +32,22 @@ const GROUPS = [
 ] as const;
 
 function HomePage() {
+  return <HomeContent />;
+}
+
+function isEmbeddable(url: string) {
+  return /youtube\.com|youtu\.be|vimeo\.com|drive\.google\.com/.test(url);
+}
+
+function toEmbed(url: string) {
+  const yt = url.match(/(?:youtu\.be\/|v=)([\w-]{6,})/);
+  if (yt) return `https://www.youtube.com/embed/${yt[1]}`;
+  const vm = url.match(/vimeo\.com\/(\d+)/);
+  if (vm) return `https://player.vimeo.com/video/${vm[1]}`;
+  return url.replace("/view", "/preview");
+}
+
+function HomeContent() {
   const user = useRequireAuth();
   const [items, setItems] = useState<ContentItem[] | null>(null);
 
