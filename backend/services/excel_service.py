@@ -9,6 +9,7 @@ from openpyxl.styles import Alignment, Font, PatternFill
 HEADERS = [
     "Full Name",
     "Registration ID",
+    "Email ID",
     "Password Hash",
     "Security Question",
     "Security Answer Hash",
@@ -40,6 +41,7 @@ def build_students_workbook(users: list) -> bytes:
         ws.append([
             user.get("fullName", ""),
             user.get("registrationId", ""),
+            user.get("email", "") or "",
             user.get("passwordHash", ""),
             user.get("securityQuestion", ""),
             user.get("securityAnswerHash", ""),
@@ -55,7 +57,7 @@ def build_students_workbook(users: list) -> bytes:
         ])
         _attach_face(ws, ws.max_row, len(HEADERS), user.get("faceImage"))
 
-    widths = [26, 18, 60, 34, 60, 16, 12, 12, 20, 24, 14, 16, 26, 18]
+    widths = [26, 18, 28, 60, 34, 60, 16, 12, 12, 20, 24, 14, 16, 26, 18]
     for idx, width in enumerate(widths, start=1):
         ws.column_dimensions[ws.cell(row=1, column=idx).column_letter].width = width
     ws.freeze_panes = "A2"
