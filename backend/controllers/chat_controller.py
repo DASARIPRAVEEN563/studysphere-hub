@@ -65,3 +65,16 @@ def admin_reply(user_id: str):
         return jsonify({"error": "Message is empty"}), 400
     message = store.insert("chats", _message(user_id, "admin", text))
     return jsonify({"message": message}), 201
+
+def admin_broadcast():
+    data = request.get_json(silent=True) or {}
+    text = (data.get("text") or "").strip()
+    if not text:
+        return jsonify({"error": "Message is empty"}), 400
+    sent = 0
+    for user in store.read("users"):
+        if user.get("role") == "admin":
+            continue
+        store.insert("chats", _message(user["id"], "admin", text))
+        sent += 1
+    return jsonify({"sent": sent}), 201
