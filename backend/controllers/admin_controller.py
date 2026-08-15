@@ -1,6 +1,6 @@
 import os
 
-from flask import Response, jsonify, request
+from flask import Response, g, jsonify, request
 
 from controllers.auth_controller import DEPARTMENTS, SEMESTERS, YEARS
 from controllers.notes_controller import public_note
