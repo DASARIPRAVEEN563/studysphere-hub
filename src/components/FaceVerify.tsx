@@ -121,7 +121,7 @@ export function FaceVerify({ user, onVerified }: { user: User; onVerified: (u: U
     busyRef.current = true;
     setBusy(true);
     try {
-      const r = await api<{ user: User; emailedTo?: string; message?: string }>(
+      const r = await api<{ user: User; emailedTo?: string; emailSent?: boolean; message?: string }>(
         "/api/profile/face-verify",
         { method: "POST", body: { image, faces, email: user.email } },
       );
@@ -129,7 +129,11 @@ export function FaceVerify({ user, onVerified }: { user: User; onVerified: (u: U
       onVerified(r.user);
       stop();
       toast.success("Face verified is successfully completed", {
-        description: `A confirmation mail has been sent to ${r.emailedTo ?? user.email}.`,
+        description: r.emailSent
+          ? `A confirmation mail has been sent to ${r.emailedTo ?? user.email}.`
+          : `Mail could not be sent right now — check that the mail server is configured for ${
+              r.emailedTo ?? user.email
+            }.`,
       });
     } catch (e) {
       toast.error((e as Error).message);

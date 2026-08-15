@@ -27,7 +27,7 @@ def update_profile():
     if "email" in data:
         email = str(data.get("email") or "").strip()
         if email and not EMAIL_RE.match(email):
-            return jsonify({"error": "Enter a valid email ID"}), 400
+            return jsonify({"error": "Incorrect email ID"}), 400
         patch["email"] = email or None
     if "profilePicture" in data:
         picture = data["profilePicture"]
@@ -47,6 +47,8 @@ def verify_face():
     email = user.get("email")
     if not email:
         return jsonify({"error": "Add and save your email ID before face verification"}), 400
+    if not EMAIL_RE.match(str(email)):
+        return jsonify({"error": "Incorrect email ID"}), 400
     faces = data.get("faces")
     if faces is not None and int(faces) != 1:
         return jsonify({"error": "Exactly one person must be in front of the camera"}), 400

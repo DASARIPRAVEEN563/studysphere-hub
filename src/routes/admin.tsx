@@ -337,14 +337,24 @@ function StudentsAdmin() {
       setBusy(false);
     }
   };
+
+  const removeStudent = async (s: User) => {
+    if (!confirm(`Delete ${s.fullName} (${s.registrationId})? This cannot be undone.`)) return;
+    try {
+      await api(`/api/admin/students/${s.id}`, { method: "DELETE" });
+      setStudents((prev) => (prev ?? []).filter((x) => x.id !== s.id));
+      toast.success("Student deleted");
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
   return (
     <div className="space-y-6">
     <div className="glass animate-rise max-w-xl rounded-3xl p-8">
       <h3 className="text-lg font-black">Student data export</h3>
       <p className="text-muted-foreground mt-2 text-sm">
-        Exports full name, registration ID, password hash, security question, security answer hash,
-        department, year, semester, notes sharing count, downloaded notes count, stars and the live
-        face-verification image of each verified student. Plaintext passwords are never exported.
+        Exports only full name, email ID, registration ID, department, year and semester. Passwords
+        and security answers are never exported.
       </p>
       <button onClick={exportExcel} className={`${btnClass} mt-6`} disabled={busy}>
         {busy ? "Preparing..." : "Download students.xlsx"}
@@ -376,6 +386,14 @@ function StudentsAdmin() {
                   ⭐ {s.stars ?? 0} · {s.sharedCount} shared · {s.downloadedCount} downloaded ·{" "}
                   {s.faceVerified ? "Verified" : "Unverified"}
                 </p>
+                {s.role !== "admin" && (
+                  <button
+                    onClick={() => removeStudent(s)}
+                    className="text-destructive mt-2 text-xs font-bold hover:underline"
+                  >
+                    🗑 Delete user
+                  </button>
+                )}
               </div>
             </article>
           ))}

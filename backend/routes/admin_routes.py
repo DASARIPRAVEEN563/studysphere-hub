@@ -46,6 +46,12 @@ admin_bp.add_url_rule(
     "/students", view_func=require_admin(admin_controller.list_students), methods=["GET"]
 )
 admin_bp.add_url_rule(
+    "/students/<user_id>",
+    view_func=require_admin(admin_controller.delete_student),
+    methods=["DELETE"],
+    endpoint="admin_delete_student",
+)
+admin_bp.add_url_rule(
     "/chat", view_func=require_admin(chat_controller.admin_threads), methods=["GET"]
 )
 admin_bp.add_url_rule(
