@@ -46,7 +46,6 @@ function NotesPage() {
   const [semester, setSemester] = useState<string | null>(null);
   const [subject, setSubject] = useState<string | null>(null);
   const [q, setQ] = useState("");
-  const [term, setTerm] = useState("");
   const [dDept, setDDept] = useState("");
   const [dYear, setDYear] = useState("");
   const [dSem, setDSem] = useState("");
@@ -60,6 +59,24 @@ function NotesPage() {
       });
   }, []);
 
+  const term = q.trim();
+
+  /** Live subject search: prefix matches first, then any-position matches. */
+  const searchResults = useMemo(() => {
+    if (!term) return [];
+    const t = term.toLowerCase();
+    const all = notes ?? [];
+    const starts = all.filter((n) => n.subject.toLowerCase().startsWith(t));
+    const rest = all.filter(
+      (n) =>
+        !n.subject.toLowerCase().startsWith(t) &&
+        (n.subject.toLowerCase().includes(t) ||
+          n.fileName.toLowerCase().includes(t) ||
+          n.uploadedBy.toLowerCase().includes(t)),
+    );
+    return [...starts, ...rest];
+  }, [notes, term]);
+
   const scoped = useMemo(
     () =>
       (notes ?? []).filter(
@@ -67,13 +84,9 @@ function NotesPage() {
           (!department || n.department === department) &&
           (!year || n.year === year) &&
           (!semester || n.semester === semester) &&
-          (!subject || n.subject === subject) &&
-          (!term ||
-            n.subject.toLowerCase().includes(term.toLowerCase()) ||
-            n.fileName.toLowerCase().includes(term.toLowerCase()) ||
-            n.uploadedBy.toLowerCase().includes(term.toLowerCase())),
+          (!subject || n.subject === subject),
       ),
-    [notes, department, year, semester, subject, term],
+    [notes, department, year, semester, subject],
   );
 
   const subjects = useMemo(
@@ -158,7 +171,6 @@ function NotesPage() {
         className="glass animate-rise mb-6 grid gap-3 rounded-2xl p-4 sm:grid-cols-2 lg:grid-cols-5"
         onSubmit={(e) => {
           e.preventDefault();
-          setTerm(q.trim());
           setDepartment(dDept || null);
           setYear(dDept && dYear ? dYear : null);
           setSemester(dDept && dYear && dSem ? dSem : null);
