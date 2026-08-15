@@ -6,6 +6,7 @@ import { btnClass, Field, inputClass } from "@/components/Field";
 import { BookLoader } from "@/components/BookLoader";
 import { FaceVerify } from "@/components/FaceVerify";
 import { ShareSite } from "@/components/ShareSite";
+import { ThemePicker } from "@/components/ThemePicker";
 import { api, auth, DEPARTMENTS, SEMESTERS, YEARS, type User } from "@/lib/api";
 
 export const Route = createFileRoute("/profile")({
@@ -214,6 +215,7 @@ function ProfilePage() {
         </form>
         )}
         <FaceVerify user={user} onVerified={setUser} />
+        <ThemePicker />
         <ShareSite />
         </div>
       </div>

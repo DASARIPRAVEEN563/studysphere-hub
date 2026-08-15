@@ -3,6 +3,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { auth, type User } from "@/lib/api";
 import { PageName } from "./AnimatedTitle";
+import { Logo3D } from "./Logo3D";
 import { BookLoaderOverlay } from "./BookLoader";
 
 export function useAuthUser() {
@@ -74,9 +75,7 @@ export function AppShell({
       <header className="glass sticky top-0 z-40 rounded-none border-x-0 border-t-0">
         <div className="mx-auto flex max-w-7xl items-center gap-2 px-3 py-2.5 sm:gap-3 sm:px-4 sm:py-3">
           <Link to="/home" className="flex items-center gap-2">
-            <span className="hero-gradient glow grid size-9 place-items-center rounded-xl text-lg font-black text-white">
-              S
-            </span>
+            <Logo3D size={40} />
             <span className="gradient-text hidden text-sm font-black tracking-wide sm:block">
               SKNSH
             </span>
