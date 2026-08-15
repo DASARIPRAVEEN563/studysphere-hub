@@ -9,8 +9,11 @@ import {
   downloadStudentsExcel,
   SEMESTERS,
   YEARS,
+  type ChatThread,
   type ContentItem,
+  type Feedback,
   type Note,
+  type User,
 } from "@/lib/api";
 
 export const Route = createFileRoute("/admin")({
@@ -29,18 +32,27 @@ export const Route = createFileRoute("/admin")({
   component: AdminPage,
 });
 
-const CONTENT_TYPES = ["gallery", "timetable", "promotion", "video", "notice"] as const;
+const CONTENT_TYPES = [
+  "gallery",
+  "timetable",
+  "promotion",
+  "video",
+  "notice",
+  "advertisement",
+] as const;
+
+const TABS = ["notes", "content", "chat", "feedback", "students"] as const;
 
 function AdminPage() {
   useRequireAuth("admin");
-  const [tab, setTab] = useState<"notes" | "content" | "students">("notes");
+  const [tab, setTab] = useState<(typeof TABS)[number]>("notes");
 
   return (
     <AppShell
       title="Admin Portal"
       actions={
-        <div className="flex gap-2">
-          {(["notes", "content", "students"] as const).map((t) => (
+        <div className="flex flex-wrap gap-2">
+          {TABS.map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -56,6 +68,8 @@ function AdminPage() {
     >
       {tab === "notes" && <NotesAdmin />}
       {tab === "content" && <ContentAdmin />}
+      {tab === "chat" && <ChatAdmin />}
+      {tab === "feedback" && <FeedbackAdmin />}
       {tab === "students" && <StudentsAdmin />}
     </AppShell>
   );
