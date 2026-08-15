@@ -19,6 +19,8 @@ export async function sendFaceVerificationEmail(to: string, fullName: string) {
   const safeTo = to.replace(/[\r\n]/g, "").trim();
   const message = [
     `To: ${safeTo}`,
+    "From: STUDENTS KA NOTES SHARING HUB <studentsnotessharing@gmail.com>",
+    "Reply-To: studentsnotessharing@gmail.com",
     "Subject: Face verification successful - STUDENTS KA NOTES SHARING HUB",
     "Content-Type: text/plain; charset=UTF-8",
     "MIME-Version: 1.0",
@@ -47,5 +49,6 @@ export async function sendFaceVerificationEmail(to: string, fullName: string) {
     throw new Error(`Gmail could not send the confirmation [${response.status}]`);
   }
 
-  return { sent: true as const };
+  const result = (await response.json()) as { id?: string };
+  return { sent: true as const, to: safeTo, messageId: result.id ?? null };
 }
