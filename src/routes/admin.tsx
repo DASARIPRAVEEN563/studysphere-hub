@@ -367,7 +367,7 @@ function StudentsAdmin() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {students.map((s) => (
             <article key={s.id} className="glass animate-rise flex gap-4 rounded-2xl p-5">
-              <div className="size-16 shrink-0 overflow-hidden rounded-xl bg-black/30">
+              <div className="size-16 shrink-0 overflow-hidden rounded-xl bg-muted">
                 {s.faceImage ? (
                   <img src={s.faceImage} alt={s.fullName} className="size-full object-cover" />
                 ) : (

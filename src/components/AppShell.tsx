@@ -86,7 +86,7 @@ export function AppShell({
               <Link
                 key={n.to}
                 to={n.to}
-                className={`rounded-full px-3 py-1.5 text-sm font-medium transition-all hover:bg-white/10 ${
+                className={`rounded-full px-3 py-1.5 text-sm font-medium transition-all hover:bg-primary/10 ${
                   pathname === n.to
                     ? "hero-gradient text-white shadow-lg"
                     : "text-muted-foreground"
@@ -98,7 +98,7 @@ export function AppShell({
             {user?.role === "admin" && (
               <Link
                 to="/admin"
-                className={`rounded-full px-3 py-1.5 text-sm font-medium transition-all hover:bg-white/10 ${
+                className={`rounded-full px-3 py-1.5 text-sm font-medium transition-all hover:bg-primary/10 ${
                   pathname === "/admin" ? "hero-gradient text-white" : "text-pink"
                 }`}
               >
@@ -113,7 +113,7 @@ export function AppShell({
               </span>
               <button
                 onClick={logout}
-                className="rounded-full border border-white/15 px-3 py-1.5 text-sm font-medium transition-colors hover:bg-white/10"
+                className="rounded-full border border-border px-3 py-1.5 text-sm font-medium transition-colors hover:bg-muted"
               >
                 Logout
               </button>

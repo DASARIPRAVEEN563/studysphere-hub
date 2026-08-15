@@ -40,7 +40,7 @@ export function WelcomeOverlay({
         {subtitle && (
           <p className="text-muted-foreground animate-rise mt-5 text-sm">{subtitle}</p>
         )}
-        <div className="mx-auto mt-8 h-1 w-56 overflow-hidden rounded-full bg-white/10">
+        <div className="mx-auto mt-8 h-1 w-56 overflow-hidden rounded-full bg-muted">
           <div className="hero-gradient animate-shine h-full w-full" />
         </div>
       </div>

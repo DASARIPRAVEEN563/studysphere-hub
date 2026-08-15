@@ -201,7 +201,7 @@ export function FaceVerify({ user, onVerified }: { user: User; onVerified: (u: U
       )}
 
       <div className="mt-4 grid gap-4 sm:grid-cols-[220px_1fr]">
-        <div className="border-primary/40 relative aspect-[4/3] overflow-hidden rounded-2xl border-2 border-dashed bg-black/30">
+        <div className="border-primary/40 relative aspect-[4/3] overflow-hidden rounded-2xl border-2 border-dashed bg-muted">
           {live ? (
             <>
               <video ref={videoRef} playsInline muted className="size-full object-cover" />
