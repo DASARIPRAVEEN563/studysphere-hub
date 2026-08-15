@@ -8,7 +8,7 @@ from models import store
 from services import drive_service
 from services.excel_service import build_students_workbook
 
-CONTENT_TYPES = ["gallery", "timetable", "promotion", "video", "notice"]
+CONTENT_TYPES = ["gallery", "timetable", "promotion", "video", "notice", "advertisement"]
 
 
 def admin_list_notes():

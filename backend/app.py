@@ -10,6 +10,8 @@ load_dotenv()
 from models import store  # noqa: E402
 from routes.admin_routes import admin_bp, content_bp  # noqa: E402
 from routes.auth_routes import auth_bp  # noqa: E402
+from routes.chat_routes import chat_bp  # noqa: E402
+from routes.feedback_routes import feedback_bp  # noqa: E402
 from routes.notes_routes import notes_bp  # noqa: E402
 from routes.profile_routes import profile_bp  # noqa: E402
 from services import drive_service  # noqa: E402
@@ -36,6 +38,10 @@ def ensure_admin() -> None:
             "profilePicture": None,
             "sharedCount": 0,
             "downloadedCount": 0,
+            "stars": 0,
+            "faceVerified": True,
+            "faceImage": None,
+            "faceVerifiedAt": None,
             "createdAt": store.now_iso(),
         },
     )
@@ -64,6 +70,8 @@ def create_app() -> Flask:
     app.register_blueprint(notes_bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(content_bp)
+    app.register_blueprint(chat_bp)
+    app.register_blueprint(feedback_bp)
 
     @app.get("/api/health")
     def health():

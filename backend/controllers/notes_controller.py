@@ -86,11 +86,18 @@ def upload_note():
         "storagePath": stored["storagePath"],
     }
     store.insert("notes", note)
-    store.update("users", g.user["id"], {"sharedCount": int(g.user.get("sharedCount", 0)) + 1})
-    return jsonify({"note": public_note(note)}), 201
+    stars = int(g.user.get("stars", 0)) + 1
+    store.update(
+        "users",
+        g.user["id"],
+        {"sharedCount": int(g.user.get("sharedCount", 0)) + 1, "stars": stars},
+    )
+    return jsonify({"note": public_note(note), "stars": stars}), 201
 
 
 def download_note(note_id: str):
+    if not g.user.get("faceVerified"):
+        return jsonify({"error": "You are not face verified"}), 403
     note = store.find("notes", id=note_id)
     if not note:
         return jsonify({"error": "Note not found"}), 404

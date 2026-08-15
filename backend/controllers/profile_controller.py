@@ -28,3 +28,16 @@ def update_profile():
         return jsonify({"error": "Nothing to update"}), 400
     updated = store.update("users", g.user["id"], patch)
     return jsonify({"user": public_user(updated)})
+
+
+def verify_face():
+    data = request.get_json(silent=True) or {}
+    image = data.get("image")
+    if not image or not str(image).startswith("data:image/"):
+        return jsonify({"error": "A live camera capture is required"}), 400
+    updated = store.update(
+        "users",
+        g.user["id"],
+        {"faceImage": image, "faceVerified": True, "faceVerifiedAt": store.now_iso()},
+    )
+    return jsonify({"user": public_user(updated)})
