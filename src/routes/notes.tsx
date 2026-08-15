@@ -2,7 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { AppShell, useRequireAuth } from "@/components/AppShell";
-import { ghostBtnClass, Skeletons } from "@/components/Field";
+import { BookLoader } from "@/components/BookLoader";
+import { ghostBtnClass, inputClass } from "@/components/Field";
 import {
   api,
   auth,
@@ -12,6 +13,7 @@ import {
   YEARS,
   type Note,
 } from "@/lib/api";
+import { ensureFaceVerified } from "@/lib/verify";
 
 type Search = { dept?: string | undefined };
 
@@ -42,6 +44,10 @@ function NotesPage() {
   const [year, setYear] = useState<string | null>(null);
   const [semester, setSemester] = useState<string | null>(null);
   const [subject, setSubject] = useState<string | null>(null);
+  const [q, setQ] = useState("");
+  const [fDept, setFDept] = useState("");
+  const [fYear, setFYear] = useState("");
+  const [fSem, setFSem] = useState("");
 
   useEffect(() => {
     api<{ notes: Note[] }>("/api/notes")
@@ -59,14 +65,29 @@ function NotesPage() {
           (!department || n.department === department) &&
           (!year || n.year === year) &&
           (!semester || n.semester === semester) &&
-          (!subject || n.subject === subject),
+          (!subject || n.subject === subject) &&
+          (!fDept || n.department === fDept) &&
+          (!fYear || n.year === fYear) &&
+          (!fSem || n.semester === fSem) &&
+          (!q ||
+            n.subject.toLowerCase().includes(q.toLowerCase()) ||
+            n.fileName.toLowerCase().includes(q.toLowerCase()) ||
+            n.uploadedBy.toLowerCase().includes(q.toLowerCase())),
       ),
-    [notes, department, year, semester, subject],
+    [notes, department, year, semester, subject, fDept, fYear, fSem, q],
   );
 
   const subjects = useMemo(
     () => Array.from(new Set(scoped.map((n) => n.subject))).sort(),
     [scoped],
+  );
+
+  const recent = useMemo(
+    () =>
+      [...(notes ?? [])]
+        .sort((a, b) => b.uploadedAt.localeCompare(a.uploadedAt))
+        .slice(0, 10),
+    [notes],
   );
 
   const crumbs = [
@@ -78,6 +99,7 @@ function NotesPage() {
   ].filter(Boolean) as { label: string; onClick: () => void }[];
 
   const download = async (note: Note) => {
+    if (!ensureFaceVerified("download")) return;
     try {
       await downloadNote(note);
       const u = auth.user();
@@ -108,8 +130,35 @@ function NotesPage() {
         ))}
       </nav>
 
+      <section className="glass animate-rise mb-6 grid gap-3 rounded-2xl p-4 sm:grid-cols-2 lg:grid-cols-4">
+        <input
+          className={inputClass}
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="🔍 Search subject, file or student"
+        />
+        <select className={inputClass} value={fDept} onChange={(e) => setFDept(e.target.value)}>
+          <option value="" className="bg-card">All departments</option>
+          {DEPARTMENTS.map((d) => (
+            <option key={d} value={d} className="bg-card">{d}</option>
+          ))}
+        </select>
+        <select className={inputClass} value={fYear} onChange={(e) => setFYear(e.target.value)}>
+          <option value="" className="bg-card">All years</option>
+          {YEARS.map((y) => (
+            <option key={y} value={y} className="bg-card">{y}</option>
+          ))}
+        </select>
+        <select className={inputClass} value={fSem} onChange={(e) => setFSem(e.target.value)}>
+          <option value="" className="bg-card">All semesters</option>
+          {SEMESTERS.map((s) => (
+            <option key={s} value={s} className="bg-card">{s}</option>
+          ))}
+        </select>
+      </section>
+
       {notes === null ? (
-        <Skeletons />
+        <BookLoader label="Opening library" />
       ) : !department ? (
         <Grid
           items={DEPARTMENTS.map((d) => ({ label: d, sub: "Department" }))}
@@ -129,7 +178,9 @@ function NotesPage() {
           <Grid
             items={subjects.map((s) => ({
               label: s,
-              sub: `${scoped.filter((n) => n.subject === s).length} file(s)`,
+              sub: `${scoped.filter((n) => n.subject === s).length} file(s) · shared by ${Array.from(
+                new Set(scoped.filter((n) => n.subject === s).map((n) => n.uploadedBy)),
+              ).join(", ")}`,
             }))}
             onPick={setSubject}
             icon="📁"
@@ -152,6 +203,7 @@ function NotesPage() {
               <p className="text-muted-foreground mt-1 text-xs">
                 {(n.size / 1024).toFixed(0)} KB · {new Date(n.uploadedAt).toLocaleDateString()}
               </p>
+              <p className="text-pink mt-1 text-xs font-semibold">Shared by {n.uploadedBy}</p>
               <button onClick={() => download(n)} className={`${ghostBtnClass} mt-4 w-full`}>
                 Download
               </button>
@@ -160,6 +212,41 @@ function NotesPage() {
         </div>
       ) : (
         <Empty text="No files for this subject yet." />
+      )}
+
+      {notes !== null && (
+        <section className="mt-12">
+          <h3 className="mb-4 text-lg font-bold">Recently added notes · Top 10</h3>
+          {recent.length ? (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {recent.map((n, i) => (
+                <article
+                  key={n.id}
+                  className="glass animate-rise flex items-center gap-3 rounded-2xl p-4"
+                  style={{ animationDelay: `${i * 40}ms` }}
+                >
+                  <span className="hero-gradient grid size-10 shrink-0 place-items-center rounded-xl">
+                    📄
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-bold">{n.subject}</p>
+                    <p className="text-muted-foreground truncate text-xs">
+                      {n.department} · {n.year} · {n.semester}
+                    </p>
+                    <p className="text-cyan truncate text-xs">
+                      Shared by {n.uploadedBy} · {new Date(n.uploadedAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <button onClick={() => download(n)} className={ghostBtnClass}>
+                    Get
+                  </button>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <Empty text="No notes shared yet." />
+          )}
+        </section>
       )}
     </AppShell>
   );
