@@ -276,43 +276,7 @@ function NotesPage() {
           <Empty text="No subjects uploaded here yet." />
         )
       ) : scoped.length ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {scoped.map((n, i) => (
-            <article
-              key={n.id}
-              className="glass animate-rise rounded-2xl p-5 transition-all hover:-translate-y-1 hover:shadow-2xl"
-              style={{ animationDelay: `${i * 40}ms` }}
-            >
-              <p className="text-cyan text-xs font-semibold uppercase">{n.subject}</p>
-              <p className="mt-1 truncate font-bold" title={n.fileName}>
-                {n.fileName}
-              </p>
-              <p className="text-muted-foreground mt-1 text-xs">
-                {(n.size / 1024).toFixed(0)} KB · {new Date(n.uploadedAt).toLocaleDateString()}
-              </p>
-              <p className="text-pink mt-1 text-xs font-semibold">Shared by {n.uploadedBy}</p>
-              <div className="text-muted-foreground mt-3 flex flex-wrap items-center gap-3 text-xs font-semibold">
-                <button
-                  onClick={() => like(n)}
-                  className={`transition-transform hover:scale-110 ${n.likedByMe ? "text-pink" : ""}`}
-                  title="Rate this file"
-                >
-                  {n.likedByMe ? "❤️" : "🤍"} {n.likes ?? 0} rating(s)
-                </button>
-                <span>👁 {n.views ?? 0} views</span>
-                <span>⬇ {n.downloads ?? 0} downloads</span>
-              </div>
-              <div className="mt-4 flex gap-2">
-                <button onClick={() => view(n)} className={`${ghostBtnClass} flex-1`}>
-                  View
-                </button>
-                <button onClick={() => download(n)} className={`${ghostBtnClass} flex-1`}>
-                  Download
-                </button>
-              </div>
-            </article>
-          ))}
-        </div>
+        <FileGrid notes={scoped} onView={view} onDownload={download} onLike={like} />
       ) : (
         <Empty text="No files for this subject yet." />
       )}
