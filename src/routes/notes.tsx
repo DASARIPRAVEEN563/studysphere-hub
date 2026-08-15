@@ -50,9 +50,6 @@ function NotesPage() {
   const [dDept, setDDept] = useState("");
   const [dYear, setDYear] = useState("");
   const [dSem, setDSem] = useState("");
-  const [fDept, setFDept] = useState("");
-  const [fYear, setFYear] = useState("");
-  const [fSem, setFSem] = useState("");
 
   useEffect(() => {
     api<{ notes: Note[] }>("/api/notes")
@@ -71,15 +68,12 @@ function NotesPage() {
           (!year || n.year === year) &&
           (!semester || n.semester === semester) &&
           (!subject || n.subject === subject) &&
-          (!fDept || n.department === fDept) &&
-          (!fYear || n.year === fYear) &&
-          (!fSem || n.semester === fSem) &&
           (!term ||
             n.subject.toLowerCase().includes(term.toLowerCase()) ||
             n.fileName.toLowerCase().includes(term.toLowerCase()) ||
             n.uploadedBy.toLowerCase().includes(term.toLowerCase())),
       ),
-    [notes, department, year, semester, subject, fDept, fYear, fSem, term],
+    [notes, department, year, semester, subject, term],
   );
 
   const subjects = useMemo(
@@ -165,9 +159,10 @@ function NotesPage() {
         onSubmit={(e) => {
           e.preventDefault();
           setTerm(q.trim());
-          setFDept(dDept);
-          setFYear(dYear);
-          setFSem(dSem);
+          setDepartment(dDept || null);
+          setYear(dDept && dYear ? dYear : null);
+          setSemester(dDept && dYear && dSem ? dSem : null);
+          setSubject(null);
         }}
       >
         <div className="flex gap-2 sm:col-span-2 lg:col-span-2">
@@ -185,19 +180,40 @@ function NotesPage() {
             🔍
           </button>
         </div>
-        <select className={inputClass} value={dDept} onChange={(e) => setDDept(e.target.value)}>
+        <select
+          className={inputClass}
+          value={dDept}
+          onChange={(e) => {
+            setDDept(e.target.value);
+            setDYear("");
+            setDSem("");
+          }}
+        >
           <option value="" className="bg-card">All departments</option>
           {DEPARTMENTS.map((d) => (
             <option key={d} value={d} className="bg-card">{d}</option>
           ))}
         </select>
-        <select className={inputClass} value={dYear} onChange={(e) => setDYear(e.target.value)}>
+        <select
+          className={inputClass}
+          value={dYear}
+          disabled={!dDept}
+          onChange={(e) => {
+            setDYear(e.target.value);
+            setDSem("");
+          }}
+        >
           <option value="" className="bg-card">All years</option>
           {YEARS.map((y) => (
             <option key={y} value={y} className="bg-card">{y}</option>
           ))}
         </select>
-        <select className={inputClass} value={dSem} onChange={(e) => setDSem(e.target.value)}>
+        <select
+          className={inputClass}
+          value={dSem}
+          disabled={!dDept || !dYear}
+          onChange={(e) => setDSem(e.target.value)}
+        >
           <option value="" className="bg-card">All semesters</option>
           {SEMESTERS.map((s) => (
             <option key={s} value={s} className="bg-card">{s}</option>
