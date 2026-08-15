@@ -9,6 +9,7 @@ import {
   downloadStudentsExcel,
   SEMESTERS,
   YEARS,
+  type ChatThread,
   type ContentItem,
   type Feedback,
   type Note,
@@ -40,7 +41,9 @@ const CONTENT_TYPES = [
   "advertisement",
 ] as const;
 
-const TABS = ["notes", "content", "feedback", "students"] as const;
+const TABS = ["notes", "content", "chat", "feedback", "students"] as const;
+
+const BADGES = ["", "NEW", "IMPORTANT", "URGENT", "HOT", "EVENT", "UPDATE"] as const;
 
 function AdminPage() {
   useRequireAuth("admin");
@@ -50,12 +53,12 @@ function AdminPage() {
     <AppShell
       title="Admin Portal"
       actions={
-        <div className="flex flex-wrap gap-2">
+        <div className="-mx-1 flex w-full gap-2 overflow-x-auto px-1 pb-1 sm:flex-wrap sm:overflow-visible">
           {TABS.map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`rounded-full px-4 py-2 text-sm font-bold capitalize transition-all ${
+              className={`shrink-0 rounded-full px-4 py-2 text-sm font-bold capitalize transition-all ${
                 tab === t ? "hero-gradient text-white shadow-lg" : "glass"
               }`}
             >
@@ -67,6 +70,7 @@ function AdminPage() {
     >
       {tab === "notes" && <NotesAdmin />}
       {tab === "content" && <ContentAdmin />}
+      {tab === "chat" && <ChatAdmin />}
       {tab === "feedback" && <FeedbackAdmin />}
       {tab === "students" && <StudentsAdmin />}
     </AppShell>
