@@ -182,7 +182,7 @@ function NotesPage() {
             className={inputClass}
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search subject, file or student"
+            placeholder="Search by subject name (type 'n' for all n… subjects)"
           />
           <button
             type="submit"
@@ -235,6 +235,17 @@ function NotesPage() {
 
       {notes === null ? (
         <BookLoader label="Opening library" />
+      ) : term ? (
+        searchResults.length ? (
+          <section>
+            <h3 className="mb-4 text-lg font-bold">
+              {searchResults.length} result(s) for “{term}”
+            </h3>
+            <FileGrid notes={searchResults} onView={view} onDownload={download} onLike={like} />
+          </section>
+        ) : (
+          <Empty text={`No subject or file matches “${term}”.`} />
+        )
       ) : !department ? (
         <Grid
           items={DEPARTMENTS.map((d) => ({ label: d, sub: "Department" }))}
