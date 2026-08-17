@@ -5,7 +5,6 @@
  * these handlers keep the whole app usable with localStorage persistence.
  */
 import type { ChatMessage, ChatThread, ContentItem, Feedback, Note, User } from "./api";
-import { sendFaceVerificationConfirmation } from "./face-verification-email.functions";
 
 const KEY = "sknsh_offline_db";
 
