@@ -27,7 +27,7 @@ const PRESETS: Record<
   stars: { emojis: ["⭐", "🌟", "✨"], mode: "twinkle", count: 14 },
 };
 
-export function ContentEffect({ effect }: { effect?: string }) {
+export function ContentEffect({ effect }: { effect?: string | undefined }) {
   const preset = effect ? PRESETS[effect] : undefined;
   if (!preset) return null;
 
