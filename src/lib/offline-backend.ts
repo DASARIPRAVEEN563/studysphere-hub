@@ -311,8 +311,9 @@ export async function offlineRequest(
     if (body.faces !== undefined && Number(body.faces) !== 1)
       throw new OfflineError("Exactly one person must be in front of the camera");
     const identityToken = id() + id();
+    const photo = typeof body.image === "string" && body.image.length < 400_000 ? body.image : null;
     Object.assign(me, {
-      faceImage: body.image,
+      faceImage: photo,
       faceVerified: true,
       faceVerifiedAt: new Date().toISOString(),
       identityConfirmed: false,
