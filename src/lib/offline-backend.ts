@@ -45,8 +45,30 @@ function read(): DB {
   }
 }
 
+/** localStorage is only ~5MB — drop the heaviest payloads before giving up. */
 function write(db: DB) {
-  localStorage.setItem(KEY, JSON.stringify(db));
+  try {
+    localStorage.setItem(KEY, JSON.stringify(db));
+    return;
+  } catch {
+    /* quota exceeded — prune below */
+  }
+  const fileIds = Object.keys(db.files);
+  for (const fid of fileIds) {
+    delete db.files[fid];
+    try {
+      localStorage.setItem(KEY, JSON.stringify(db));
+      return;
+    } catch {
+      /* keep pruning */
+    }
+  }
+  for (const u of db.users) u.faceImage = null;
+  try {
+    localStorage.setItem(KEY, JSON.stringify(db));
+  } catch {
+    console.warn("Local storage is full — some cached data could not be saved.");
+  }
 }
 
 const id = () => Math.random().toString(36).slice(2, 11);
@@ -55,7 +77,13 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 function publicUser(u: StoredUser): User {
   const { password: _p, securityAnswer: _a, securityQuestion: _q, identityToken: _t, ...rest } = u;
-  return { stars: 0, faceVerified: false, faceImage: null, identityConfirmed: false, ...rest };
+  return {
+    stars: 0,
+    faceVerified: false,
+    identityConfirmed: false,
+    ...rest,
+    faceImage: null,
+  };
 }
 
 function shapeNote(db: DB, n: Note, meId: string): Note {
