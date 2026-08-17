@@ -17,7 +17,6 @@ export function FaceVerify({ user, onVerified }: { user: User; onVerified: (u: U
   const [hint, setHint] = useState("");
   const [confirmToken, setConfirmToken] = useState<string | null>(null);
   const [lastImage, setLastImage] = useState<string | null>(null);
-  const [confirming, setConfirming] = useState(false);
   const [mail, setMail] = useState<{
     status: "idle" | "queued" | "sending" | "sent" | "failed";
     detail: string;
