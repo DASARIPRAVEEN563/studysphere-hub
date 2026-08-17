@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AppShell, useRequireAuth } from "@/components/AppShell";
 import { btnClass, Field, ghostBtnClass, inputClass, Skeletons } from "@/components/Field";
+import { CONTENT_EFFECTS, ContentEffect } from "@/components/ContentEffect";
 import {
   api,
   DEPARTMENTS,
@@ -254,6 +255,7 @@ function ContentAdmin() {
     description: "",
     url: "",
     badge: "",
+    effect: "",
   });
 
   const load = () =>
@@ -283,7 +285,7 @@ function ContentAdmin() {
         await api("/api/admin/content", { body: form });
         toast.success("Content published");
       }
-      setForm({ ...form, title: "", description: "", url: "", badge: "" });
+      setForm({ ...form, title: "", description: "", url: "", badge: "", effect: "" });
       setUploads([]);
       void load();
     } catch (err) {
@@ -407,6 +409,27 @@ function ContentAdmin() {
               </option>
             ))}
           </select>
+        </Field>
+        <Field label="Effect / animation">
+          <select
+            className={inputClass}
+            value={form.effect}
+            onChange={(e) => setForm({ ...form, effect: e.target.value })}
+          >
+            {CONTENT_EFFECTS.map((fx) => (
+              <option key={fx.value || "none"} value={fx.value} className="bg-card">
+                {fx.label}
+              </option>
+            ))}
+          </select>
+          {form.effect && (
+            <div className="glass relative mt-3 h-28 overflow-hidden rounded-2xl">
+              <ContentEffect effect={form.effect} />
+              <p className="text-muted-foreground absolute inset-x-0 bottom-2 text-center text-[11px] font-bold">
+                Live preview
+              </p>
+            </div>
+          )}
         </Field>
         <p className="text-muted-foreground text-xs">
           All media is auto-fitted to a uniform 16:9 frame on the home page, so images and videos
