@@ -93,6 +93,19 @@ export type ChatThread = {
 const TOKEN_KEY = "sknsh_token";
 const USER_KEY = "sknsh_user";
 
+/** Never keep heavy payloads (base64 face photo) in the session copy — it blows the storage quota. */
+function slimUser(user: User): User {
+  return { ...user, faceImage: null };
+}
+
+function safeSet(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    console.warn("Local storage is full — session data was not persisted.");
+  }
+}
+
 export const auth = {
   token(): string | null {
     if (typeof window === "undefined") return null;
@@ -101,15 +114,19 @@ export const auth = {
   user(): User | null {
     if (typeof window === "undefined") return null;
     const raw = localStorage.getItem(USER_KEY);
-    return raw ? (JSON.parse(raw) as User) : null;
+    try {
+      return raw ? (JSON.parse(raw) as User) : null;
+    } catch {
+      return null;
+    }
   },
   save(token: string, user: User) {
-    localStorage.setItem(TOKEN_KEY, token);
-    localStorage.setItem(USER_KEY, JSON.stringify(user));
+    safeSet(TOKEN_KEY, token);
+    safeSet(USER_KEY, JSON.stringify(slimUser(user)));
     window.dispatchEvent(new Event("sknsh-auth"));
   },
   setUser(user: User) {
-    localStorage.setItem(USER_KEY, JSON.stringify(user));
+    safeSet(USER_KEY, JSON.stringify(slimUser(user)));
     window.dispatchEvent(new Event("sknsh-auth"));
   },
   clear() {
