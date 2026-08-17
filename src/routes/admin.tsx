@@ -2,7 +2,6 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AppShell, useRequireAuth } from "@/components/AppShell";
-import { FlipbookViewer } from "@/components/FlipbookViewer";
 import { btnClass, Field, ghostBtnClass, inputClass, Skeletons } from "@/components/Field";
 import {
   api,
@@ -249,7 +248,6 @@ function NotesAdmin() {
 function ContentAdmin() {
   const [items, setItems] = useState<ContentItem[] | null>(null);
   const [uploads, setUploads] = useState<{ name: string; url: string }[]>([]);
-  const [book, setBook] = useState<{ url: string; title?: string }[] | null>(null);
   const [form, setForm] = useState({
     type: CONTENT_TYPES[0] as string,
     title: "",
@@ -418,18 +416,6 @@ function ContentAdmin() {
       </form>
 
       <div className="space-y-3">
-        {book && <FlipbookViewer pages={book} onClose={() => setBook(null)} />}
-        {items && items.filter((i) => i.url).length > 1 && (
-          <button
-            type="button"
-            onClick={() =>
-              setBook(items.filter((i) => i.url).map((i) => ({ url: i.url!, title: i.title })))
-            }
-            className={ghostBtnClass}
-          >
-            📖 Open all as flipbook
-          </button>
-        )}
         {items === null ? (
           <Skeletons count={4} />
         ) : (
