@@ -471,8 +471,8 @@ function ContentAdmin() {
   );
 }
 
-function StudentsAdmin() {
-  return <StudentsAdminInner />;
+function StudentsAdmin({ isMaster }: { isMaster: boolean }) {
+  return <StudentsAdminInner isMaster={isMaster} />;
 }
 
 function ChatAdmin() {
@@ -682,7 +682,7 @@ function ChatAdmin() {
   );
 }
 
-function StudentsAdminInner() {
+function StudentsAdminInner({ isMaster }: { isMaster: boolean }) {
   const [busy, setBusy] = useState(false);
   const [students, setStudents] = useState<User[] | null>(null);
 
@@ -705,11 +705,13 @@ function StudentsAdminInner() {
   };
 
   const removeStudent = async (s: User) => {
-    if (!confirm(`Delete ${s.fullName} (${s.registrationId})? This cannot be undone.`)) return;
+    const kind = s.role === "admin" ? "admin" : "student";
+    if (!confirm(`Delete ${kind} ${s.fullName} (${s.registrationId})? This cannot be undone.`))
+      return;
     try {
       await api(`/api/admin/students/${s.id}`, { method: "DELETE" });
       setStudents((prev) => (prev ?? []).filter((x) => x.id !== s.id));
-      toast.success("Student deleted");
+      toast.success(`${kind === "admin" ? "Admin" : "Student"} deleted`);
     } catch (e) {
       toast.error((e as Error).message);
     }
@@ -752,12 +754,13 @@ function StudentsAdminInner() {
                   ⭐ {s.stars ?? 0} · {s.sharedCount} shared · {s.downloadedCount} downloaded ·{" "}
                   {s.faceVerified ? "Verified" : "Unverified"}
                 </p>
-                {s.role !== "admin" && (
+                {(s.role !== "admin" ||
+                  (isMaster && s.registrationId !== "PRAVEEN2207")) && (
                   <button
                     onClick={() => removeStudent(s)}
                     className="text-destructive mt-2 text-xs font-bold hover:underline"
                   >
-                    🗑 Delete user
+                    🗑 Delete {s.role === "admin" ? "admin" : "user"}
                   </button>
                 )}
               </div>
