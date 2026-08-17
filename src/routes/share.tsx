@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
-import { AppShell, useRequireAuth } from "@/components/AppShell";
+import { AppShell, useRequireVerified } from "@/components/AppShell";
 import { btnClass, Field, inputClass } from "@/components/Field";
 import { StarReward } from "@/components/StarReward";
 import { api, auth, DEPARTMENTS, SEMESTERS, YEARS } from "@/lib/api";
@@ -25,7 +25,7 @@ export const Route = createFileRoute("/share")({
 const ALLOWED = ["application/pdf", "image/jpeg", "image/jpg", "image/png", "image/webp"];
 
 function SharePage() {
-  const user = useRequireAuth();
+  const user = useRequireVerified();
   const [subject, setSubject] = useState("");
   const [department, setDepartment] = useState<string>(DEPARTMENTS[0]);
   const [year, setYear] = useState<string>(YEARS[0]);

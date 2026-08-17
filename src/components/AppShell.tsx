@@ -34,6 +34,27 @@ export function useRequireAuth(role?: "admin") {
   return user;
 }
 
+/** Students unlock the whole site only after face verification + the "It's me" email click. */
+export function isUnlocked(user: User | null | undefined) {
+  return !!user && (user.role === "admin" || (!!user.faceVerified && !!user.identityConfirmed));
+}
+
+/** Guards notes / share / chat: locked users are bounced back to their profile. */
+export function useRequireVerified() {
+  const user = useRequireAuth();
+  const navigate = useNavigate();
+  useEffect(() => {
+    if (user && !isUnlocked(user)) {
+      toast.error("You are not verified yet", {
+        description:
+          "Finish live face verification and tap \"It's me\" in the email to unlock this page.",
+      });
+      navigate({ to: "/profile", replace: true });
+    }
+  }, [user, navigate]);
+  return user;
+}
+
 const NAV = [
   { to: "/home", label: "Home" },
   { to: "/notes", label: "Notes" },
@@ -81,19 +102,31 @@ export function AppShell({
             </span>
           </Link>
           <nav className="scrollbar-none -mx-1 flex min-w-0 flex-1 items-center gap-1 overflow-x-auto px-1">
-            {NAV.filter((n) => !(user?.role === "admin" && n.to === "/chat")).map((n) => (
-              <Link
-                key={n.to}
-                to={n.to}
-                className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-all hover:bg-primary/10 sm:text-sm ${
-                  pathname === n.to
-                    ? "hero-gradient text-white shadow-lg"
-                    : "text-muted-foreground"
-                }`}
-              >
-                {n.label}
-              </Link>
-            ))}
+            {NAV.filter((n) => !(user?.role === "admin" && n.to === "/chat")).map((n) => {
+              const locked = !isUnlocked(user) && n.to !== "/home" && n.to !== "/profile";
+              return (
+                <Link
+                  key={n.to}
+                  to={locked ? "/profile" : n.to}
+                  onClick={() => {
+                    if (locked)
+                      toast.error("You are not verified yet", {
+                        description:
+                          "Complete face verification and confirm the email to unlock this tab.",
+                      });
+                  }}
+                  className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-all hover:bg-primary/10 sm:text-sm ${
+                    pathname === n.to
+                      ? "hero-gradient text-white shadow-lg"
+                      : locked
+                        ? "text-muted-foreground/50"
+                        : "text-muted-foreground"
+                  }`}
+                >
+                  {locked ? `🔒 ${n.label}` : n.label}
+                </Link>
+              );
+            })}
             {user?.role === "admin" && (
               <Link
                 to="/admin"

@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AdminLoginRouteImport } from './routes/admin-login'
 import { Route as ChatRouteImport } from './routes/chat'
+import { Route as ConfirmRouteImport } from './routes/confirm'
 import { Route as ForgotRouteImport } from './routes/forgot'
 import { Route as HomeRouteImport } from './routes/home'
 import { Route as LoginRouteImport } from './routes/login'
@@ -43,6 +44,11 @@ const AdminLoginRoute = AdminLoginRouteImport.update({
 const ChatRoute = ChatRouteImport.update({
   id: '/chat',
   path: '/chat',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConfirmRoute = ConfirmRouteImport.update({
+  id: '/confirm',
+  path: '/confirm',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ForgotRoute = ForgotRouteImport.update({
@@ -109,6 +115,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRoute
   '/admin-login': typeof AdminLoginRoute
   '/chat': typeof ChatRoute
+  '/confirm': typeof ConfirmRoute
   '/forgot': typeof ForgotRoute
   '/home': typeof HomeRoute
   '/login': typeof LoginRoute
@@ -126,6 +133,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminRoute
   '/admin-login': typeof AdminLoginRoute
   '/chat': typeof ChatRoute
+  '/confirm': typeof ConfirmRoute
   '/forgot': typeof ForgotRoute
   '/home': typeof HomeRoute
   '/login': typeof LoginRoute
@@ -144,6 +152,7 @@ export interface FileRoutesById {
   '/admin': typeof AdminRoute
   '/admin-login': typeof AdminLoginRoute
   '/chat': typeof ChatRoute
+  '/confirm': typeof ConfirmRoute
   '/forgot': typeof ForgotRoute
   '/home': typeof HomeRoute
   '/login': typeof LoginRoute
@@ -163,6 +172,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/admin-login'
     | '/chat'
+    | '/confirm'
     | '/forgot'
     | '/home'
     | '/login'
@@ -180,6 +190,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/admin-login'
     | '/chat'
+    | '/confirm'
     | '/forgot'
     | '/home'
     | '/login'
@@ -197,6 +208,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/admin-login'
     | '/chat'
+    | '/confirm'
     | '/forgot'
     | '/home'
     | '/login'
@@ -215,6 +227,7 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRoute
   AdminLoginRoute: typeof AdminLoginRoute
   ChatRoute: typeof ChatRoute
+  ConfirmRoute: typeof ConfirmRoute
   ForgotRoute: typeof ForgotRoute
   HomeRoute: typeof HomeRoute
   LoginRoute: typeof LoginRoute
@@ -256,6 +269,13 @@ declare module '@tanstack/react-router' {
       path: '/chat'
       fullPath: '/chat'
       preLoaderRoute: typeof ChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/confirm': {
+      id: '/confirm'
+      path: '/confirm'
+      fullPath: '/confirm'
+      preLoaderRoute: typeof ConfirmRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/forgot': {
@@ -343,6 +363,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRoute,
   AdminLoginRoute: AdminLoginRoute,
   ChatRoute: ChatRoute,
+  ConfirmRoute: ConfirmRoute,
   ForgotRoute: ForgotRoute,
   HomeRoute: HomeRoute,
   LoginRoute: LoginRoute,

@@ -30,6 +30,8 @@ export type User = {
   faceVerified?: boolean;
   faceImage?: string | null;
   faceVerifiedAt?: string | null;
+  /** True once the student clicked "It's me" in the verification email. */
+  identityConfirmed?: boolean;
 };
 
 export type Note = {

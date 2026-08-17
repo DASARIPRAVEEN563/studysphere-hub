@@ -5,7 +5,6 @@
  * these handlers keep the whole app usable with localStorage persistence.
  */
 import type { ChatMessage, ChatThread, ContentItem, Feedback, Note, User } from "./api";
-import { sendFaceVerificationConfirmation } from "./face-verification-email.functions";
 
 const KEY = "sknsh_offline_db";
 
@@ -13,6 +12,7 @@ type StoredUser = User & {
   password: string;
   securityQuestion: string;
   securityAnswer: string;
+  identityToken?: string;
 };
 
 type DB = {
@@ -54,8 +54,8 @@ const id = () => Math.random().toString(36).slice(2, 11);
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 function publicUser(u: StoredUser): User {
-  const { password: _p, securityAnswer: _a, securityQuestion: _q, ...rest } = u;
-  return { stars: 0, faceVerified: false, faceImage: null, ...rest };
+  const { password: _p, securityAnswer: _a, securityQuestion: _q, identityToken: _t, ...rest } = u;
+  return { stars: 0, faceVerified: false, faceImage: null, identityConfirmed: false, ...rest };
 }
 
 function shapeNote(db: DB, n: Note, meId: string): Note {
@@ -104,6 +104,7 @@ function seed(db: DB) {
       password: SUPER_ADMIN_PASSWORD,
       securityQuestion: "Master admin",
       securityAnswer: "praveen",
+      identityConfirmed: true,
     });
   }
   if (!db.users.some((u) => u.role === "admin")) {
@@ -122,6 +123,7 @@ function seed(db: DB) {
       password: "admin123",
       securityQuestion: "What is your nickname?",
       securityAnswer: "admin",
+      identityConfirmed: true,
     });
   }
   if (!db.content.length) {
@@ -239,7 +241,19 @@ export async function offlineRequest(
       throw new OfflineError("Security answer is incorrect");
     u.password = body.newPassword;
     save();
-    return { ok: true };
+    return { ok: true, email: u.email ?? null, fullName: u.fullName };
+  }
+
+  // Public: "It's me" confirmation link from the face verification email.
+  if (url === "/api/auth/confirm-identity") {
+    const uid = String(body?.uid ?? "");
+    const tok = String(body?.token ?? "");
+    const u = db.users.find((x) => x.id === uid);
+    if (!u || !u.identityToken || u.identityToken !== tok)
+      throw new OfflineError("This confirmation link is invalid or already used");
+    u.identityConfirmed = true;
+    save();
+    return { user: publicUser(u), message: "Identity confirmed" };
   }
 
   // ---- everything below needs a session ----
@@ -268,27 +282,28 @@ export async function offlineRequest(
     if (!EMAIL_RE.test(String(me.email))) throw new OfflineError("Incorrect email ID");
     if (body.faces !== undefined && Number(body.faces) !== 1)
       throw new OfflineError("Exactly one person must be in front of the camera");
+    const identityToken = id() + id();
     Object.assign(me, {
       faceImage: body.image,
       faceVerified: true,
       faceVerifiedAt: new Date().toISOString(),
+      identityConfirmed: false,
+      identityToken,
     });
     save();
-    let emailSent = false;
-    try {
-      await sendFaceVerificationConfirmation({
-        data: { to: String(me.email), fullName: me.fullName },
-      });
-      emailSent = true;
-    } catch (error) {
-      console.error("Face verification email failed", error);
-    }
     return {
       user: publicUser(me),
       emailedTo: me.email,
-      emailSent,
+      emailSent: false,
+      confirmToken: identityToken,
       message: "Face verified is successfully completed",
     };
+  }
+
+  if (url === "/api/profile/confirm-identity" && method === "POST") {
+    me.identityConfirmed = true;
+    save();
+    return { user: publicUser(me) };
   }
 
   // ---- feedback ----
@@ -531,10 +546,16 @@ export async function offlineRequest(
       const uid = url.split("/")[4]!;
       const idx = db.users.findIndex((u) => u.id === uid);
       if (idx < 0) throw new OfflineError("Student not found");
-      if (db.users[idx]!.role === "admin") throw new OfflineError("Admin accounts cannot be deleted");
+      const target = db.users[idx]!;
+      if (target.role === "admin") {
+        if (me.registrationId !== SUPER_ADMIN_ID)
+          throw new OfflineError("Only the master admin can delete admin accounts");
+        if (target.registrationId === SUPER_ADMIN_ID)
+          throw new OfflineError("The master admin account cannot be deleted");
+      }
       db.users.splice(idx, 1);
       save();
-      return { message: "Student deleted" };
+      return { message: target.role === "admin" ? "Admin deleted" : "Student deleted" };
     }
   }
 

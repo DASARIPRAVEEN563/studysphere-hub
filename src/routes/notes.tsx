@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { AppShell, useRequireAuth } from "@/components/AppShell";
+import { AppShell, useRequireVerified } from "@/components/AppShell";
 import { BookLoader } from "@/components/BookLoader";
 import { ghostBtnClass, inputClass } from "@/components/Field";
 import {
@@ -38,7 +38,7 @@ export const Route = createFileRoute("/notes")({
 });
 
 function NotesPage() {
-  useRequireAuth();
+  useRequireVerified();
   const { dept } = Route.useSearch();
   const [notes, setNotes] = useState<Note[] | null>(null);
   const [department, setDepartment] = useState<string | null>(dept ?? null);

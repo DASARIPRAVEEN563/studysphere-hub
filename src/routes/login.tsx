@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 import { AnimatedTitle } from "@/components/AnimatedTitle";
-import { btnClass, Field, inputClass } from "@/components/Field";
+import { btnClass, Field, inputClass, PasswordInput } from "@/components/Field";
 import { WelcomeOverlay } from "@/components/WelcomeOverlay";
 import { api, auth, type User } from "@/lib/api";
 
@@ -67,23 +67,18 @@ function LoginPage() {
             <h2 className="text-2xl font-black">Student Login</h2>
             <p className="text-muted-foreground text-sm">Enter your registration credentials</p>
           </div>
-          <Field label="Registration ID">
+          <Field label="Registration ID (Hall Ticket No)">
             <input
               className={`${inputClass} uppercase`}
               value={registrationId}
               onChange={(e) => setRegistrationId(e.target.value.toUpperCase())}
               autoCapitalize="characters"
+              placeholder="Hall ticket no"
               required
             />
           </Field>
           <Field label="Password">
-            <input
-              type="password"
-              className={inputClass}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
+            <PasswordInput value={password} onChange={setPassword} required />
           </Field>
           <button className={`${btnClass} w-full`} disabled={loading}>
             {loading ? "Signing in..." : "Login"}

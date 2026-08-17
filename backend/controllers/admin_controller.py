@@ -134,7 +134,13 @@ def delete_student(user_id: str):
     if not user:
         return jsonify({"error": "Student not found"}), 404
     if user.get("role") == "admin":
-        return jsonify({"error": "Admin accounts cannot be deleted"}), 400
+        from controllers.auth_controller import SUPER_ADMIN_ID
+
+        caller = getattr(request, "user", None) or {}
+        if caller.get("registrationId") != SUPER_ADMIN_ID:
+            return jsonify({"error": "Only the master admin can delete admin accounts"}), 403
+        if user.get("registrationId") == SUPER_ADMIN_ID:
+            return jsonify({"error": "The master admin account cannot be deleted"}), 400
     store.delete("users", user_id)
     return jsonify({"message": "Student deleted"})
 

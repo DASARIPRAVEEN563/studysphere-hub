@@ -8,31 +8,16 @@ function encodeMessage(value: string) {
     .replace(/=+$/g, "");
 }
 
-export async function sendFaceVerificationEmail(to: string, fullName: string) {
+function clean(value: string) {
+  return value.replace(/[\r\n]/g, " ").trim();
+}
+
+async function sendRaw(message: string) {
   const lovableApiKey = process.env["LOVABLE_API_KEY"];
   const gmailApiKey = process.env["GOOGLE_MAIL_API_KEY"];
   if (!lovableApiKey || !gmailApiKey) {
     throw new Error("The Gmail connection is not available");
   }
-
-  const safeName = fullName.replace(/[\r\n]/g, " ").trim() || "Student";
-  const safeTo = to.replace(/[\r\n]/g, "").trim();
-  const message = [
-    `To: ${safeTo}`,
-    "From: STUDENTS KA NOTES SHARING HUB <studentsnotessharing@gmail.com>",
-    "Reply-To: studentsnotessharing@gmail.com",
-    "Subject: Face verification successful - STUDENTS KA NOTES SHARING HUB",
-    "Content-Type: text/plain; charset=UTF-8",
-    "MIME-Version: 1.0",
-    "",
-    `Hello ${safeName},`,
-    "",
-    "Face verified is successfully completed.",
-    "You can now download and share notes on STUDENTS KA NOTES SHARING HUB.",
-    "",
-    "- Notes Hub Team",
-  ].join("\r\n");
-
   const response = await fetch(`${GATEWAY_URL}/users/me/messages/send`, {
     method: "POST",
     headers: {
@@ -42,13 +27,95 @@ export async function sendFaceVerificationEmail(to: string, fullName: string) {
     },
     body: JSON.stringify({ raw: encodeMessage(message) }),
   });
-
   if (!response.ok) {
     const errorBody = await response.text();
     console.error(`Gmail request failed [${response.status}]: ${errorBody}`);
-    throw new Error(`Gmail could not send the confirmation [${response.status}]`);
+    throw new Error(`Gmail could not send the email [${response.status}]`);
   }
-
   const result = (await response.json()) as { id?: string };
-  return { sent: true as const, to: safeTo, messageId: result.id ?? null };
+  return { sent: true as const, messageId: result.id ?? null };
+}
+
+const FROM = "STUDENTS KA NOTES SHARING HUB <studentsnotessharing@gmail.com>";
+
+/**
+ * Face verification mail: contains the captured photo and an "It's me" link the
+ * student must click before the rest of the website unlocks.
+ */
+export async function sendFaceVerificationEmail(
+  to: string,
+  fullName: string,
+  options: { image?: string | null; confirmUrl?: string | null } = {},
+) {
+  const safeName = clean(fullName) || "Student";
+  const safeTo = clean(to);
+  const confirmUrl = options.confirmUrl ? clean(options.confirmUrl) : "";
+  const boundary = `sknsh_${Date.now().toString(36)}`;
+
+  const html = [
+    "<div style=\"font-family:Arial,Helvetica,sans-serif;font-size:15px;color:#111\">",
+    `<p>Hello ${safeName},</p>`,
+    "<p><b>Face verified is successfully completed.</b></p>",
+    "<p>The photo captured during verification is attached below. If this is you, confirm it to unlock notes, sharing and chat on STUDENTS KA NOTES SHARING HUB.</p>",
+    options.image ? '<p><img src="cid:faceimage" alt="Captured face" width="240" style="border-radius:12px" /></p>' : "",
+    confirmUrl
+      ? `<p><a href="${confirmUrl}" style="background:#6d28d9;color:#fff;padding:12px 22px;border-radius:10px;text-decoration:none;font-weight:bold">✅ It's me — confirm and open the website</a></p><p style="font-size:12px;color:#555">Or paste this link: ${confirmUrl}</p>`
+      : "",
+    "<p>- Notes Hub Team</p>",
+    "</div>",
+  ].join("");
+
+  const parts: string[] = [
+    `To: ${safeTo}`,
+    `From: ${FROM}`,
+    "Reply-To: studentsnotessharing@gmail.com",
+    "Subject: Confirm it's you - Face verification | STUDENTS KA NOTES SHARING HUB",
+    "MIME-Version: 1.0",
+    `Content-Type: multipart/related; boundary="${boundary}"`,
+    "",
+    `--${boundary}`,
+    "Content-Type: text/html; charset=UTF-8",
+    "",
+    html,
+  ];
+
+  const base64 = options.image?.includes(",") ? options.image.split(",")[1] : null;
+  if (base64) {
+    parts.push(
+      `--${boundary}`,
+      "Content-Type: image/jpeg",
+      "Content-Transfer-Encoding: base64",
+      "Content-ID: <faceimage>",
+      'Content-Disposition: inline; filename="face-verification.jpg"',
+      "",
+      base64.replace(/(.{76})/g, "$1\r\n"),
+    );
+  }
+  parts.push(`--${boundary}--`, "");
+
+  const result = await sendRaw(parts.join("\r\n"));
+  return { ...result, to: safeTo };
+}
+
+/** Security notice sent whenever an account password changes. */
+export async function sendPasswordChangedEmail(to: string, fullName: string) {
+  const safeName = clean(fullName) || "Student";
+  const safeTo = clean(to);
+  const message = [
+    `To: ${safeTo}`,
+    `From: ${FROM}`,
+    "Reply-To: studentsnotessharing@gmail.com",
+    "Subject: Your password was changed | STUDENTS KA NOTES SHARING HUB",
+    "Content-Type: text/plain; charset=UTF-8",
+    "MIME-Version: 1.0",
+    "",
+    `Hello ${safeName},`,
+    "",
+    `Your account password was changed on ${new Date().toUTCString()}.`,
+    "If this was not you, contact the admin immediately.",
+    "",
+    "- Notes Hub Team",
+  ].join("\r\n");
+  const result = await sendRaw(message);
+  return { ...result, to: safeTo };
 }

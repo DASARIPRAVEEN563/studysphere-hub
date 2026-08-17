@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AppShell, useRequireAuth } from "@/components/AppShell";
+import { FlipbookViewer } from "@/components/FlipbookViewer";
 import { btnClass, Field, ghostBtnClass, inputClass, Skeletons } from "@/components/Field";
 import {
   api,
@@ -46,8 +47,9 @@ const TABS = ["notes", "content", "chat", "feedback", "students"] as const;
 const BADGES = ["", "NEW", "IMPORTANT", "URGENT", "HOT", "EVENT", "UPDATE"] as const;
 
 function AdminPage() {
-  useRequireAuth("admin");
+  const me = useRequireAuth("admin");
   const [tab, setTab] = useState<(typeof TABS)[number]>("notes");
+  const unread = useUnreadChat(tab === "chat");
 
   return (
     <AppShell
@@ -58,11 +60,16 @@ function AdminPage() {
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`shrink-0 rounded-full px-4 py-2 text-sm font-bold capitalize transition-all ${
+              className={`relative shrink-0 rounded-full px-4 py-2 text-sm font-bold capitalize transition-all ${
                 tab === t ? "hero-gradient text-white shadow-lg" : "glass"
               }`}
             >
               {t}
+              {t === "chat" && unread > 0 && (
+                <span className="bg-destructive absolute -top-1 -right-1 grid min-w-5 animate-bounce place-items-center rounded-full px-1.5 text-[10px] font-black text-white">
+                  {unread}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -72,9 +79,52 @@ function AdminPage() {
       {tab === "content" && <ContentAdmin />}
       {tab === "chat" && <ChatAdmin />}
       {tab === "feedback" && <FeedbackAdmin />}
-      {tab === "students" && <StudentsAdmin />}
+      {tab === "students" && <StudentsAdmin isMaster={me?.registrationId === "PRAVEEN2207"} />}
     </AppShell>
   );
+}
+
+const SEEN_KEY = "sknsh_admin_chat_seen";
+
+/** Polls student chat and notifies the admin about new incoming messages. */
+function useUnreadChat(viewing: boolean) {
+  const [unread, setUnread] = useState(0);
+  useEffect(() => {
+    let stop = false;
+    let known = -1;
+    const tick = async () => {
+      try {
+        const r = await api<{ threads: ChatThread[] }>("/api/admin/chat");
+        const seen = Number(localStorage.getItem(SEEN_KEY) ?? 0);
+        const incoming = r.threads.flatMap((t) =>
+          t.messages.filter((m) => m.from === "user" && new Date(m.createdAt).getTime() > seen),
+        );
+        if (stop) return;
+        if (viewing) {
+          localStorage.setItem(SEEN_KEY, String(Date.now()));
+          setUnread(0);
+          known = 0;
+          return;
+        }
+        if (known >= 0 && incoming.length > known) {
+          toast.message(`New chat message from ${incoming[incoming.length - 1]?.userId ? "a student" : "a student"}`, {
+            description: incoming[incoming.length - 1]?.text.slice(0, 80),
+          });
+        }
+        known = incoming.length;
+        setUnread(incoming.length);
+      } catch {
+        /* offline */
+      }
+    };
+    void tick();
+    const timer = setInterval(tick, 8000);
+    return () => {
+      stop = true;
+      clearInterval(timer);
+    };
+  }, [viewing]);
+  return unread;
 }
 
 function NotesAdmin() {
@@ -198,6 +248,8 @@ function NotesAdmin() {
 
 function ContentAdmin() {
   const [items, setItems] = useState<ContentItem[] | null>(null);
+  const [uploads, setUploads] = useState<{ name: string; url: string }[]>([]);
+  const [book, setBook] = useState<{ url: string; title?: string }[] | null>(null);
   const [form, setForm] = useState({
     type: CONTENT_TYPES[0] as string,
     title: "",
@@ -217,12 +269,45 @@ function ContentAdmin() {
   const create = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await api("/api/admin/content", { body: form });
-      toast.success("Content published");
+      if (uploads.length) {
+        for (let i = 0; i < uploads.length; i++) {
+          const u = uploads[i]!;
+          await api("/api/admin/content", {
+            body: {
+              ...form,
+              title: uploads.length > 1 ? `${form.title} ${String(i + 1).padStart(2, "0")}` : form.title,
+              url: u.url,
+            },
+          });
+        }
+        toast.success(`${uploads.length} item(s) published`);
+      } else {
+        await api("/api/admin/content", { body: form });
+        toast.success("Content published");
+      }
       setForm({ ...form, title: "", description: "", url: "", badge: "" });
+      setUploads([]);
       void load();
     } catch (err) {
       toast.error((err as Error).message);
+    }
+  };
+
+  const pickFiles = async (files: FileList | null) => {
+    if (!files?.length) return;
+    const read = (file: File) =>
+      new Promise<{ name: string; url: string }>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve({ name: file.name, url: String(reader.result) });
+        reader.onerror = () => reject(new Error(`Could not read ${file.name}`));
+        reader.readAsDataURL(file);
+      });
+    try {
+      const list = await Promise.all(Array.from(files).map(read));
+      setUploads((prev) => [...prev, ...list]);
+      toast.success(`${list.length} file(s) ready to publish`);
+    } catch (e) {
+      toast.error((e as Error).message);
     }
   };
 
@@ -280,7 +365,31 @@ function ContentAdmin() {
             onChange={(e) => setForm({ ...form, description: e.target.value })}
           />
         </Field>
-        <Field label="Image / Video URL">
+        <Field label="Drop images / videos (multiple allowed)">
+          <div
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault();
+              void pickFiles(e.dataTransfer.files);
+            }}
+            className="border-border rounded-2xl border border-dashed p-4 text-center"
+          >
+            <p className="text-muted-foreground text-xs">Drag &amp; drop files here, or</p>
+            <input
+              type="file"
+              accept="image/*,video/*"
+              multiple
+              className={`${inputClass} mt-2`}
+              onChange={(e) => void pickFiles(e.target.files)}
+            />
+            {uploads.length > 0 && (
+              <p className="text-cyan mt-2 text-xs font-bold">
+                {uploads.length} file(s) staged: {uploads.map((u) => u.name).join(", ")}
+              </p>
+            )}
+          </div>
+        </Field>
+        <Field label="...or an Image / Video URL">
           <input
             className={inputClass}
             value={form.url}
@@ -309,6 +418,18 @@ function ContentAdmin() {
       </form>
 
       <div className="space-y-3">
+        {book && <FlipbookViewer pages={book} onClose={() => setBook(null)} />}
+        {items && items.filter((i) => i.url).length > 1 && (
+          <button
+            type="button"
+            onClick={() =>
+              setBook(items.filter((i) => i.url).map((i) => ({ url: i.url!, title: i.title })))
+            }
+            className={ghostBtnClass}
+          >
+            📖 Open all as flipbook
+          </button>
+        )}
         {items === null ? (
           <Skeletons count={4} />
         ) : (
@@ -350,8 +471,8 @@ function ContentAdmin() {
   );
 }
 
-function StudentsAdmin() {
-  return <StudentsAdminInner />;
+function StudentsAdmin({ isMaster }: { isMaster: boolean }) {
+  return <StudentsAdminInner isMaster={isMaster} />;
 }
 
 function ChatAdmin() {
@@ -561,7 +682,7 @@ function ChatAdmin() {
   );
 }
 
-function StudentsAdminInner() {
+function StudentsAdminInner({ isMaster }: { isMaster: boolean }) {
   const [busy, setBusy] = useState(false);
   const [students, setStudents] = useState<User[] | null>(null);
 
@@ -584,11 +705,13 @@ function StudentsAdminInner() {
   };
 
   const removeStudent = async (s: User) => {
-    if (!confirm(`Delete ${s.fullName} (${s.registrationId})? This cannot be undone.`)) return;
+    const kind = s.role === "admin" ? "admin" : "student";
+    if (!confirm(`Delete ${kind} ${s.fullName} (${s.registrationId})? This cannot be undone.`))
+      return;
     try {
       await api(`/api/admin/students/${s.id}`, { method: "DELETE" });
       setStudents((prev) => (prev ?? []).filter((x) => x.id !== s.id));
-      toast.success("Student deleted");
+      toast.success(`${kind === "admin" ? "Admin" : "Student"} deleted`);
     } catch (e) {
       toast.error((e as Error).message);
     }
@@ -631,12 +754,13 @@ function StudentsAdminInner() {
                   ⭐ {s.stars ?? 0} · {s.sharedCount} shared · {s.downloadedCount} downloaded ·{" "}
                   {s.faceVerified ? "Verified" : "Unverified"}
                 </p>
-                {s.role !== "admin" && (
+                {(s.role !== "admin" ||
+                  (isMaster && s.registrationId !== "PRAVEEN2207")) && (
                   <button
                     onClick={() => removeStudent(s)}
                     className="text-destructive mt-2 text-xs font-bold hover:underline"
                   >
-                    🗑 Delete user
+                    🗑 Delete {s.role === "admin" ? "admin" : "user"}
                   </button>
                 )}
               </div>
