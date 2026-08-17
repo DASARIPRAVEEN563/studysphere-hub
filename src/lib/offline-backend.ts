@@ -501,6 +501,7 @@ export async function offlineRequest(
         description: body.description || undefined,
         url: body.url || undefined,
         badge: body.badge || undefined,
+        effect: body.effect || undefined,
         createdAt: new Date().toISOString(),
       };
       db.content.unshift(item);

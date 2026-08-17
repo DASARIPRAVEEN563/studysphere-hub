@@ -84,6 +84,7 @@ def create_content():
         "description": (data.get("description") or "").strip(),
         "url": url,
         "badge": (data.get("badge") or "").strip(),
+        "effect": (data.get("effect") or "").strip(),
         "createdAt": store.now_iso(),
     }
     store.insert("content", item)
