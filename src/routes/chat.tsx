@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { AppShell, useRequireAuth } from "@/components/AppShell";
+import { AppShell, useRequireVerified } from "@/components/AppShell";
 import { btnClass, inputClass } from "@/components/Field";
 import { api, type ChatMessage } from "@/lib/api";
 
@@ -22,7 +22,7 @@ export const Route = createFileRoute("/chat")({
 });
 
 function ChatPage() {
-  const user = useRequireAuth();
+  const user = useRequireVerified();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
