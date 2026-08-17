@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { AppShell, useRequireAuth } from "@/components/AppShell";
 import { BookLoader } from "@/components/BookLoader";
 import { FlipbookViewer } from "@/components/FlipbookViewer";
+import { ContentEffect } from "@/components/ContentEffect";
 import { btnClass, inputClass } from "@/components/Field";
 import { api, type ContentItem, type Feedback } from "@/lib/api";
 
@@ -106,6 +107,7 @@ function HomeContent() {
                         key={group.key}
                         className="glass animate-rise relative overflow-hidden rounded-2xl transition-transform hover:-translate-y-1"
                       >
+                        <ContentEffect effect={group.items[0]?.effect} />
                         <button
                           type="button"
                           onClick={() =>
@@ -142,6 +144,7 @@ function HomeContent() {
                     key={item.id}
                     className="glass animate-rise relative overflow-hidden rounded-2xl transition-transform hover:-translate-y-1"
                   >
+                    <ContentEffect effect={item.effect} />
                     {item.badge && (
                       <span className="hero-gradient animate-badge absolute top-3 right-3 z-10 rounded-full px-3 py-1 text-[10px] font-black tracking-wider text-white shadow-lg">
                         {item.badge}
