@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 import { AnimatedTitle } from "@/components/AnimatedTitle";
-import { btnClass, Field, inputClass } from "@/components/Field";
+import { btnClass, Field, inputClass, PasswordInput } from "@/components/Field";
 import { WelcomeOverlay } from "@/components/WelcomeOverlay";
 import { api, auth, DEPARTMENTS, SEMESTERS, YEARS, type User } from "@/lib/api";
 
@@ -80,21 +80,20 @@ function SignupPage() {
                 required
               />
             </Field>
-            <Field label="Registration ID">
+            <Field label="Registration ID (Hall Ticket No)">
               <input
                 className={`${inputClass} uppercase`}
                 value={form.registrationId}
                 onChange={(e) => set("registrationId", e.target.value.toUpperCase())}
                 autoCapitalize="characters"
+                placeholder="Hall ticket no"
                 required
               />
             </Field>
             <Field label="Password">
-              <input
-                type="password"
-                className={inputClass}
+              <PasswordInput
                 value={form.password}
-                onChange={(e) => set("password", e.target.value)}
+                onChange={(v) => set("password", v)}
                 minLength={6}
                 required
               />

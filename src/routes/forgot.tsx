@@ -2,8 +2,9 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 import { AnimatedTitle } from "@/components/AnimatedTitle";
-import { btnClass, Field, inputClass } from "@/components/Field";
+import { btnClass, Field, inputClass, PasswordInput } from "@/components/Field";
 import { api } from "@/lib/api";
+import { sendPasswordChangedNotice } from "@/lib/face-verification-email.functions";
 
 export const Route = createFileRoute("/forgot")({
   head: () => ({
@@ -49,10 +50,20 @@ function ForgotPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      await api("/api/auth/forgot/reset", {
+      const res = await api<{ email?: string | null; fullName?: string }>("/api/auth/forgot/reset", {
         body: { registrationId, securityAnswer: answer, newPassword },
       });
       toast.success("Password updated. Please login.");
+      if (res?.email) {
+        try {
+          await sendPasswordChangedNotice({
+            data: { to: res.email, fullName: res.fullName ?? "Student" },
+          });
+          toast.success(`Password change alert emailed to ${res.email}`);
+        } catch {
+          toast.message("Password changed — the email alert could not be delivered.");
+        }
+      }
       navigate({ to: "/login" });
     } catch (err) {
       toast.error((err as Error).message);
@@ -69,12 +80,13 @@ function ForgotPage() {
           <h2 className="mb-5 text-2xl font-black">Password Recovery</h2>
           {step === 1 ? (
             <form onSubmit={getQuestion} className="space-y-5">
-              <Field label="Registration ID">
+              <Field label="Registration ID (Hall Ticket No)">
                 <input
                   className={`${inputClass} uppercase`}
                   value={registrationId}
                   onChange={(e) => setRegistrationId(e.target.value.toUpperCase())}
                   autoCapitalize="characters"
+                  placeholder="Hall ticket no"
                   required
                 />
               </Field>
@@ -95,11 +107,9 @@ function ForgotPage() {
                 />
               </Field>
               <Field label="New Password">
-                <input
-                  type="password"
-                  className={inputClass}
+                <PasswordInput
                   value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
+                  onChange={setNewPassword}
                   minLength={6}
                   required
                 />
