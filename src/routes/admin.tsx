@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AppShell, useRequireAuth } from "@/components/AppShell";
+import { FlipbookViewer } from "@/components/FlipbookViewer";
 import { btnClass, Field, ghostBtnClass, inputClass, Skeletons } from "@/components/Field";
 import {
   api,
@@ -46,8 +47,9 @@ const TABS = ["notes", "content", "chat", "feedback", "students"] as const;
 const BADGES = ["", "NEW", "IMPORTANT", "URGENT", "HOT", "EVENT", "UPDATE"] as const;
 
 function AdminPage() {
-  useRequireAuth("admin");
+  const me = useRequireAuth("admin");
   const [tab, setTab] = useState<(typeof TABS)[number]>("notes");
+  const unread = useUnreadChat(tab === "chat");
 
   return (
     <AppShell
@@ -58,11 +60,16 @@ function AdminPage() {
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`shrink-0 rounded-full px-4 py-2 text-sm font-bold capitalize transition-all ${
+              className={`relative shrink-0 rounded-full px-4 py-2 text-sm font-bold capitalize transition-all ${
                 tab === t ? "hero-gradient text-white shadow-lg" : "glass"
               }`}
             >
               {t}
+              {t === "chat" && unread > 0 && (
+                <span className="bg-destructive absolute -top-1 -right-1 grid min-w-5 animate-bounce place-items-center rounded-full px-1.5 text-[10px] font-black text-white">
+                  {unread}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -72,9 +79,52 @@ function AdminPage() {
       {tab === "content" && <ContentAdmin />}
       {tab === "chat" && <ChatAdmin />}
       {tab === "feedback" && <FeedbackAdmin />}
-      {tab === "students" && <StudentsAdmin />}
+      {tab === "students" && <StudentsAdmin isMaster={me?.registrationId === "PRAVEEN2207"} />}
     </AppShell>
   );
+}
+
+const SEEN_KEY = "sknsh_admin_chat_seen";
+
+/** Polls student chat and notifies the admin about new incoming messages. */
+function useUnreadChat(viewing: boolean) {
+  const [unread, setUnread] = useState(0);
+  useEffect(() => {
+    let stop = false;
+    let known = -1;
+    const tick = async () => {
+      try {
+        const r = await api<{ threads: ChatThread[] }>("/api/admin/chat");
+        const seen = Number(localStorage.getItem(SEEN_KEY) ?? 0);
+        const incoming = r.threads.flatMap((t) =>
+          t.messages.filter((m) => m.from === "user" && new Date(m.createdAt).getTime() > seen),
+        );
+        if (stop) return;
+        if (viewing) {
+          localStorage.setItem(SEEN_KEY, String(Date.now()));
+          setUnread(0);
+          known = 0;
+          return;
+        }
+        if (known >= 0 && incoming.length > known) {
+          toast.message(`New chat message from ${incoming[incoming.length - 1]?.userId ? "a student" : "a student"}`, {
+            description: incoming[incoming.length - 1]?.text.slice(0, 80),
+          });
+        }
+        known = incoming.length;
+        setUnread(incoming.length);
+      } catch {
+        /* offline */
+      }
+    };
+    void tick();
+    const timer = setInterval(tick, 8000);
+    return () => {
+      stop = true;
+      clearInterval(timer);
+    };
+  }, [viewing]);
+  return unread;
 }
 
 function NotesAdmin() {
