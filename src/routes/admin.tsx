@@ -248,6 +248,8 @@ function NotesAdmin() {
 
 function ContentAdmin() {
   const [items, setItems] = useState<ContentItem[] | null>(null);
+  const [uploads, setUploads] = useState<{ name: string; url: string }[]>([]);
+  const [book, setBook] = useState<{ url: string; title?: string }[] | null>(null);
   const [form, setForm] = useState({
     type: CONTENT_TYPES[0] as string,
     title: "",
@@ -267,12 +269,45 @@ function ContentAdmin() {
   const create = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await api("/api/admin/content", { body: form });
-      toast.success("Content published");
+      if (uploads.length) {
+        for (let i = 0; i < uploads.length; i++) {
+          const u = uploads[i]!;
+          await api("/api/admin/content", {
+            body: {
+              ...form,
+              title: uploads.length > 1 ? `${form.title} ${String(i + 1).padStart(2, "0")}` : form.title,
+              url: u.url,
+            },
+          });
+        }
+        toast.success(`${uploads.length} item(s) published`);
+      } else {
+        await api("/api/admin/content", { body: form });
+        toast.success("Content published");
+      }
       setForm({ ...form, title: "", description: "", url: "", badge: "" });
+      setUploads([]);
       void load();
     } catch (err) {
       toast.error((err as Error).message);
+    }
+  };
+
+  const pickFiles = async (files: FileList | null) => {
+    if (!files?.length) return;
+    const read = (file: File) =>
+      new Promise<{ name: string; url: string }>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve({ name: file.name, url: String(reader.result) });
+        reader.onerror = () => reject(new Error(`Could not read ${file.name}`));
+        reader.readAsDataURL(file);
+      });
+    try {
+      const list = await Promise.all(Array.from(files).map(read));
+      setUploads((prev) => [...prev, ...list]);
+      toast.success(`${list.length} file(s) ready to publish`);
+    } catch (e) {
+      toast.error((e as Error).message);
     }
   };
 
@@ -330,7 +365,31 @@ function ContentAdmin() {
             onChange={(e) => setForm({ ...form, description: e.target.value })}
           />
         </Field>
-        <Field label="Image / Video URL">
+        <Field label="Drop images / videos (multiple allowed)">
+          <div
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault();
+              void pickFiles(e.dataTransfer.files);
+            }}
+            className="border-border rounded-2xl border border-dashed p-4 text-center"
+          >
+            <p className="text-muted-foreground text-xs">Drag &amp; drop files here, or</p>
+            <input
+              type="file"
+              accept="image/*,video/*"
+              multiple
+              className={`${inputClass} mt-2`}
+              onChange={(e) => void pickFiles(e.target.files)}
+            />
+            {uploads.length > 0 && (
+              <p className="text-cyan mt-2 text-xs font-bold">
+                {uploads.length} file(s) staged: {uploads.map((u) => u.name).join(", ")}
+              </p>
+            )}
+          </div>
+        </Field>
+        <Field label="...or an Image / Video URL">
           <input
             className={inputClass}
             value={form.url}
@@ -359,6 +418,18 @@ function ContentAdmin() {
       </form>
 
       <div className="space-y-3">
+        {book && <FlipbookViewer pages={book} onClose={() => setBook(null)} />}
+        {items && items.filter((i) => i.url).length > 1 && (
+          <button
+            type="button"
+            onClick={() =>
+              setBook(items.filter((i) => i.url).map((i) => ({ url: i.url!, title: i.title })))
+            }
+            className={ghostBtnClass}
+          >
+            📖 Open all as flipbook
+          </button>
+        )}
         {items === null ? (
           <Skeletons count={4} />
         ) : (
