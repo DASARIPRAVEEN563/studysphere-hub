@@ -198,20 +198,6 @@ export function FaceVerify({ user, onVerified }: { user: User; onVerified: (u: U
     }
   };
 
-  const confirmHere = async () => {
-    setConfirming(true);
-    try {
-      const r = await api<{ user: User }>("/api/profile/confirm-identity", { method: "POST" });
-      auth.setUser(r.user);
-      onVerified(r.user);
-      toast.success("Identity confirmed — the full website is unlocked");
-    } catch (e) {
-      toast.error((e as Error).message);
-    } finally {
-      setConfirming(false);
-    }
-  };
-
   if (user.faceVerified && !user.identityConfirmed && !live) {
     return (
       <section className="glass animate-rise space-y-3 rounded-3xl p-6">
@@ -222,9 +208,6 @@ export function FaceVerify({ user, onVerified }: { user: User; onVerified: (u: U
           available.
         </p>
         <div className="flex flex-wrap gap-2">
-          <button onClick={confirmHere} className={btnClass} type="button" disabled={confirming}>
-            {confirming ? "Confirming..." : "It's me — confirm here"}
-          </button>
           <button
             onClick={() => void deliverEmail(user.email ?? "", lastImage, confirmToken)}
             className={ghostBtnClass}

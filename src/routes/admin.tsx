@@ -418,18 +418,6 @@ function ContentAdmin() {
       </form>
 
       <div className="space-y-3">
-        {book && <FlipbookViewer pages={book} onClose={() => setBook(null)} />}
-        {items && items.filter((i) => i.url).length > 1 && (
-          <button
-            type="button"
-            onClick={() =>
-              setBook(items.filter((i) => i.url).map((i) => ({ url: i.url!, title: i.title })))
-            }
-            className={ghostBtnClass}
-          >
-            📖 Open all as flipbook
-          </button>
-        )}
         {items === null ? (
           <Skeletons count={4} />
         ) : (
