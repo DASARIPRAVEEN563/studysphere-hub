@@ -111,4 +111,10 @@ def forgot_reset():
     if not user or not verify_value(answer, user.get("securityAnswerHash", "")):
         return jsonify({"error": "Security answer is incorrect"}), 401
     store.update("users", user["id"], {"passwordHash": hash_value(new_password)})
-    return jsonify({"message": "Password updated successfully"})
+    return jsonify(
+        {
+            "message": "Password updated successfully",
+            "email": user.get("email"),
+            "fullName": user.get("fullName"),
+        }
+    )
