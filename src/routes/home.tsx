@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AppShell, useRequireAuth } from "@/components/AppShell";
 import { BookLoader } from "@/components/BookLoader";
+import { FlipbookViewer } from "@/components/FlipbookViewer";
 import { btnClass, inputClass } from "@/components/Field";
 import { api, type ContentItem, type Feedback } from "@/lib/api";
 
@@ -47,12 +48,29 @@ function toEmbed(url: string) {
   return url.replace("/view", "/preview");
 }
 
+/** Items published together share a base title with a " 01", " 02" suffix. */
+function baseTitle(title: string) {
+  return title.replace(/\s+\d{1,3}$/, "").trim();
+}
+
+function groupItems(list: ContentItem[]) {
+  const groups: { key: string; title: string; items: ContentItem[] }[] = [];
+  for (const item of list) {
+    const key = baseTitle(item.title) || item.title;
+    const found = groups.find((g) => g.key === key);
+    if (found) found.items.push(item);
+    else groups.push({ key, title: key, items: [item] });
+  }
+  return groups;
+}
+
 function HomeContent() {
   const user = useRequireAuth();
   const [items, setItems] = useState<ContentItem[] | null>(null);
   const [lightbox, setLightbox] = useState<{ url: string; title: string; video: boolean } | null>(
     null,
   );
+  const [book, setBook] = useState<{ url: string; title?: string }[] | null>(null);
 
   useEffect(() => {
     api<{ content: ContentItem[] }>("/api/content")
@@ -80,7 +98,46 @@ function HomeContent() {
             <section key={g.type} className="mb-10">
               <h3 className="mb-4 text-lg font-bold">{g.label}</h3>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {list.map((item) => (
+                {groupItems(list).map((group) => {
+                  const pages = group.items.filter((i) => i.url);
+                  if (pages.length > 1) {
+                    return (
+                      <article
+                        key={group.key}
+                        className="glass animate-rise relative overflow-hidden rounded-2xl transition-transform hover:-translate-y-1"
+                      >
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setBook(pages.map((i) => ({ url: i.url!, title: i.title })))
+                          }
+                          aria-label={`Open ${group.title} gallery folder`}
+                          className="bg-muted group relative block aspect-video w-full cursor-pointer overflow-hidden"
+                        >
+                          <img
+                            src={pages[0]!.url}
+                            alt={group.title}
+                            loading="lazy"
+                            className="size-full object-cover transition-transform duration-500 group-hover:scale-105"
+                          />
+                          <span className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-black/60 px-3 py-2 text-[11px] font-bold text-white">
+                            <span>📁 {pages.length} images</span>
+                            <span>Tap to flip →</span>
+                          </span>
+                        </button>
+                        <div className="p-5">
+                          <div
+                            className={`mb-2 h-1 w-12 rounded-full bg-gradient-to-r ${g.accent}`}
+                          />
+                          <p className="font-bold">{group.title}</p>
+                          <p className="text-muted-foreground mt-1 text-sm">
+                            Gallery folder — turn one page at a time.
+                          </p>
+                        </div>
+                      </article>
+                    );
+                  }
+                  return group.items.map((item) => (
                   <article
                     key={item.id}
                     className="glass animate-rise relative overflow-hidden rounded-2xl transition-transform hover:-translate-y-1"
@@ -146,7 +203,8 @@ function HomeContent() {
                       )}
                     </div>
                   </article>
-                ))}
+                  ));
+                })}
               </div>
             </section>
           );
@@ -155,6 +213,7 @@ function HomeContent() {
       )}
 
       <FeedbackSection />
+      {book && <FlipbookViewer pages={book} onClose={() => setBook(null)} />}
       {lightbox && (
         <div
           onClick={() => setLightbox(null)}
