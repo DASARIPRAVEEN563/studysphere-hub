@@ -15,6 +15,9 @@ export function FaceVerify({ user, onVerified }: { user: User; onVerified: (u: U
   const [live, setLive] = useState(false);
   const [busy, setBusy] = useState(false);
   const [hint, setHint] = useState("");
+  const [confirmToken, setConfirmToken] = useState<string | null>(null);
+  const [lastImage, setLastImage] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
   const [mail, setMail] = useState<{
     status: "idle" | "queued" | "sending" | "sent" | "failed";
     detail: string;
@@ -127,20 +130,24 @@ export function FaceVerify({ user, onVerified }: { user: User; onVerified: (u: U
     setBusy(true);
     setMail({ status: "queued", detail: `Queued for ${user.email ?? "your email"}...` });
     try {
-      const r = await api<{ user: User; emailedTo?: string; emailSent?: boolean; message?: string }>(
-        "/api/profile/face-verify",
-        { method: "POST", body: { image, faces, email: user.email } },
-      );
+      const r = await api<{
+        user: User;
+        emailedTo?: string;
+        emailSent?: boolean;
+        confirmToken?: string;
+        message?: string;
+      }>("/api/profile/face-verify", {
+        method: "POST",
+        body: { image, faces, email: user.email },
+      });
       auth.setUser(r.user);
       onVerified(r.user);
       stop();
+      setConfirmToken(r.confirmToken ?? null);
+      setLastImage(image);
       toast.success("Face verified is successfully completed");
       const to = r.emailedTo ?? user.email ?? "";
-      if (r.emailSent) {
-        setMail({ status: "sent", detail: `Confirmation mail delivered to ${to}.` });
-      } else {
-        void deliverEmail(to);
-      }
+      void deliverEmail(to, image, r.confirmToken ?? null, r.user.id);
     } catch (e) {
       setMail({ status: "idle", detail: "" });
       toast.error((e as Error).message);
@@ -152,19 +159,33 @@ export function FaceVerify({ user, onVerified }: { user: User; onVerified: (u: U
   };
 
   /** Email delivery runs independently — verification stays successful either way. */
-  const deliverEmail = async (to: string) => {
+  const deliverEmail = async (
+    to: string,
+    image?: string | null,
+    token?: string | null,
+    uid?: string,
+  ) => {
     if (!to) {
       setMail({ status: "failed", detail: "No email ID on file to notify." });
       return;
     }
     setMail({ status: "sending", detail: `Sending confirmation to ${to}...` });
     try {
+      const confirmUrl =
+        typeof window !== "undefined" && (token ?? confirmToken)
+          ? `${window.location.origin}/confirm?uid=${uid ?? user.id}&token=${token ?? confirmToken}`
+          : null;
       const r = await sendFaceVerificationConfirmation({
-        data: { to, fullName: user.fullName },
+        data: {
+          to,
+          fullName: user.fullName,
+          image: image ?? lastImage,
+          confirmUrl,
+        },
       });
       setMail({
         status: "sent",
-        detail: `Delivered to ${to} from studentsnotessharing@gmail.com${
+        detail: `Photo + "It's me" link delivered to ${to}${
           r?.messageId ? ` (ref ${r.messageId.slice(0, 8)})` : ""
         }. If it is not in your inbox, check Spam / Promotions / Updates.`,
       });
@@ -176,6 +197,48 @@ export function FaceVerify({ user, onVerified }: { user: User; onVerified: (u: U
       });
     }
   };
+
+  const confirmHere = async () => {
+    setConfirming(true);
+    try {
+      const r = await api<{ user: User }>("/api/profile/confirm-identity", { method: "POST" });
+      auth.setUser(r.user);
+      onVerified(r.user);
+      toast.success("Identity confirmed — the full website is unlocked");
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setConfirming(false);
+    }
+  };
+
+  if (user.faceVerified && !user.identityConfirmed && !live) {
+    return (
+      <section className="glass animate-rise space-y-3 rounded-3xl p-6">
+        <h3 className="text-lg font-black">Confirm it's you</h3>
+        <p className="text-muted-foreground text-sm">
+          Your face photo was emailed to <b>{user.email}</b>. Open that mail and tap
+          <b> "It's me"</b> to unlock notes, sharing and chat. Until then only Home and Profile are
+          available.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <button onClick={confirmHere} className={btnClass} type="button" disabled={confirming}>
+            {confirming ? "Confirming..." : "It's me — confirm here"}
+          </button>
+          <button
+            onClick={() => void deliverEmail(user.email ?? "", lastImage, confirmToken)}
+            className={ghostBtnClass}
+            type="button"
+          >
+            Resend email
+          </button>
+        </div>
+        {mail.status !== "idle" && (
+          <p className="text-muted-foreground text-xs">{mail.detail}</p>
+        )}
+      </section>
+    );
+  }
 
   if (user.faceVerified && !live) {
     return (
