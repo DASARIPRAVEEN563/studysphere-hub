@@ -57,11 +57,11 @@ export function useRequireVerified() {
 }
 
 const NAV = [
-  { to: "/home", label: "Home" },
-  { to: "/notes", label: "Notes" },
-  { to: "/share", label: "Share Notes" },
-  { to: "/chat", label: "Chat with Admin" },
-  { to: "/profile", label: "Profile" },
+  { to: "/home", label: "Home", short: "Home", icon: "🏠" },
+  { to: "/notes", label: "Notes", short: "Notes", icon: "📚" },
+  { to: "/share", label: "Share Notes", short: "Share", icon: "⬆️" },
+  { to: "/chat", label: "Chat with Admin", short: "Chat", icon: "💬" },
+  { to: "/profile", label: "Profile", short: "Profile", icon: "👤" },
 ] as const;
 
 export function AppShell({
@@ -96,14 +96,14 @@ export function AppShell({
     <div className="min-h-screen">
       {(flipping || isRouterLoading) && <BookLoaderOverlay label={title} />}
       <header className="glass sticky top-0 z-40 rounded-none border-x-0 border-t-0">
-        <div className="mx-auto flex max-w-7xl items-center gap-2 px-3 py-2.5 sm:gap-3 sm:px-4 sm:py-3">
-          <Link to="/home" className="flex items-center gap-2">
-            <Logo3D size={40} />
-            <span className="gradient-text hidden text-sm font-black tracking-wide sm:block">
+        <div className="mx-auto flex max-w-7xl items-center gap-2 px-3 py-2 sm:gap-3 sm:px-4 sm:py-3">
+          <Link to="/home" className="flex min-w-0 items-center gap-2">
+            <Logo3D size={34} className="sm:!h-10 sm:!w-10" />
+            <span className="gradient-text text-sm font-black tracking-wide">
               SKNSH
             </span>
           </Link>
-          <nav className="scrollbar-none -mx-1 flex min-w-0 flex-1 items-center gap-1 overflow-x-auto px-1">
+          <nav className="scrollbar-none -mx-1 hidden min-w-0 flex-1 items-center gap-1 overflow-x-auto px-1 md:flex">
             {NAV.filter((n) => !(user?.role === "admin" && n.to === "/chat")).map((n) => {
               const locked = !isUnlocked(user) && n.to !== "/home" && n.to !== "/profile";
               return (
@@ -140,11 +140,22 @@ export function AppShell({
               </Link>
             )}
           </nav>
+          <div className="flex-1 md:hidden" />
           {user && (
             <div className="flex items-center gap-2">
               <span className="text-muted-foreground hidden text-sm md:inline">
                 Welcome, <span className="text-foreground font-semibold">{user.fullName}</span>
               </span>
+              {user.role === "admin" && (
+                <Link
+                  to="/admin"
+                  className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-bold md:hidden ${
+                    pathname === "/admin" ? "hero-gradient text-white" : "text-pink border border-border"
+                  }`}
+                >
+                  Admin
+                </Link>
+              )}
               <button
                 onClick={() => setExiting(true)}
                 aria-label="Logout"
@@ -156,13 +167,44 @@ export function AppShell({
           )}
         </div>
       </header>
-      <main className="mx-auto max-w-7xl px-3 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-4 sm:py-8">
+      <main className="mx-auto max-w-7xl px-3 py-5 pb-[calc(5.5rem+env(safe-area-inset-bottom))] sm:px-4 sm:py-8 md:pb-8">
         <div className="mb-6 flex flex-wrap items-end justify-between gap-3 sm:mb-8 sm:gap-4">
           <PageName name={title} />
           {actions}
         </div>
         {children}
       </main>
+      {/* Phone-first bottom navigation: thumb-reachable, always visible. */}
+      {user && (
+        <nav className="glass fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 gap-1 rounded-none border-x-0 border-b-0 px-1 pt-1 pb-[max(0.35rem,env(safe-area-inset-bottom))] md:hidden">
+          {NAV.filter((n) => !(user.role === "admin" && n.to === "/chat")).map((n) => {
+            const locked = !isUnlocked(user) && n.to !== "/home" && n.to !== "/profile";
+            const active = pathname === n.to;
+            return (
+              <Link
+                key={n.to}
+                to={locked ? "/profile" : n.to}
+                onClick={() => {
+                  if (locked)
+                    toast.error("You are not verified yet", {
+                      description: "Complete face verification to unlock this tab.",
+                    });
+                }}
+                className={`flex flex-col items-center justify-center gap-0.5 rounded-2xl py-1.5 text-[10px] font-bold ${
+                  active
+                    ? "hero-gradient text-white shadow-lg"
+                    : locked
+                      ? "text-muted-foreground/50"
+                      : "text-muted-foreground"
+                }`}
+              >
+                <span className="text-base leading-none">{locked ? "🔒" : n.icon}</span>
+                {n.short}
+              </Link>
+            );
+          })}
+        </nav>
+      )}
       {exiting && user && (
         <ExitReview
           name={user.fullName}

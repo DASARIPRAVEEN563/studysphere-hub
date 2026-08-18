@@ -27,6 +27,11 @@ type Shard = (typeof SHARDS)[number];
 type AnyDoc = any;
 
 const ARRAY_SHARDS: Shard[] = ["users", "notes", "content", "chats", "feedback", "notifications"];
+/**
+ * Uploaded file blobs are big, so they never travel with the document: the
+ * browser gets the ids only and fetches one blob on demand.
+ */
+const FILES: Shard = "files";
 
 const emptyShard = (s: Shard): AnyDoc => (ARRAY_SHARDS.includes(s) ? [] : {});
 
@@ -39,6 +44,7 @@ async function admin() {
 export function idsOf(doc: AnyDoc): Record<string, string[]> {
   const out: Record<string, string[]> = {};
   for (const s of SHARDS) {
+    if (s === FILES) continue;
     const v = doc?.[s];
     out[s] = Array.isArray(v)
       ? v.map((e: AnyDoc) => String(e?.id ?? ""))
@@ -77,7 +83,12 @@ async function writeShards(doc: AnyDoc, previous: AnyDoc) {
   const db = await admin();
   const now = new Date().toISOString();
   const rows = SHARDS.filter(
-    (s) => JSON.stringify(doc[s] ?? emptyShard(s)) !== JSON.stringify(previous?.[s]),
+    (s) =>
+      s === FILES
+        ? // Comparing megabytes of base64 on every save is the slow path — the
+          // key set is enough to know whether the blob store changed.
+          Object.keys(doc[s] ?? {}).join("|") !== Object.keys(previous?.[s] ?? {}).join("|")
+        : JSON.stringify(doc[s] ?? emptyShard(s)) !== JSON.stringify(previous?.[s]),
   ).map((s) => ({ id: s, data: (doc[s] ?? emptyShard(s)) as any, updated_at: now }));
   if (!rows.length) return;
   const { error } = await db.from("app_state").upsert(rows);
@@ -100,6 +111,11 @@ export function mergeShards(
   const out: AnyDoc = { ...current };
   for (const s of SHARDS) {
     if (incoming?.[s] === undefined) continue;
+    if (s === FILES) {
+      // Additive: the browser only ever sends newly uploaded blobs.
+      out[s] = { ...(current[s] ?? {}), ...(incoming[s] ?? {}) };
+      continue;
+    }
     const seen = new Set(baseIds[s] ?? []);
     if (ARRAY_SHARDS.includes(s)) {
       const list: AnyDoc[] = Array.isArray(incoming[s]) ? incoming[s] : [];
@@ -114,19 +130,36 @@ export function mergeShards(
       out[s] = { ...obj, ...(incoming[s] ?? {}) };
     }
   }
+  const removed: string[] = Array.isArray(incoming?.filesRemove) ? incoming.filesRemove : [];
+  if (removed.length) {
+    const files = { ...(out[FILES] ?? {}) } as Record<string, AnyDoc>;
+    for (const key of removed) delete files[key];
+    out[FILES] = files;
+  }
   return out;
 }
 
-/** Users as sent to the browser: credentials stay on the server. */
+/** What the browser receives: no credentials and no file blobs. */
 export function sanitize(doc: AnyDoc): AnyDoc {
   const users = Array.isArray(doc.users) ? doc.users : [];
   return {
     ...doc,
+    files: {},
+    fileIds: Object.keys(doc.files ?? {}),
     users: users.map((u: AnyDoc) => {
       const { password: _p, securityAnswer: _a, ...rest } = u;
       return rest;
     }),
   };
+}
+
+/** One uploaded file, fetched only when a note is viewed or downloaded. */
+export async function readFile(fileId: string): Promise<string | null> {
+  const db = await admin();
+  const { data, error } = await db.from("app_state").select("data").eq("id", FILES).maybeSingle();
+  if (error) throw new Error(error.message);
+  const files = (data?.data as Record<string, string>) ?? {};
+  return files[fileId] ?? null;
 }
 
 /** Merge a browser-sent doc back in, keeping credentials the browser never saw. */

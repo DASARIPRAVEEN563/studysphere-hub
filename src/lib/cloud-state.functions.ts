@@ -43,3 +43,11 @@ export const cloudAuth = createServerFn({ method: "POST" })
       return { error: (err as Error).message || "Request failed", doc: sanitize(doc), baseIds: idsOf(doc) };
     }
   });
+
+/** Fetch a single uploaded file blob (kept out of the synced document). */
+export const cloudFile = createServerFn({ method: "POST" })
+  .inputValidator((input: { id: string }) => input)
+  .handler(async ({ data }) => {
+    const { readFile } = await import("./cloud-state.server");
+    return { dataUrl: await readFile(String(data.id)) };
+  });

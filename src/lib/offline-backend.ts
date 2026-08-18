@@ -4,7 +4,7 @@
  * When it is unreachable (e.g. the hosted preview, or Flask not started),
  * these handlers keep the whole app usable with localStorage persistence.
  */
-import { cloudAuth, cloudLoad, cloudSave } from "./cloud-state.functions";
+import { cloudAuth, cloudFile, cloudLoad, cloudSave } from "./cloud-state.functions";
 import type {
   AppNotification,
   ChatMessage,
@@ -34,6 +34,10 @@ type DB = {
   chats: ChatMessage[];
   likes?: Record<string, string[]>;
   notifications?: AppNotification[];
+  /** Ids of blobs that live in the cloud but are not held in memory. */
+  fileIds?: string[];
+  /** Blobs deleted locally, applied server-side on the next save. */
+  filesRemove?: string[];
 };
 
 const empty = (): DB => ({
@@ -45,6 +49,8 @@ const empty = (): DB => ({
   chats: [],
   likes: {},
   notifications: [],
+  fileIds: [],
+  filesRemove: [],
 });
 
 /** In-memory copy of the cloud document (mirrored to localStorage for offline use). */
@@ -70,19 +76,35 @@ function read(): DB {
   return cache ?? (cache = readLocal());
 }
 
+/** Coalesces the background polls so the app never fetches the same data twice. */
+let pullInFlight: Promise<DB> | null = null;
+let pulledAt = 0;
+/** Reads that happen within this window reuse the in-memory copy (keeps the UI snappy). */
+const PULL_TTL = 2500;
+
 /** Pull the latest document from the cloud database. */
-async function pull(): Promise<DB> {
-  try {
-    const res = await cloudLoad();
-    const doc = res.doc;
-    baseIds = res.baseIds ?? {};
-    cache = { ...empty(), ...(doc as DB) };
-    mirror(cache);
-  } catch (err) {
-    console.warn("Cloud data unavailable — using the local copy.", err);
-    cache = cache ?? readLocal();
-  }
-  return cache;
+async function pull(force = false): Promise<DB> {
+  if (!force && cache && Date.now() - pulledAt < PULL_TTL) return cache;
+  if (pullInFlight) return pullInFlight;
+  pullInFlight = (async () => {
+    try {
+      const res = await cloudLoad();
+      const doc = res.doc;
+      baseIds = res.baseIds ?? {};
+      // Blobs staged locally but not pushed yet must survive a refresh.
+      const staged = cache?.files ?? {};
+      cache = { ...empty(), ...(doc as DB), files: { ...staged } };
+      pulledAt = Date.now();
+      mirror(cache);
+    } catch (err) {
+      console.warn("Cloud data unavailable — using the local copy.", err);
+      cache = cache ?? readLocal();
+    } finally {
+      pullInFlight = null;
+    }
+    return cache!;
+  })();
+  return pullInFlight;
 }
 
 /** Saves are chained so two quick actions never race each other. */
@@ -99,35 +121,57 @@ async function pushNow(db: DB) {
   try {
     const res = await cloudSave({ data: { doc: db as any, baseIds } });
     baseIds = res.baseIds ?? baseIds;
-    cache = { ...empty(), ...(res.doc as DB) };
+    cache = { ...empty(), ...(res.doc as DB), files: {}, filesRemove: [] };
+    pulledAt = Date.now();
+    mirror(cache);
   } catch (err) {
     console.warn("Could not save to the cloud — kept a local copy.", err);
   }
 }
 
-/** localStorage is only ~5MB — drop the heaviest payloads before giving up. */
+/** Blob for a note: served from memory when just uploaded, else fetched once. */
+async function fileData(db: DB, fileId: string): Promise<string | null> {
+  const local = db.files[fileId];
+  if (local) return local;
+  try {
+    const res = await cloudFile({ data: { id: fileId } });
+    return res.dataUrl ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Mirroring to localStorage is only an offline fallback, so it runs off the main
+ * work: at most once a second, while the browser is idle, and without the heavy
+ * base64 blobs that used to make every save stutter.
+ */
+let mirrorTimer: ReturnType<typeof setTimeout> | null = null;
+let mirrorPending: DB | null = null;
+
 function mirror(db: DB) {
   if (typeof window === "undefined") return;
+  mirrorPending = db;
+  if (mirrorTimer) return;
+  mirrorTimer = setTimeout(() => {
+    mirrorTimer = null;
+    const next = mirrorPending;
+    mirrorPending = null;
+    if (!next) return;
+    const run = () => writeMirror(next);
+    const idle = (window as any).requestIdleCallback as
+      | ((cb: () => void, o?: { timeout: number }) => number)
+      | undefined;
+    if (idle) idle(run, { timeout: 1500 });
+    else run();
+  }, 1000);
+}
+
+/** localStorage is only ~5MB — drop the heaviest payloads before giving up. */
+function writeMirror(db: DB) {
+  const light: DB = { ...db, files: {}, users: db.users.map((u) => ({ ...u, faceImage: null })) };
   try {
-    localStorage.setItem(KEY, JSON.stringify(db));
-    return;
-  } catch {
-    /* quota exceeded — prune below */
-  }
-  const copy: DB = { ...db, files: { ...db.files }, users: db.users.map((u) => ({ ...u })) };
-  const fileIds = Object.keys(copy.files);
-  for (const fid of fileIds) {
-    delete copy.files[fid];
-    try {
-      localStorage.setItem(KEY, JSON.stringify(copy));
-      return;
-    } catch {
-      /* keep pruning */
-    }
-  }
-  for (const u of copy.users) u.faceImage = null;
-  try {
-    localStorage.setItem(KEY, JSON.stringify(copy));
+    localStorage.setItem(KEY, JSON.stringify(light));
   } catch {
     console.warn("Local storage is full — some cached data could not be saved.");
   }
@@ -281,7 +325,8 @@ export async function offlineRequest(
     }
   }
 
-  const db = await pull();
+  // Reads reuse the fresh in-memory copy; writes always start from server truth.
+  const db = await pull(method !== "GET");
   seed(db);
   const me = currentUser(db, token);
   const save = () => {
@@ -470,7 +515,7 @@ export async function offlineRequest(
     const nid = url.split("/")[3]!;
     const note = db.notes.find((n) => n.id === nid);
     if (!note) throw new OfflineError("Note not found");
-    const data = db.files[nid];
+    const data = await fileData(db, nid);
     if (!data) throw new OfflineError("File not found");
     note.views = (note.views ?? 0) + 1;
     save();
@@ -510,7 +555,7 @@ export async function offlineRequest(
   if (url.startsWith("/api/notes/") && url.endsWith("/download")) {
     if (!me.faceVerified) throw new OfflineError("You are not face verified");
     const noteId = url.split("/")[3]!;
-    const data = db.files[noteId];
+    const data = await fileData(db, noteId);
     if (!data) throw new OfflineError("File not found");
     me.downloadedCount += 1;
     const note = db.notes.find((n) => n.id === noteId);
@@ -608,6 +653,7 @@ export async function offlineRequest(
       if (method === "DELETE") {
         db.notes.splice(idx, 1);
         delete db.files[nid];
+        db.filesRemove = [...(db.filesRemove ?? []), nid];
       } else {
         Object.assign(db.notes[idx]!, body);
       }
