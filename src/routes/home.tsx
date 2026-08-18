@@ -114,7 +114,10 @@ function HomeContent() {
           </div>
         )}
         {GROUPS.map((g) => {
-          const list = items.filter((i) => i.type === g.type);
+          // Pinned items of every content type stay on top of their section.
+          const list = items
+            .filter((i) => i.type === g.type)
+            .sort((a, b) => Number(!!b.pinned) - Number(!!a.pinned));
           if (!list.length) return null;
           return (
             <section key={g.type} className="mb-10">
@@ -129,6 +132,11 @@ function HomeContent() {
                         className="glass animate-rise relative overflow-hidden rounded-2xl transition-transform hover:-translate-y-1"
                       >
                         <ContentEffect effect={group.items[0]?.effect} />
+                        {group.items.some((i) => i.pinned) && (
+                          <span className="bg-pink absolute top-3 left-3 z-10 rounded-full px-2 py-1 text-[10px] font-black text-white shadow-lg">
+                            📌 PINNED
+                          </span>
+                        )}
                         <button
                           type="button"
                           onClick={() =>
