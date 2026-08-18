@@ -980,6 +980,67 @@ function StudentsAdminInner({ isMaster }: { isMaster: boolean }) {
 
       {students === null ? (
         <Skeletons count={3} />
+      ) : (
+        <>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          setApplied({ name: fName.trim(), dept: fDept, year: fYear });
+        }}
+        className="glass animate-rise grid gap-3 rounded-3xl p-5 sm:grid-cols-[1.4fr_1fr_1fr_auto] sm:items-end sm:p-6"
+      >
+        <Field label="Name or hall ticket no">
+          <input
+            className={inputClass}
+            value={fName}
+            onChange={(e) => setFName(e.target.value)}
+            placeholder="Search students"
+          />
+        </Field>
+        <Field label="Department">
+          <select className={inputClass} value={fDept} onChange={(e) => setFDept(e.target.value)}>
+            <option value="" className="bg-card">All departments</option>
+            {DEPARTMENTS.map((d) => (
+              <option key={d} value={d} className="bg-card">{d}</option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Year">
+          <select className={inputClass} value={fYear} onChange={(e) => setFYear(e.target.value)}>
+            <option value="" className="bg-card">All years</option>
+            {YEARS.map((y) => (
+              <option key={y} value={y} className="bg-card">{y}</option>
+            ))}
+          </select>
+        </Field>
+        <div className="flex gap-2">
+          <button className={btnClass} type="submit">🔍 Search</button>
+          {applied && (
+            <button
+              type="button"
+              className={ghostBtnClass}
+              onClick={() => {
+                setApplied(null);
+                setFName("");
+                setFDept("");
+                setFYear("");
+              }}
+            >
+              Clear
+            </button>
+          )}
+        </div>
+      </form>
+
+      {applied ? (
+        <div className="space-y-3">
+          <p className="text-muted-foreground text-sm">{matches.length} student(s) found</p>
+          <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
+            {matches.map((s) => (
+              <StudentCard key={s.id} s={s} isMaster={isMaster} onDelete={removeStudent} />
+            ))}
+          </div>
+        </div>
       ) : !openDept ? (
         <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
           {!deptNames.length && <p className="text-muted-foreground text-sm">No students yet.</p>}
