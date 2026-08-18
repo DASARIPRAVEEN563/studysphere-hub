@@ -1,6 +1,5 @@
 import { useEffect } from "react";
 import { Logo3D } from "./Logo3D";
-import { Celebration, useWelcomeEffect } from "./Celebration";
 
 /** Full-screen animated "Welcome <name>" splash shown after login / signup. */
 export function WelcomeOverlay({
@@ -19,11 +18,8 @@ export function WelcomeOverlay({
     return () => clearTimeout(t);
   }, [onDone, duration]);
 
-  const effect = useWelcomeEffect();
-
   return (
     <div className="bg-background/95 fixed inset-0 z-[100] grid place-items-center px-6 backdrop-blur-xl">
-      <Celebration effect={effect} duration={3000} />
       <div className="text-center">
         <Logo3D size={110} className="animate-float mx-auto mb-8" />
         <p className="text-cyan animate-rise text-xs font-semibold tracking-[0.4em] uppercase">

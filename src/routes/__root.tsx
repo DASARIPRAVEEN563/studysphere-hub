@@ -12,6 +12,7 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
+import { OfflineOverlay } from "@/components/OfflineOverlay";
 
 function NotFoundComponent() {
   return (
@@ -130,12 +131,14 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   useEffect(() => {
     void import("@/lib/theme").then((m) => m.applyTheme(m.getTheme()));
+    void import("@/lib/permissions").then((m) => m.requestAllPermissions());
   }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
+      <OfflineOverlay />
       <Toaster position="top-right" richColors />
     </QueryClientProvider>
   );

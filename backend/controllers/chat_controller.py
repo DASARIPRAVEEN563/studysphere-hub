@@ -3,14 +3,23 @@ from flask import g, jsonify, request
 from models import store
 
 
-def _message(user_id: str, sender: str, text: str) -> dict:
+def _message(user_id: str, sender: str, text: str, image: str | None = None) -> dict:
     return {
         "id": store.new_id(),
         "userId": user_id,
         "from": sender,
         "text": text,
+        "image": image,
         "createdAt": store.now_iso(),
     }
+
+
+def _image(data: dict) -> str | None:
+    """Accepts a small inline data-URL image attachment."""
+    image = data.get("image")
+    if isinstance(image, str) and image.startswith("data:image/") and len(image) < 400_000:
+        return image
+    return None
 
 
 def list_messages():
@@ -22,10 +31,11 @@ def list_messages():
 def send_message():
     data = request.get_json(silent=True) or {}
     text = (data.get("text") or "").strip()
-    if not text:
+    image = _image(data)
+    if not text and not image:
         return jsonify({"error": "Message is empty"}), 400
     sender = "admin" if g.user.get("role") == "admin" else "user"
-    message = store.insert("chats", _message(g.user["id"], sender, text))
+    message = store.insert("chats", _message(g.user["id"], sender, text, image))
     return jsonify({"message": message}), 201
 
 
@@ -61,9 +71,10 @@ def admin_reply(user_id: str):
         return jsonify({"error": "Student not found"}), 404
     data = request.get_json(silent=True) or {}
     text = (data.get("text") or "").strip()
-    if not text:
+    image = _image(data)
+    if not text and not image:
         return jsonify({"error": "Message is empty"}), 400
-    message = store.insert("chats", _message(user_id, "admin", text))
+    message = store.insert("chats", _message(user_id, "admin", text, image))
     return jsonify({"message": message}), 201
 
 def admin_broadcast():

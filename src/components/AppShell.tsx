@@ -5,6 +5,7 @@ import { auth, type User } from "@/lib/api";
 import { PageName } from "./AnimatedTitle";
 import { Logo3D } from "./Logo3D";
 import { BookLoaderOverlay } from "./BookLoader";
+import { ExitReview } from "./ExitReview";
 
 export function useAuthUser() {
   const [user, setUser] = useState<User | null>(null);
@@ -77,6 +78,7 @@ export function AppShell({
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const isRouterLoading = useRouterState({ select: (s) => s.status === "pending" });
   const [flipping, setFlipping] = useState(true);
+  const [exiting, setExiting] = useState(false);
 
   useEffect(() => {
     setFlipping(true);
@@ -84,7 +86,7 @@ export function AppShell({
     return () => clearTimeout(t);
   }, [pathname]);
 
-  const logout = () => {
+  const doLogout = () => {
     auth.clear();
     toast.success("Logged out successfully");
     navigate({ to: "/login", replace: true });
@@ -144,22 +146,34 @@ export function AppShell({
                 Welcome, <span className="text-foreground font-semibold">{user.fullName}</span>
               </span>
               <button
-                onClick={logout}
-                className="rounded-full border border-border px-3 py-1.5 text-sm font-medium transition-colors hover:bg-muted"
+                onClick={() => setExiting(true)}
+                aria-label="Logout"
+                className="shrink-0 rounded-full border border-border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-muted sm:text-sm"
               >
-                Logout
+                <span className="hidden sm:inline">Logout</span>
+                <span className="sm:hidden">⎋</span>
               </button>
             </div>
           )}
         </div>
       </header>
-      <main className="mx-auto max-w-7xl px-3 py-6 sm:px-4 sm:py-8">
+      <main className="mx-auto max-w-7xl px-3 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-4 sm:py-8">
         <div className="mb-6 flex flex-wrap items-end justify-between gap-3 sm:mb-8 sm:gap-4">
           <PageName name={title} />
           {actions}
         </div>
         {children}
       </main>
+      {exiting && user && (
+        <ExitReview
+          name={user.fullName}
+          onClose={() => setExiting(false)}
+          onFinish={() => {
+            setExiting(false);
+            doLogout();
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -4,7 +4,16 @@
  * When it is unreachable (e.g. the hosted preview, or Flask not started),
  * these handlers keep the whole app usable with localStorage persistence.
  */
-import type { ChatMessage, ChatThread, ContentItem, Feedback, Note, User } from "./api";
+import type {
+  AppNotification,
+  ChatMessage,
+  ChatThread,
+  ContentItem,
+  Feedback,
+  LeaderRow,
+  Note,
+  User,
+} from "./api";
 
 const KEY = "sknsh_offline_db";
 
@@ -23,6 +32,7 @@ type DB = {
   feedback: Feedback[];
   chats: ChatMessage[];
   likes?: Record<string, string[]>;
+  notifications?: AppNotification[];
 };
 
 const empty = (): DB => ({
@@ -33,6 +43,7 @@ const empty = (): DB => ({
   feedback: [],
   chats: [],
   likes: {},
+  notifications: [],
 });
 
 function read(): DB {
@@ -281,7 +292,7 @@ export async function offlineRequest(
       throw new OfflineError("This confirmation link is invalid or already used");
     u.identityConfirmed = true;
     save();
-    return { user: publicUser(u), message: "Identity confirmed" };
+    return { user: publicUser(u), token: `offline.${u.id}`, message: "Identity confirmed" };
   }
 
   // ---- everything below needs a session ----
@@ -361,9 +372,10 @@ export async function offlineRequest(
         userId: me.id,
         from: me.role === "admin" ? "admin" : "user",
         text: String(body.text ?? "").trim(),
+        image: typeof body.image === "string" && body.image.length < 400_000 ? body.image : null,
         createdAt: new Date().toISOString(),
       };
-      if (!msg.text) throw new OfflineError("Message is empty");
+      if (!msg.text && !msg.image) throw new OfflineError("Message is empty");
       db.chats.push(msg);
       save();
       return { message: msg };
@@ -371,7 +383,56 @@ export async function offlineRequest(
     return { messages: db.chats.filter((m) => m.userId === me.id) };
   }
 
-  if (url === "/api/content") return { content: db.content };
+  if (url === "/api/content") {
+    const list = [...db.content].sort(
+      (a, b) => Number(!!b.pinned) - Number(!!a.pinned),
+    );
+    return { content: list };
+  }
+
+  // ---- notifications (likes on my shared notes) ----
+  if (url === "/api/notifications") {
+    db.notifications = db.notifications ?? [];
+    if (method === "POST") {
+      db.notifications = db.notifications.map((n) =>
+        n.userId === me.id ? { ...n, read: true } : n,
+      );
+      save();
+      return { ok: true };
+    }
+    return {
+      notifications: db.notifications
+        .filter((n) => n.userId === me.id)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+        .slice(0, 30),
+    };
+  }
+
+  // ---- leaderboard ----
+  if (url === "/api/leaderboard") {
+    const rows: LeaderRow[] = db.users
+      .filter((u) => u.role !== "admin")
+      .map((u) => {
+        const mine = db.notes.filter(
+          (n) => n.uploadedById === u.id || n.uploadedBy === u.fullName,
+        );
+        const likes = mine.reduce((sum, n) => sum + (db.likes?.[n.id]?.length ?? 0), 0);
+        return {
+          id: u.id,
+          fullName: u.fullName,
+          registrationId: u.registrationId,
+          department: u.department,
+          shares: mine.length,
+          likes,
+        };
+      });
+    return { leaders: rows };
+  }
+
+  // Has this student already rated the hub?
+  if (url === "/api/feedback/mine") {
+    return { given: db.feedback.some((f) => f.registrationId === me.registrationId) };
+  }
 
   if (url === "/api/notes") return { notes: db.notes.map((n) => shapeNote(db, n, me.id)) };
 
@@ -381,7 +442,21 @@ export async function offlineRequest(
     if (!note) throw new OfflineError("Note not found");
     db.likes = db.likes ?? {};
     const list = db.likes[nid] ?? [];
-    db.likes[nid] = list.includes(me.id) ? list.filter((x) => x !== me.id) : [...list, me.id];
+    const liking = !list.includes(me.id);
+    db.likes[nid] = liking ? [...list, me.id] : list.filter((x) => x !== me.id);
+    // Anonymous like notification for the student who shared the file.
+    const ownerId =
+      note.uploadedById ?? db.users.find((u) => u.fullName === note.uploadedBy)?.id ?? null;
+    if (liking && ownerId && ownerId !== me.id) {
+      db.notifications = db.notifications ?? [];
+      db.notifications.push({
+        id: id(),
+        userId: ownerId,
+        text: `Someone liked your note "${note.subject}" (${note.fileName})`,
+        createdAt: new Date().toISOString(),
+        read: false,
+      });
+    }
     save();
     return { note: shapeNote(db, note, me.id) };
   }
@@ -412,6 +487,7 @@ export async function offlineRequest(
       mimeType: file.type,
       size: file.size,
       uploadedBy: me.fullName,
+      uploadedById: me.id,
       uploadedAt: new Date().toISOString(),
       driveFileId: null,
       likes: 0,
@@ -483,9 +559,10 @@ export async function offlineRequest(
         userId: uid,
         from: "admin",
         text: String(body.text ?? "").trim(),
+        image: typeof body.image === "string" && body.image.length < 400_000 ? body.image : null,
         createdAt: new Date().toISOString(),
       };
-      if (!msg.text) throw new OfflineError("Message is empty");
+      if (!msg.text && !msg.image) throw new OfflineError("Message is empty");
       db.chats.push(msg);
       save();
       return { message: msg };

@@ -24,21 +24,6 @@ export function FaceVerify({ user, onVerified }: { user: User; onVerified: (u: U
 
   const hasEmail = Boolean(user.email && user.email.includes("@"));
 
-  /** Fallback unlock for students whose email never arrives — same result as the "It's me" link. */
-  const confirmHere = async () => {
-    setBusy(true);
-    try {
-      const r = await api<{ user: User }>("/api/profile/confirm-identity", { method: "POST" });
-      auth.setUser(r.user);
-      onVerified(r.user);
-      toast.success("Identity confirmed — all features unlocked");
-    } catch (e) {
-      toast.error((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  };
-
   /** Picks up the confirmation when the student taps "It's me" on another device. */
   useEffect(() => {
     if (!user.faceVerified || user.identityConfirmed) return;
@@ -245,18 +230,10 @@ export function FaceVerify({ user, onVerified }: { user: User; onVerified: (u: U
           >
             Resend email
           </button>
-          <button
-            onClick={() => void confirmHere()}
-            className={btnClass}
-            type="button"
-            disabled={busy}
-          >
-            I can't open that email — confirm here
-          </button>
         </div>
         <p className="text-muted-foreground text-xs">
-          Some mail providers block automated links. Confirming here unlocks every feature straight
-          away.
+          The moment you tap "It's me" in that mail, this site unlocks automatically — no need to
+          log in again.
         </p>
         {mail.status !== "idle" && (
           <p className="text-muted-foreground text-xs">{mail.detail}</p>

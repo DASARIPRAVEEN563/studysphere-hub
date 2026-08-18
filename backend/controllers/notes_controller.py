@@ -173,5 +173,18 @@ def like_note(note_id: str):
         liked_by.remove(g.user["id"])
     else:
         liked_by.append(g.user["id"])
+        owner = note.get("uploadedById")
+        if owner and owner != g.user["id"]:
+            # Anonymous like alert for the student who shared the file.
+            store.insert(
+                "notifications",
+                {
+                    "id": store.new_id(),
+                    "userId": owner,
+                    "text": f'Someone liked your note "{note["subject"]}" ({note["fileName"]})',
+                    "createdAt": store.now_iso(),
+                    "read": False,
+                },
+            )
     updated = store.update("notes", note_id, {"likedBy": liked_by})
     return jsonify({"note": public_note(updated)})

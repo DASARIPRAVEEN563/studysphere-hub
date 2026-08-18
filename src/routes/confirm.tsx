@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { AnimatedTitle } from "@/components/AnimatedTitle";
 import { btnClass } from "@/components/Field";
 import { api, auth, type User } from "@/lib/api";
-import { Celebration } from "@/components/Celebration";
 
 export const Route = createFileRoute("/confirm")({
   head: () => ({
@@ -40,22 +39,25 @@ function ConfirmPage() {
       setDetail("This link is incomplete. Open the newest verification email again.");
       return;
     }
-    api<{ user: User }>("/api/auth/confirm-identity", { body: { uid, token } })
+    api<{ user: User; token?: string }>("/api/auth/confirm-identity", { body: { uid, token } })
       .then((r) => {
         const me = auth.user();
-        if (me && me.id === r.user.id) auth.setUser(r.user);
+        // Signing the student straight in means the email tap unlocks everything
+        // without asking them to log in again.
+        if (r.token) auth.save(r.token, r.user);
+        else if (me && me.id === r.user.id) auth.setUser(r.user);
         setState("done");
-        setDetail("Identity confirmed — your full account is unlocked.");
+        setDetail("Identity confirmed — every feature is unlocked, no login needed.");
+        setTimeout(() => navigate({ to: "/home", replace: true }), 1600);
       })
       .catch((e) => {
         setState("error");
         setDetail((e as Error).message);
       });
-  }, []);
+  }, [navigate]);
 
   return (
     <div className="grid min-h-screen place-items-center px-4 py-12">
-      {state === "done" && <Celebration effect="crackers" message="All features unlocked!" />}
       <div className="w-full max-w-md">
         <AnimatedTitle className="mb-8 text-center text-2xl sm:text-3xl" />
         <div className="glass animate-rise space-y-4 rounded-3xl p-8 text-center">
