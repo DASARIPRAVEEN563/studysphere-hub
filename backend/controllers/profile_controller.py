@@ -57,23 +57,37 @@ def verify_face():
     updated = store.update(
         "users",
         g.user["id"],
-        {"faceImage": image, "faceVerified": True, "faceVerifiedAt": store.now_iso()},
+        {
+            "faceImage": image,
+            "faceVerified": True,
+            "faceVerifiedAt": store.now_iso(),
+            "identityConfirmed": False,
+            "identityCode": f"{secrets.randbelow(900000) + 100000}",
+        },
     )
-    sent = send_face_verified_email(email, updated.get("fullName", ""))
+    code = updated.get("identityCode")
+    sent = send_face_verified_email(email, updated.get("fullName", ""), code)
     return jsonify(
         {
             "user": public_user(updated),
             "emailedTo": email,
             "emailSent": sent,
+            "confirmToken": code,
             "message": "Face verified is successfully completed",
         }
     )
 
 
-def confirm_identity():
-    """In-app fallback for students whose mail provider blocks the "It's me" link."""
+def confirm_code():
+    """Confirms the one-time code that was emailed after face verification."""
+    data = request.get_json(silent=True) or {}
+    code = str(data.get("code") or "").strip()
     user = store.find("users", id=g.user["id"]) or g.user
     if not user.get("faceVerified"):
         return jsonify({"error": "Complete live face verification first"}), 400
+    if not code:
+        return jsonify({"error": "Enter the code from your email"}), 400
+    if code != str(user.get("identityCode") or ""):
+        return jsonify({"error": "Incorrect verification code"}), 400
     updated = store.update("users", g.user["id"], {"identityConfirmed": True})
-    return jsonify({"user": public_user(updated)})
+    return jsonify({"user": public_user(updated), "message": "Verification code confirmed"})
