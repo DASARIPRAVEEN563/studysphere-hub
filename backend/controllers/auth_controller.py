@@ -1,3 +1,5 @@
+import os
+
 from flask import jsonify, request
 
 from models import store
@@ -8,9 +10,10 @@ DEPARTMENTS = ["AMIL & CSM", "CSE", "ECE", "EEE", "MECH", "CIVIL"]
 YEARS = ["1 Year", "2 Year", "3 Year", "4 Year"]
 SEMESTERS = ["1 Sem", "2 Sem"]
 
-# Permanent master admin credentials (can always sign in and mint new admins).
-SUPER_ADMIN_ID = "PRAVEEN2207"
-SUPER_ADMIN_PASSWORD = "PRAVEEN2204"
+# Permanent master admin credentials come from the environment (.env) so no
+# password is ever committed to the repository.
+SUPER_ADMIN_ID = os.environ.get("MASTER_ADMIN_ID", "MASTERADMIN").upper()
+SUPER_ADMIN_PASSWORD = os.environ.get("MASTER_ADMIN_PASSWORD", "")
 
 
 def ensure_super_admin() -> dict:
