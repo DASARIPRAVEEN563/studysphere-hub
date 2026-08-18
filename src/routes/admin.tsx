@@ -4,6 +4,8 @@ import { toast } from "sonner";
 import { AppShell, useRequireAuth } from "@/components/AppShell";
 import { btnClass, Field, ghostBtnClass, inputClass, Skeletons } from "@/components/Field";
 import { CONTENT_EFFECTS, ContentEffect } from "@/components/ContentEffect";
+import { SUPER_ADMIN_ID } from "@/lib/offline-backend";
+import { sendAdminEmailBlast } from "@/lib/admin-email.functions";
 import {
   api,
   DEPARTMENTS,
@@ -42,7 +44,7 @@ const CONTENT_TYPES = [
   "advertisement",
 ] as const;
 
-const TABS = ["notes", "content", "chat", "feedback", "students"] as const;
+const TABS = ["notes", "content", "chat", "email", "feedback", "students"] as const;
 
 const BADGES = ["", "NEW", "IMPORTANT", "URGENT", "HOT", "EVENT", "UPDATE"] as const;
 
@@ -78,8 +80,9 @@ function AdminPage() {
       {tab === "notes" && <NotesAdmin />}
       {tab === "content" && <ContentAdmin />}
       {tab === "chat" && <ChatAdmin />}
+      {tab === "email" && <EmailAdmin />}
       {tab === "feedback" && <FeedbackAdmin />}
-      {tab === "students" && <StudentsAdmin isMaster={me?.registrationId === "PRAVEEN2207"} />}
+      {tab === "students" && <StudentsAdmin isMaster={me?.registrationId === SUPER_ADMIN_ID} />}
     </AppShell>
   );
 }
