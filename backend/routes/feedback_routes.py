@@ -13,6 +13,8 @@ feedback_bp.add_url_rule(
     view_func=require_auth(feedback_controller.create_feedback),
     methods=["POST"],
     endpoint="create_feedback",
-)feedback_bp.add_url_rule(
+)
+
+feedback_bp.add_url_rule(
     "/mine", view_func=require_auth(feedback_controller.my_feedback), methods=["GET"]
 )
