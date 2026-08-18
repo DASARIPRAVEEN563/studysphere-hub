@@ -8,9 +8,10 @@ import { createServerFn } from "@tanstack/react-start";
 export const cloudLoad = createServerFn({ method: "POST" }).handler(async () => {
   const { readDoc, writeDoc, sanitize, idsOf } = await import("./cloud-state.server");
   const { seedDoc } = await import("./cloud-auth.server");
-  const doc = await readDoc();
-  const seeded = seedDoc(doc);
-  if (seeded.changed) await writeDoc(seeded.doc, doc);
+  const loaded = await readDoc();
+  const before = JSON.parse(JSON.stringify(loaded));
+  const seeded = seedDoc(loaded);
+  if (seeded.changed) await writeDoc(seeded.doc, before);
   return { doc: sanitize(seeded.doc), baseIds: idsOf(seeded.doc) };
 });
 
@@ -29,8 +30,9 @@ export const cloudAuth = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { readDoc, writeDoc, sanitize, idsOf } = await import("./cloud-state.server");
     const { handleAuth, seedDoc } = await import("./cloud-auth.server");
-    const before = await readDoc();
-    const doc = seedDoc(before).doc;
+    const loaded = await readDoc();
+    const before = JSON.parse(JSON.stringify(loaded));
+    const doc = seedDoc(loaded).doc;
     // Expected credential problems are returned as data, never thrown: a thrown
     // server-function error surfaces as a runtime crash/blank screen.
     try {
