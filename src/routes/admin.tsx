@@ -799,6 +799,8 @@ function ChatAdmin() {
 function StudentsAdminInner({ isMaster }: { isMaster: boolean }) {
   const [busy, setBusy] = useState(false);
   const [students, setStudents] = useState<User[] | null>(null);
+  const [openDept, setOpenDept] = useState<string | null>(null);
+  const [openYear, setOpenYear] = useState<string | null>(null);
 
   useEffect(() => {
     api<{ students: User[] }>("/api/admin/students")
@@ -830,6 +832,14 @@ function StudentsAdminInner({ isMaster }: { isMaster: boolean }) {
       toast.error((e as Error).message);
     }
   };
+
+  // Department folders → year folders → student cards.
+  const list = students ?? [];
+  const deptNames = Array.from(new Set(list.map((s) => s.department || "Other"))).sort();
+  const inDept = list.filter((s) => (s.department || "Other") === openDept);
+  const yearNames = Array.from(new Set(inDept.map((s) => s.year || "Other"))).sort();
+  const shown = inDept.filter((s) => (s.year || "Other") === openYear);
+
   return (
     <div className="space-y-6">
     <div className="glass animate-rise max-w-xl rounded-3xl p-8">
@@ -845,9 +855,55 @@ function StudentsAdminInner({ isMaster }: { isMaster: boolean }) {
 
       {students === null ? (
         <Skeletons count={3} />
+      ) : !openDept ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {!deptNames.length && <p className="text-muted-foreground text-sm">No students yet.</p>}
+          {deptNames.map((d) => (
+            <button
+              key={d}
+              onClick={() => setOpenDept(d)}
+              className="glass animate-rise rounded-2xl p-6 text-left transition-transform hover:-translate-y-1"
+            >
+              <div className="hero-gradient mb-3 grid size-12 place-items-center rounded-2xl text-xl">
+                🏛️
+              </div>
+              <p className="text-lg font-black">{d}</p>
+              <p className="text-muted-foreground text-xs">
+                {list.filter((s) => (s.department || "Other") === d).length} user(s)
+              </p>
+            </button>
+          ))}
+        </div>
+      ) : !openYear ? (
+        <div className="space-y-4">
+          <button onClick={() => setOpenDept(null)} className={ghostBtnClass}>
+            ← All departments
+          </button>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {yearNames.map((y) => (
+              <button
+                key={y}
+                onClick={() => setOpenYear(y)}
+                className="glass animate-rise rounded-2xl p-6 text-left transition-transform hover:-translate-y-1"
+              >
+                <div className="hero-gradient mb-3 grid size-12 place-items-center rounded-2xl text-xl">
+                  📅
+                </div>
+                <p className="text-lg font-black">{y}</p>
+                <p className="text-muted-foreground text-xs">
+                  {inDept.filter((s) => (s.year || "Other") === y).length} user(s) · {openDept}
+                </p>
+              </button>
+            ))}
+          </div>
+        </div>
       ) : (
+        <div className="space-y-4">
+        <button onClick={() => setOpenYear(null)} className={ghostBtnClass}>
+          ← {openDept} years
+        </button>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {students.map((s) => (
+          {shown.map((s) => (
             <article key={s.id} className="glass animate-rise flex gap-4 rounded-2xl p-5">
               <div className="size-16 shrink-0 overflow-hidden rounded-xl bg-muted">
                 {s.faceImage ? (
@@ -880,6 +936,7 @@ function StudentsAdminInner({ isMaster }: { isMaster: boolean }) {
               </div>
             </article>
           ))}
+        </div>
         </div>
       )}
     </div>
