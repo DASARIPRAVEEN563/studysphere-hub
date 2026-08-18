@@ -49,6 +49,12 @@ const empty = (): DB => ({
 
 /** In-memory copy of the cloud document (mirrored to localStorage for offline use). */
 let cache: DB | null = null;
+/**
+ * Ids the browser saw when it last synced. The server uses them to tell an
+ * intentional delete apart from a row another user created meanwhile, so many
+ * people using the site at once never overwrite each other's data.
+ */
+let baseIds: Record<string, string[]> = {};
 
 function readLocal(): DB {
   if (typeof window === "undefined") return empty();
@@ -67,7 +73,9 @@ function read(): DB {
 /** Pull the latest document from the cloud database. */
 async function pull(): Promise<DB> {
   try {
-    const { doc } = await cloudLoad();
+    const res = await cloudLoad();
+    const doc = res.doc;
+    baseIds = res.baseIds ?? {};
     cache = { ...empty(), ...(doc as DB) };
     mirror(cache);
   } catch (err) {
@@ -77,12 +85,21 @@ async function pull(): Promise<DB> {
   return cache;
 }
 
+/** Saves are chained so two quick actions never race each other. */
+let saveChain: Promise<void> = Promise.resolve();
+
 /** Push the document to the cloud database. */
 async function push(db: DB) {
   mirror(db);
+  saveChain = saveChain.then(() => pushNow(db)).catch(() => {});
+  return saveChain;
+}
+
+async function pushNow(db: DB) {
   try {
-    const { doc } = await cloudSave({ data: { doc: db as any } });
-    cache = { ...empty(), ...(doc as DB) };
+    const res = await cloudSave({ data: { doc: db as any, baseIds } });
+    baseIds = res.baseIds ?? baseIds;
+    cache = { ...empty(), ...(res.doc as DB) };
   } catch (err) {
     console.warn("Could not save to the cloud — kept a local copy.", err);
   }
@@ -252,7 +269,8 @@ export async function offlineRequest(
   if (url.startsWith("/api/auth/")) {
     try {
       const res: any = await cloudAuth({ data: { path: url, body: body ?? {} } });
-      const { doc, ...payload } = res;
+      const { doc, baseIds: ids, ...payload } = res;
+      baseIds = ids ?? baseIds;
       cache = { ...empty(), ...(doc as DB) };
       mirror(cache);
       if (payload.error) throw new OfflineError(String(payload.error));
