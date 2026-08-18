@@ -8,6 +8,12 @@ def list_feedback():
     return jsonify({"feedback": rows})
 
 
+def my_feedback():
+    """Tells the UI whether this student already rated the hub."""
+    given = any(f.get("userId") == g.user["id"] for f in store.read("feedback"))
+    return jsonify({"given": given})
+
+
 def create_feedback():
     data = request.get_json(silent=True) or {}
     try:
