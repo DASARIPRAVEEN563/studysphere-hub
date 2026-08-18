@@ -176,6 +176,17 @@
     max-width: 100%;
   }
 
+  input[type="file"] {
+    min-width: 0;
+    width: 100%;
+  }
+
+  /* Grid/flex children default to min-content width and can widen the page. */
+  main .grid > *,
+  main .flex > * {
+    min-width: 0;
+  }
+
   /* iOS zooms in when a focused field is under 16px. */
   @media (max-width: 640px) {
     input,
