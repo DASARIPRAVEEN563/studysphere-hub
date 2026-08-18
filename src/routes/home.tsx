@@ -65,6 +65,27 @@ function groupItems(list: ContentItem[]) {
   return groups;
 }
 
+/** Saves any home-page media (data URL or remote file) to the device. */
+async function saveMedia(url: string, title: string) {
+  try {
+    let href = url;
+    if (!url.startsWith("data:")) {
+      const blob = await fetch(url).then((r) => r.blob());
+      href = URL.createObjectURL(blob);
+    }
+    const a = document.createElement("a");
+    a.href = href;
+    a.download = title.replace(/[^\w.-]+/g, "_") || "download";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    if (href !== url) URL.revokeObjectURL(href);
+    toast.success("Download started");
+  } catch {
+    window.open(url, "_blank", "noopener");
+  }
+}
+
 function HomeContent() {
   const user = useRequireAuth();
   const [items, setItems] = useState<ContentItem[] | null>(null);
@@ -145,6 +166,11 @@ function HomeContent() {
                     className="glass animate-rise relative overflow-hidden rounded-2xl transition-transform hover:-translate-y-1"
                   >
                     <ContentEffect effect={item.effect} />
+                    {item.pinned && (
+                      <span className="bg-pink absolute top-3 left-3 z-10 rounded-full px-2 py-1 text-[10px] font-black text-white shadow-lg">
+                        📌 PINNED
+                      </span>
+                    )}
                     {item.badge && (
                       <span className="hero-gradient animate-badge absolute top-3 right-3 z-10 rounded-full px-3 py-1 text-[10px] font-black tracking-wider text-white shadow-lg">
                         {item.badge}
@@ -204,6 +230,15 @@ function HomeContent() {
                           Watch video →
                         </a>
                       )}
+                      {item.url && (
+                        <button
+                          type="button"
+                          onClick={() => void saveMedia(item.url!, item.title)}
+                          className="glass mt-3 w-full rounded-xl px-3 py-2 text-xs font-bold transition-transform active:scale-95"
+                        >
+                          ⬇ Download
+                        </button>
+                      )}
                     </div>
                   </article>
                   ));
@@ -247,6 +282,12 @@ function HomeContent() {
             <div className="flex items-center justify-between gap-3 bg-black/70 px-4 py-3">
               <p className="text-sm font-bold text-white">{lightbox.title}</p>
               <div className="flex gap-2">
+                <button
+                  onClick={() => void saveMedia(lightbox.url, lightbox.title)}
+                  className="rounded-full bg-white/15 px-3 py-1.5 text-xs font-bold text-white"
+                >
+                  ⬇ Download
+                </button>
                 <button
                   onClick={() => setLightbox(null)}
                   className="rounded-full bg-white/15 px-3 py-1.5 text-xs font-bold text-white"
