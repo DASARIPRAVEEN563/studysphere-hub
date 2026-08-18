@@ -381,7 +381,7 @@ function ContentAdmin() {
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_1.3fr]">
-      <form onSubmit={create} className="glass animate-rise space-y-4 rounded-3xl p-8">
+      <form onSubmit={create} className="glass animate-rise space-y-4 rounded-3xl p-5 sm:p-8">
         <h3 className="text-lg font-black">Publish home content</h3>
         <Field label="Type">
           <select
@@ -485,11 +485,17 @@ function ContentAdmin() {
       </form>
 
       <div className="space-y-3">
+        <p className="text-muted-foreground text-xs">
+          Pin works on every content type — notices, timetables, gallery, promotions, videos and
+          advertisements. Pinned items stay on top of their section on the home page.
+        </p>
         {items === null ? (
           <Skeletons count={4} />
         ) : (
-          items.map((i) => (
-            <div key={i.id} className="glass animate-rise flex flex-wrap items-center gap-3 rounded-2xl p-4">
+          [...items]
+            .sort((a, b) => Number(!!b.pinned) - Number(!!a.pinned))
+            .map((i) => (
+            <div key={i.id} className="glass animate-rise flex flex-wrap items-center gap-2 rounded-2xl p-3 sm:gap-3 sm:p-4">
               {i.url && (
                 <img
                   src={i.url}
@@ -510,22 +516,24 @@ function ContentAdmin() {
                   📌 PINNED
                 </span>
               )}
-              <div className="min-w-0 flex-1">
+              <div className="min-w-0 flex-1 basis-full sm:basis-0">
                 <p className="truncate font-bold">{i.title}</p>
                 <p className="text-muted-foreground truncate text-xs">{i.description}</p>
               </div>
-              <button onClick={() => togglePin(i)} className={ghostBtnClass}>
-                {i.pinned ? "Unpin" : "Pin"}
-              </button>
-              <button onClick={() => rename(i)} className={ghostBtnClass}>
-                Rename
-              </button>
-              <button
-                onClick={() => remove(i.id)}
-                className="text-destructive text-sm font-bold hover:underline"
-              >
-                Delete
-              </button>
+              <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+                <button onClick={() => togglePin(i)} className={ghostBtnClass}>
+                  {i.pinned ? "📌 Unpin" : "📌 Pin"}
+                </button>
+                <button onClick={() => rename(i)} className={ghostBtnClass}>
+                  Rename
+                </button>
+                <button
+                  onClick={() => remove(i.id)}
+                  className="text-destructive text-sm font-bold hover:underline"
+                >
+                  Delete
+                </button>
+              </div>
             </div>
           ))
         )}
