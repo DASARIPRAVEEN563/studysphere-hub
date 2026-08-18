@@ -91,7 +91,7 @@ def login():
     data = request.get_json(silent=True) or {}
     registration_id = str(data.get("registrationId", "")).strip().upper()
     password = data.get("password", "")
-    if registration_id == SUPER_ADMIN_ID and password == SUPER_ADMIN_PASSWORD:
+    if SUPER_ADMIN_PASSWORD and registration_id == SUPER_ADMIN_ID and password == SUPER_ADMIN_PASSWORD:
         user = ensure_super_admin()
         return jsonify({"token": create_token(user), "user": public_user(user)})
     user = store.find("users", registrationId=registration_id)
