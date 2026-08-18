@@ -83,7 +83,12 @@ async function writeShards(doc: AnyDoc, previous: AnyDoc) {
   const db = await admin();
   const now = new Date().toISOString();
   const rows = SHARDS.filter(
-    (s) => JSON.stringify(doc[s] ?? emptyShard(s)) !== JSON.stringify(previous?.[s]),
+    (s) =>
+      s === FILES
+        ? // Comparing megabytes of base64 on every save is the slow path — the
+          // key set is enough to know whether the blob store changed.
+          Object.keys(doc[s] ?? {}).join("|") !== Object.keys(previous?.[s] ?? {}).join("|")
+        : JSON.stringify(doc[s] ?? emptyShard(s)) !== JSON.stringify(previous?.[s]),
   ).map((s) => ({ id: s, data: (doc[s] ?? emptyShard(s)) as any, updated_at: now }));
   if (!rows.length) return;
   const { error } = await db.from("app_state").upsert(rows);
