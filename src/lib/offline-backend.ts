@@ -4,7 +4,7 @@
  * When it is unreachable (e.g. the hosted preview, or Flask not started),
  * these handlers keep the whole app usable with localStorage persistence.
  */
-import { cloudAuth, cloudLoad, cloudSave } from "./cloud-state.functions";
+import { cloudAuth, cloudFile, cloudLoad, cloudSave } from "./cloud-state.functions";
 import type {
   AppNotification,
   ChatMessage,
@@ -34,6 +34,10 @@ type DB = {
   chats: ChatMessage[];
   likes?: Record<string, string[]>;
   notifications?: AppNotification[];
+  /** Ids of blobs that live in the cloud but are not held in memory. */
+  fileIds?: string[];
+  /** Blobs deleted locally, applied server-side on the next save. */
+  filesRemove?: string[];
 };
 
 const empty = (): DB => ({
@@ -45,6 +49,8 @@ const empty = (): DB => ({
   chats: [],
   likes: {},
   notifications: [],
+  fileIds: [],
+  filesRemove: [],
 });
 
 /** In-memory copy of the cloud document (mirrored to localStorage for offline use). */
