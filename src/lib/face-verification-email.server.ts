@@ -39,27 +39,27 @@ async function sendRaw(message: string) {
 const FROM = "STUDENTS KA NOTES SHARING HUB <studentsnotessharing@gmail.com>";
 
 /**
- * Face verification mail: contains the captured photo and an "It's me" link the
- * student must click before the rest of the website unlocks.
+ * Face verification mail: contains the captured photo and a one-time
+ * verification code the student pastes on the website to unlock everything.
  */
 export async function sendFaceVerificationEmail(
   to: string,
   fullName: string,
-  options: { image?: string | null; confirmUrl?: string | null } = {},
+  options: { image?: string | null; code?: string | null } = {},
 ) {
   const safeName = clean(fullName) || "Student";
   const safeTo = clean(to);
-  const confirmUrl = options.confirmUrl ? clean(options.confirmUrl) : "";
+  const code = options.code ? clean(options.code) : "";
   const boundary = `sknsh_${Date.now().toString(36)}`;
 
   const html = [
     "<div style=\"font-family:Arial,Helvetica,sans-serif;font-size:15px;color:#111\">",
     `<p>Hello ${safeName},</p>`,
     "<p><b>Face verified is successfully completed.</b></p>",
-    "<p>The photo captured during verification is attached below. If this is you, confirm it to unlock notes, sharing and chat on STUDENTS KA NOTES SHARING HUB.</p>",
+    "<p>The photo captured during verification is attached below. Enter the code shown here on the website to unlock notes, sharing and chat on STUDENTS KA NOTES SHARING HUB.</p>",
     options.image ? '<p><img src="cid:faceimage" alt="Captured face" width="240" style="border-radius:12px" /></p>' : "",
-    confirmUrl
-      ? `<p><a href="${confirmUrl}" style="background:#6d28d9;color:#fff;padding:12px 22px;border-radius:10px;text-decoration:none;font-weight:bold">✅ It's me — confirm and open the website</a></p><p style="font-size:12px;color:#555">Or paste this link: ${confirmUrl}</p>`
+    code
+      ? `<p style="font-size:14px;color:#555">Your verification code:</p><p style="background:#6d28d9;color:#fff;padding:14px 22px;border-radius:12px;font-size:30px;letter-spacing:8px;font-weight:bold;display:inline-block">${code}</p><p style="font-size:12px;color:#555">Paste this code in the profile page. Never share it with anyone.</p>`
       : "",
     "<p>- Notes Hub Team</p>",
     "</div>",
@@ -69,7 +69,7 @@ export async function sendFaceVerificationEmail(
     `To: ${safeTo}`,
     `From: ${FROM}`,
     "Reply-To: studentsnotessharing@gmail.com",
-    "Subject: Confirm it's you - Face verification | STUDENTS KA NOTES SHARING HUB",
+    `Subject: ${code ? `${code} is your verification code` : "Face verification"} | STUDENTS KA NOTES SHARING HUB`,
     "MIME-Version: 1.0",
     `Content-Type: multipart/related; boundary="${boundary}"`,
     "",
