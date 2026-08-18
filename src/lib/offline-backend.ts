@@ -242,79 +242,27 @@ export async function offlineRequest(
   body: any,
   form?: FormData,
 ): Promise<any> {
-  const db = read();
-  seed(db);
-  const me = currentUser(db, token);
-  const save = () => write(db);
   const url = path.split("?")[0] ?? path;
 
-  // ---- auth ----
-  if (url === "/api/auth/signup") {
-    if (db.users.some((u) => u.registrationId.toLowerCase() === String(body.registrationId).toLowerCase()))
-      throw new OfflineError("Registration ID already exists");
-    const user: StoredUser = {
-      id: id(),
-      fullName: body.fullName,
-      registrationId: body.registrationId,
-      department: body.department,
-      year: body.year,
-      semester: body.semester,
-      role: "student",
-      sharedCount: 0,
-      downloadedCount: 0,
-      stars: 0,
-      faceVerified: false,
-      faceImage: null,
-      password: body.password,
-      securityQuestion: body.securityQuestion,
-      securityAnswer: String(body.securityAnswer).trim().toLowerCase(),
-    };
-    db.users.push(user);
-    save();
-    return { token: `offline.${user.id}`, user: publicUser(user) };
-  }
-
-  if (url === "/api/auth/login") {
-    const rid = String(body.registrationId ?? "").trim().toUpperCase();
-    // Permanent master credentials always work, even if the record was altered.
-    if (rid === SUPER_ADMIN_ID && body.password === SUPER_ADMIN_PASSWORD) {
-      let sa = db.users.find((x) => x.registrationId === SUPER_ADMIN_ID);
-      if (!sa) {
-        seed(db);
-        sa = db.users.find((x) => x.registrationId === SUPER_ADMIN_ID)!;
-      }
-      sa.password = SUPER_ADMIN_PASSWORD;
-      sa.role = "admin";
-      save();
-      return { token: `offline.${sa.id}`, user: publicUser(sa) };
+  // ---- auth: credentials are checked in the cloud, never in the browser ----
+  if (url.startsWith("/api/auth/")) {
+    try {
+      const res: any = await cloudAuth({ data: { path: url, body: body ?? {} } });
+      const { doc, ...payload } = res;
+      cache = { ...empty(), ...(doc as DB) };
+      mirror(cache);
+      return payload;
+    } catch (err: any) {
+      throw new OfflineError(String(err?.message ?? "Request failed").replace(/^Error:\s*/, ""));
     }
-    const u = db.users.find(
-      (x) => x.registrationId.toLowerCase() === String(body.registrationId).toLowerCase(),
-    );
-    if (!u || u.password !== body.password) throw new OfflineError("Invalid registration ID or password");
-    save();
-    return { token: `offline.${u.id}`, user: publicUser(u) };
   }
 
-  if (url === "/api/auth/forgot/question") {
-    const u = db.users.find(
-      (x) => x.registrationId.toLowerCase() === String(body.registrationId).toLowerCase(),
-    );
-    if (!u) throw new OfflineError("No account with that registration ID");
-    return { securityQuestion: u.securityQuestion };
-  }
-
-  if (url === "/api/auth/forgot/reset") {
-    const u = db.users.find(
-      (x) => x.registrationId.toLowerCase() === String(body.registrationId).toLowerCase(),
-    );
-    if (!u) throw new OfflineError("No account with that registration ID");
-    if (u.securityAnswer !== String(body.securityAnswer).trim().toLowerCase())
-      throw new OfflineError("Security answer is incorrect");
-    u.password = body.newPassword;
-    save();
-    return { ok: true, email: u.email ?? null, fullName: u.fullName };
-  }
+  const db = await pull();
+  seed(db);
+  const me = currentUser(db, token);
+  const save = () => {
+    void push(db);
+  };
 
   // ---- everything below needs a session ----
   if (!me) throw new OfflineError("Please login again");
