@@ -50,9 +50,11 @@ export function ExitReview({
           Thanks for using Students Ka Notes Sharing Hub. See you again soon.
         </p>
 
-        {!alreadyRated && (
+        {(
           <div className="space-y-3 pt-1">
-            <p className="text-xs font-bold uppercase opacity-70">Rate us (optional)</p>
+            <p className="text-xs font-bold uppercase opacity-70">
+              {alreadyRated ? "Update your rating (optional)" : "Rate us before you go"}
+            </p>
             <div className="flex justify-center gap-1 text-3xl">
               {[1, 2, 3, 4, 5].map((s) => (
                 <button
