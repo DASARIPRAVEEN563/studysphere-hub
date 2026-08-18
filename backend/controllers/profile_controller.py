@@ -32,7 +32,7 @@ def update_profile():
         if email:
             taken = [
                 u
-                for u in store.all("users")
+                for u in store.read("users")
                 if u["id"] != g.user["id"]
                 and str(u.get("email") or "").strip().lower() == email.lower()
             ]
