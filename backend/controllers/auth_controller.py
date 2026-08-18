@@ -53,6 +53,12 @@ def signup():
     if store.find("users", registrationId=registration_id):
         return jsonify({"error": "This registration ID is already registered"}), 409
 
+    email = (data.get("email") or "").strip() or None
+    if email and any(
+        str(u.get("email") or "").strip().lower() == email.lower() for u in store.read("users")
+    ):
+        return jsonify({"error": "This email ID is already used by another account"}), 409
+
     department = data.get("department") if data.get("department") in DEPARTMENTS else DEPARTMENTS[0]
     year = data.get("year") if data.get("year") in YEARS else YEARS[0]
     semester = data.get("semester") if data.get("semester") in SEMESTERS else SEMESTERS[0]
@@ -61,7 +67,7 @@ def signup():
         "id": store.new_id(),
         "fullName": data["fullName"].strip(),
         "registrationId": registration_id,
-        "email": (data.get("email") or "").strip() or None,
+        "email": email,
         "passwordHash": hash_value(data["password"]),
         "securityQuestion": data["securityQuestion"].strip(),
         "securityAnswerHash": hash_value(data["securityAnswer"].strip().lower()),
