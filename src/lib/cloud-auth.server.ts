@@ -1,12 +1,18 @@
 /** Server-only credential logic: sign-up, login, security-question recovery. */
 type AnyDoc = any;
 
-export const SUPER_ADMIN_ID = "PRAVEEN2207";
-const SUPER_ADMIN_PASSWORD = "PRAVEEN2204";
+/**
+ * Master-admin credentials never live in the repository: they come from the
+ * MASTER_ADMIN_ID / MASTER_ADMIN_PASSWORD environment secrets so the code can
+ * be pushed to GitHub safely.
+ */
+const masterId = () => (process.env["MASTER_ADMIN_ID"] || "MASTERADMIN").toUpperCase();
+const masterPassword = () => process.env["MASTER_ADMIN_PASSWORD"] || "";
 
 const newId = () => Math.random().toString(36).slice(2, 11);
 
 export function seedDoc(input: AnyDoc): { doc: AnyDoc; changed: boolean } {
+  const SUPER_ADMIN_ID = masterId();
   const doc: AnyDoc = {
     users: [],
     notes: [],
@@ -32,7 +38,7 @@ export function seedDoc(input: AnyDoc): { doc: AnyDoc; changed: boolean } {
       downloadedCount: 0,
       stars: 0,
       faceVerified: true,
-      password: SUPER_ADMIN_PASSWORD,
+      password: masterPassword(),
       securityQuestion: "Master admin",
       securityAnswer: "praveen",
       identityConfirmed: true,
@@ -91,6 +97,7 @@ export function handleAuth(
   body: AnyDoc,
   doc: AnyDoc,
 ): { payload: AnyDoc; persist: boolean } {
+  const SUPER_ADMIN_ID = masterId();
   const users: AnyDoc[] = doc.users;
   const rid = String(body.registrationId ?? "").trim();
   const find = () => users.find((u) => u.registrationId.toLowerCase() === rid.toLowerCase());
@@ -122,9 +129,10 @@ export function handleAuth(
   }
 
   if (path === "/api/auth/login") {
-    if (rid.toUpperCase() === SUPER_ADMIN_ID && body.password === SUPER_ADMIN_PASSWORD) {
+    const master = masterPassword();
+    if (rid.toUpperCase() === SUPER_ADMIN_ID && !!master && body.password === master) {
       const sa = users.find((u) => u.registrationId === SUPER_ADMIN_ID)!;
-      sa.password = SUPER_ADMIN_PASSWORD;
+      sa.password = master;
       sa.role = "admin";
       return { payload: { token: `offline.${sa.id}`, user: publicUser(sa) }, persist: true };
     }
