@@ -492,9 +492,17 @@ function ContentAdmin() {
         {items === null ? (
           <Skeletons count={4} />
         ) : (
-          [...items]
-            .sort((a, b) => Number(!!b.pinned) - Number(!!a.pinned))
-            .map((i) => (
+          groupContent(items).map((group) =>
+            group.items.length > 1 ? (
+              <ContentGroupCard
+                key={group.key}
+                group={group}
+                onRemove={remove}
+                onRename={rename}
+                onPin={togglePin}
+              />
+            ) : (
+              group.items.map((i) => (
             <div key={i.id} className="glass animate-rise flex flex-wrap items-center gap-2 rounded-2xl p-3 sm:gap-3 sm:p-4">
               {i.url && (
                 <img
@@ -535,9 +543,103 @@ function ContentAdmin() {
                 </button>
               </div>
             </div>
-          ))
+              ))
+            ),
+          )
         )}
       </div>
+    </div>
+  );
+}
+
+type ContentGroup = { key: string; title: string; type: string; items: ContentItem[] };
+
+/** Multi-upload batches share a title with a trailing " 01" counter — fold them into one folder. */
+function groupContent(items: ContentItem[]): ContentGroup[] {
+  const map = new Map<string, ContentGroup>();
+  for (const item of items) {
+    const base = item.title.replace(/\s+\d{2,}$/, "").trim() || item.title;
+    const key = `${item.type}::${base.toLowerCase()}`;
+    const group = map.get(key) ?? { key, title: base, type: item.type, items: [] };
+    group.items.push(item);
+    map.set(key, group);
+  }
+  return [...map.values()].sort(
+    (a, b) =>
+      Number(a.items.some((i) => i.pinned) ? 0 : 1) - Number(b.items.some((i) => i.pinned) ? 0 : 1),
+  );
+}
+
+function ContentGroupCard({
+  group,
+  onRemove,
+  onRename,
+  onPin,
+}: {
+  group: ContentGroup;
+  onRemove: (id: string) => void;
+  onRename: (item: ContentItem) => void;
+  onPin: (item: ContentItem) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const pinned = group.items.some((i) => i.pinned);
+  return (
+    <div className="glass animate-rise space-y-3 rounded-2xl p-3 sm:p-4">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center gap-3 text-left"
+      >
+        <span className="text-2xl">📁</span>
+        <div className="flex -space-x-3">
+          {group.items.slice(0, 3).map(
+            (i) =>
+              i.url && (
+                <img
+                  key={i.id}
+                  src={i.url}
+                  alt={i.title}
+                  className="border-border h-10 w-14 rounded-lg border object-cover"
+                />
+              ),
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-bold">{group.title}</p>
+          <p className="text-muted-foreground text-xs">
+            {group.type} · {group.items.length} items {pinned ? "· 📌 pinned" : ""}
+          </p>
+        </div>
+        <span className="text-muted-foreground text-xs">{open ? "▲ Close" : "▼ Open"}</span>
+      </button>
+      {open && (
+        <div className="space-y-2 border-t border-border pt-3">
+          {group.items.map((i) => (
+            <div key={i.id} className="flex flex-wrap items-center gap-2">
+              {i.url && (
+                <img
+                  src={i.url}
+                  alt={i.title}
+                  className="border-border h-10 w-16 shrink-0 rounded-lg border object-cover"
+                />
+              )}
+              <p className="min-w-0 flex-1 truncate text-sm font-semibold">{i.title}</p>
+              <button onClick={() => onPin(i)} className={ghostBtnClass}>
+                {i.pinned ? "📌 Unpin" : "📌 Pin"}
+              </button>
+              <button onClick={() => onRename(i)} className={ghostBtnClass}>
+                Rename
+              </button>
+              <button
+                onClick={() => onRemove(i.id)}
+                className="text-destructive text-sm font-bold hover:underline"
+              >
+                Delete
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
