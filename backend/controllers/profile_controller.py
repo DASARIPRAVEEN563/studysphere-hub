@@ -68,3 +68,12 @@ def verify_face():
             "message": "Face verified is successfully completed",
         }
     )
+
+
+def confirm_identity():
+    """In-app fallback for students whose mail provider blocks the "It's me" link."""
+    user = store.find("users", id=g.user["id"]) or g.user
+    if not user.get("faceVerified"):
+        return jsonify({"error": "Complete live face verification first"}), 400
+    updated = store.update("users", g.user["id"], {"identityConfirmed": True})
+    return jsonify({"user": public_user(updated)})
