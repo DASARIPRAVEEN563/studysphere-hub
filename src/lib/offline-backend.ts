@@ -85,9 +85,17 @@ async function pull(): Promise<DB> {
   return cache;
 }
 
+/** Saves are chained so two quick actions never race each other. */
+let saveChain: Promise<void> = Promise.resolve();
+
 /** Push the document to the cloud database. */
 async function push(db: DB) {
   mirror(db);
+  saveChain = saveChain.then(() => pushNow(db)).catch(() => {});
+  return saveChain;
+}
+
+async function pushNow(db: DB) {
   try {
     const res = await cloudSave({ data: { doc: db as any, baseIds } });
     baseIds = res.baseIds ?? baseIds;
