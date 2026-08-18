@@ -4,6 +4,8 @@ import { toast } from "sonner";
 import { AppShell, useRequireAuth } from "@/components/AppShell";
 import { btnClass, Field, ghostBtnClass, inputClass, Skeletons } from "@/components/Field";
 import { CONTENT_EFFECTS, ContentEffect } from "@/components/ContentEffect";
+import { SUPER_ADMIN_ID } from "@/lib/offline-backend";
+import { sendAdminEmailBlast } from "@/lib/admin-email.functions";
 import {
   api,
   DEPARTMENTS,
@@ -42,7 +44,7 @@ const CONTENT_TYPES = [
   "advertisement",
 ] as const;
 
-const TABS = ["notes", "content", "chat", "feedback", "students"] as const;
+const TABS = ["notes", "content", "chat", "email", "feedback", "students"] as const;
 
 const BADGES = ["", "NEW", "IMPORTANT", "URGENT", "HOT", "EVENT", "UPDATE"] as const;
 
@@ -78,8 +80,9 @@ function AdminPage() {
       {tab === "notes" && <NotesAdmin />}
       {tab === "content" && <ContentAdmin />}
       {tab === "chat" && <ChatAdmin />}
+      {tab === "email" && <EmailAdmin />}
       {tab === "feedback" && <FeedbackAdmin />}
-      {tab === "students" && <StudentsAdmin isMaster={me?.registrationId === "PRAVEEN2207"} />}
+      {tab === "students" && <StudentsAdmin isMaster={me?.registrationId === SUPER_ADMIN_ID} />}
     </AppShell>
   );
 }
@@ -911,6 +914,11 @@ function StudentsAdminInner({ isMaster }: { isMaster: boolean }) {
   const [students, setStudents] = useState<User[] | null>(null);
   const [openDept, setOpenDept] = useState<string | null>(null);
   const [openYear, setOpenYear] = useState<string | null>(null);
+  // Manual shortlist filters (applied only when Search is pressed).
+  const [fName, setFName] = useState("");
+  const [fDept, setFDept] = useState("");
+  const [fYear, setFYear] = useState("");
+  const [applied, setApplied] = useState<{ name: string; dept: string; year: string } | null>(null);
 
   useEffect(() => {
     api<{ students: User[] }>("/api/admin/students")
@@ -945,6 +953,16 @@ function StudentsAdminInner({ isMaster }: { isMaster: boolean }) {
 
   // Department folders → year folders → student cards.
   const list = students ?? [];
+  const matches = applied
+    ? list.filter(
+        (s) =>
+          (!applied.name ||
+            s.fullName.toLowerCase().includes(applied.name.toLowerCase()) ||
+            s.registrationId.toLowerCase().includes(applied.name.toLowerCase())) &&
+          (!applied.dept || s.department === applied.dept) &&
+          (!applied.year || s.year === applied.year),
+      )
+    : [];
   const deptNames = Array.from(new Set(list.map((s) => s.department || "Other"))).sort();
   const inDept = list.filter((s) => (s.department || "Other") === openDept);
   const yearNames = Array.from(new Set(inDept.map((s) => s.year || "Other"))).sort();
@@ -965,6 +983,67 @@ function StudentsAdminInner({ isMaster }: { isMaster: boolean }) {
 
       {students === null ? (
         <Skeletons count={3} />
+      ) : (
+        <>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          setApplied({ name: fName.trim(), dept: fDept, year: fYear });
+        }}
+        className="glass animate-rise grid gap-3 rounded-3xl p-5 sm:grid-cols-[1.4fr_1fr_1fr_auto] sm:items-end sm:p-6"
+      >
+        <Field label="Name or hall ticket no">
+          <input
+            className={inputClass}
+            value={fName}
+            onChange={(e) => setFName(e.target.value)}
+            placeholder="Search students"
+          />
+        </Field>
+        <Field label="Department">
+          <select className={inputClass} value={fDept} onChange={(e) => setFDept(e.target.value)}>
+            <option value="" className="bg-card">All departments</option>
+            {DEPARTMENTS.map((d) => (
+              <option key={d} value={d} className="bg-card">{d}</option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Year">
+          <select className={inputClass} value={fYear} onChange={(e) => setFYear(e.target.value)}>
+            <option value="" className="bg-card">All years</option>
+            {YEARS.map((y) => (
+              <option key={y} value={y} className="bg-card">{y}</option>
+            ))}
+          </select>
+        </Field>
+        <div className="flex gap-2">
+          <button className={btnClass} type="submit">🔍 Search</button>
+          {applied && (
+            <button
+              type="button"
+              className={ghostBtnClass}
+              onClick={() => {
+                setApplied(null);
+                setFName("");
+                setFDept("");
+                setFYear("");
+              }}
+            >
+              Clear
+            </button>
+          )}
+        </div>
+      </form>
+
+      {applied ? (
+        <div className="space-y-3">
+          <p className="text-muted-foreground text-sm">{matches.length} student(s) found</p>
+          <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
+            {matches.map((s) => (
+              <StudentCard key={s.id} s={s} isMaster={isMaster} onDelete={removeStudent} />
+            ))}
+          </div>
+        </div>
       ) : !openDept ? (
         <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
           {!deptNames.length && <p className="text-muted-foreground text-sm">No students yet.</p>}
@@ -1014,42 +1093,57 @@ function StudentsAdminInner({ isMaster }: { isMaster: boolean }) {
         </button>
         <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
           {shown.map((s) => (
-            <article key={s.id} className="glass animate-rise flex gap-3 rounded-2xl p-4 sm:gap-4 sm:p-5">
-              <div className="size-16 shrink-0 overflow-hidden rounded-xl bg-muted">
-                {s.faceImage ? (
-                  <img src={s.faceImage} alt={s.fullName} className="size-full object-cover" />
-                ) : (
-                  <div className="text-muted-foreground grid size-full place-items-center text-xs">
-                    No face
-                  </div>
-                )}
-              </div>
-              <div className="min-w-0">
-                <p className="truncate font-bold">{s.fullName}</p>
-                <p className="text-muted-foreground text-xs">{s.registrationId}</p>
-                <p className="text-cyan text-xs">
-                  {s.department} · {s.year} · {s.semester}
-                </p>
-                <p className="mt-1 text-xs">
-                  ⭐ {s.stars ?? 0} · {s.sharedCount} shared · {s.downloadedCount} downloaded ·{" "}
-                  {s.faceVerified ? "Verified" : "Unverified"}
-                </p>
-                {(s.role !== "admin" ||
-                  (isMaster && s.registrationId !== "PRAVEEN2207")) && (
-                  <button
-                    onClick={() => removeStudent(s)}
-                    className="text-destructive mt-2 text-xs font-bold hover:underline"
-                  >
-                    🗑 Delete {s.role === "admin" ? "admin" : "user"}
-                  </button>
-                )}
-              </div>
-            </article>
+            <StudentCard key={s.id} s={s} isMaster={isMaster} onDelete={removeStudent} />
           ))}
         </div>
         </div>
       )}
+        </>
+      )}
     </div>
+  );
+}
+
+function StudentCard({
+  s,
+  isMaster,
+  onDelete,
+}: {
+  s: User;
+  isMaster: boolean;
+  onDelete: (s: User) => void;
+}) {
+  return (
+    <article className="glass animate-rise flex gap-3 rounded-2xl p-4 sm:gap-4 sm:p-5">
+      <div className="bg-muted size-16 shrink-0 overflow-hidden rounded-xl">
+        {s.faceImage ? (
+          <img src={s.faceImage} alt={s.fullName} className="size-full object-cover" />
+        ) : (
+          <div className="text-muted-foreground grid size-full place-items-center text-xs">
+            No face
+          </div>
+        )}
+      </div>
+      <div className="min-w-0">
+        <p className="truncate font-bold">{s.fullName}</p>
+        <p className="text-muted-foreground text-xs">{s.registrationId}</p>
+        <p className="text-cyan text-xs">
+          {s.department} · {s.year} · {s.semester}
+        </p>
+        <p className="mt-1 text-xs">
+          ⭐ {s.stars ?? 0} · {s.sharedCount} shared · {s.downloadedCount} downloaded ·{" "}
+          {s.faceVerified ? "Verified" : "Unverified"}
+        </p>
+        {(s.role !== "admin" || (isMaster && s.registrationId !== SUPER_ADMIN_ID)) && (
+          <button
+            onClick={() => onDelete(s)}
+            className="text-destructive mt-2 text-xs font-bold hover:underline"
+          >
+            🗑 Delete {s.role === "admin" ? "admin" : "user"}
+          </button>
+        )}
+      </div>
+    </article>
   );
 }
 
@@ -1078,5 +1172,186 @@ function FeedbackAdmin() {
         </article>
       ))}
     </div>
+  );
+}
+const DEFAULT_FROM = "STUDENTS KA NOTES SHARING HUB <studentsnotessharing@gmail.com>";
+
+/** Festival / event mail blast: admin writes the message, picks recipients,
+ * attaches images or files and can change the visible From address. */
+function EmailAdmin() {
+  const [students, setStudents] = useState<User[] | null>(null);
+  const [from, setFrom] = useState(DEFAULT_FROM);
+  const [subject, setSubject] = useState("");
+  const [message, setMessage] = useState("");
+  const [dept, setDept] = useState("");
+  const [year, setYear] = useState("");
+  const [picked, setPicked] = useState<Record<string, boolean>>({});
+  const [all, setAll] = useState(true);
+  const [files, setFiles] = useState<{ name: string; mime: string; dataUrl: string }[]>([]);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    api<{ students: User[] }>("/api/admin/students")
+      .then((r) => setStudents(r.students))
+      .catch(() => setStudents([]));
+  }, []);
+
+  const withEmail = (students ?? []).filter((s) => (s.email ?? "").includes("@"));
+  const scope = withEmail.filter(
+    (s) => (!dept || s.department === dept) && (!year || s.year === year),
+  );
+  const recipients = all
+    ? scope.map((s) => s.email!)
+    : scope.filter((s) => picked[s.id]).map((s) => s.email!);
+
+  const addFiles = async (list: FileList | null) => {
+    if (!list) return;
+    const next = await Promise.all(
+      Array.from(list)
+        .slice(0, 5)
+        .map(
+          (f) =>
+            new Promise<{ name: string; mime: string; dataUrl: string }>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () =>
+                resolve({ name: f.name, mime: f.type || "application/octet-stream", dataUrl: String(reader.result) });
+              reader.onerror = () => reject(new Error("Could not read the file"));
+              reader.readAsDataURL(f);
+            }),
+        ),
+    );
+    setFiles((prev) => [...prev, ...next].slice(0, 5));
+  };
+
+  const send = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!recipients.length) {
+      toast.error("No recipients with an email ID in this selection");
+      return;
+    }
+    setBusy(true);
+    try {
+      const r = await sendAdminEmailBlast({
+        data: { recipients, from: from.trim(), subject, message, attachments: files },
+      });
+      if (r.failed.length)
+        toast.warning(`Sent to ${r.sent}, failed for ${r.failed.length} recipient(s)`);
+      else toast.success(`Email sent to ${r.sent} student(s)`);
+      setSubject("");
+      setMessage("");
+      setFiles([]);
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form onSubmit={send} className="glass animate-rise space-y-5 rounded-3xl p-5 sm:p-8">
+      <div>
+        <h3 className="text-lg font-black">Send an email to students</h3>
+        <p className="text-muted-foreground text-sm">
+          Festival greetings, event notices or announcements — with images and files attached.
+        </p>
+      </div>
+
+      <Field label="From address (shown to students)">
+        <input
+          className={inputClass}
+          value={from}
+          onChange={(e) => setFrom(e.target.value)}
+          placeholder="Name <mail@example.com>"
+          required
+        />
+      </Field>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Department">
+          <select className={inputClass} value={dept} onChange={(e) => setDept(e.target.value)}>
+            <option value="" className="bg-card">All departments</option>
+            {DEPARTMENTS.map((d) => (
+              <option key={d} value={d} className="bg-card">{d}</option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Year">
+          <select className={inputClass} value={year} onChange={(e) => setYear(e.target.value)}>
+            <option value="" className="bg-card">All years</option>
+            {YEARS.map((y) => (
+              <option key={y} value={y} className="bg-card">{y}</option>
+            ))}
+          </select>
+        </Field>
+      </div>
+
+      <label className="glass flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-bold">
+        <input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} />
+        Send to everyone in this selection ({scope.length})
+      </label>
+
+      {!all && (
+        <div className="glass max-h-64 space-y-2 overflow-y-auto rounded-2xl p-3">
+          {students === null && <Skeletons count={2} />}
+          {scope.map((s) => (
+            <label key={s.id} className="flex items-center gap-3 rounded-xl px-2 py-1.5 text-sm">
+              <input
+                type="checkbox"
+                checked={!!picked[s.id]}
+                onChange={(e) => setPicked((p) => ({ ...p, [s.id]: e.target.checked }))}
+              />
+              <span className="truncate font-semibold">{s.fullName}</span>
+              <span className="text-muted-foreground truncate text-xs">{s.email}</span>
+            </label>
+          ))}
+          {!scope.length && <p className="text-muted-foreground text-sm">No students with an email ID.</p>}
+        </div>
+      )}
+
+      <Field label="Subject">
+        <input
+          className={inputClass}
+          value={subject}
+          onChange={(e) => setSubject(e.target.value)}
+          placeholder="Happy Diwali from Notes Hub"
+          required
+        />
+      </Field>
+
+      <Field label="Message">
+        <textarea
+          className={`${inputClass} min-h-40`}
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          placeholder="Write your special message here..."
+          required
+        />
+      </Field>
+
+      <Field label="Attach images or files (max 5)">
+        <input type="file" multiple className={inputClass} onChange={(e) => void addFiles(e.target.files)} />
+      </Field>
+
+      {files.length > 0 && (
+        <ul className="flex flex-wrap gap-2">
+          {files.map((f, i) => (
+            <li key={`${f.name}-${i}`} className="glass flex items-center gap-2 rounded-full px-3 py-1.5 text-xs">
+              📎 {f.name}
+              <button
+                type="button"
+                className="text-destructive font-black"
+                onClick={() => setFiles((prev) => prev.filter((_, j) => j !== i))}
+              >
+                ✕
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <button className={btnClass} disabled={busy}>
+        {busy ? "Sending..." : `Send to ${recipients.length} student(s)`}
+      </button>
+    </form>
   );
 }

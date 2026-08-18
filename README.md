@@ -55,7 +55,7 @@ npm run build
 
 | Role | ID | Password |
 | --- | --- | --- |
-| Master admin (permanent) | `PRAVEEN2207` | `PRAVEEN2204` |
+| Master admin (permanent) | `MASTER_ADMIN_ID` env secret | `MASTER_ADMIN_PASSWORD` env secret |
 | Demo admin (preview) | `ADMIN` | `admin123` |
 | Flask bootstrap admin | `ADMIN001` | `Admin@12345` |
 

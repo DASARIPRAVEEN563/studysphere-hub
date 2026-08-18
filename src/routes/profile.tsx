@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AppShell, useRequireAuth } from "@/components/AppShell";
+import { AboutGuide } from "@/components/AboutGuide";
 import { AdminCreator } from "@/components/AdminCreator";
 import { btnClass, Field, inputClass } from "@/components/Field";
 import { BookLoader } from "@/components/BookLoader";
@@ -221,6 +222,7 @@ function ProfilePage() {
         <LikeNotifications />
         <Leaderboard meId={user.id} />
         <AdminCreator user={user} />
+        <AboutGuide />
         <ThemePicker />
         <ShareSite />
         </div>
