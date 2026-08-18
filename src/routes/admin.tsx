@@ -546,6 +546,7 @@ function ChatAdmin() {
   const [busy, setBusy] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
   const [allUsers, setAllUsers] = useState(true);
+  const [replyImage, setReplyImage] = useState<string | null>(null);
 
   const load = () =>
     api<{ threads: ChatThread[] }>("/api/admin/chat")
@@ -565,17 +566,37 @@ function ChatAdmin() {
 
   const reply = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!active || !text.trim()) return;
+    if (!active || (!text.trim() && !replyImage)) return;
     setBusy(true);
     try {
-      await api(`/api/admin/chat/${active.userId}`, { body: { text } });
+      await api(`/api/admin/chat/${active.userId}`, { body: { text, image: replyImage } });
       setText("");
+      setReplyImage(null);
       await load();
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
       setBusy(false);
     }
+  };
+
+  /** Downscales an attachment before it is sent to the student. */
+  const pickReplyImage = (file: File | null) => {
+    if (!file || !file.type.startsWith("image/")) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const scale = Math.min(1, 800 / Math.max(img.width, img.height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        canvas.getContext("2d")?.drawImage(img, 0, 0, canvas.width, canvas.height);
+        setReplyImage(canvas.toDataURL("image/jpeg", 0.7));
+      };
+      img.src = String(reader.result);
+    };
+    reader.readAsDataURL(file);
   };
 
   const broadcast = async (e: React.FormEvent) => {
