@@ -7,6 +7,8 @@ import { btnClass, Field, inputClass } from "@/components/Field";
 import { BookLoader } from "@/components/BookLoader";
 import { FaceVerify } from "@/components/FaceVerify";
 import { ShareSite } from "@/components/ShareSite";
+import { Leaderboard } from "@/components/Leaderboard";
+import { LikeNotifications } from "@/components/LikeNotifications";
 import { ThemePicker } from "@/components/ThemePicker";
 import { api, auth, DEPARTMENTS, SEMESTERS, YEARS, type User } from "@/lib/api";
 
@@ -216,6 +218,8 @@ function ProfilePage() {
         </form>
         )}
         <FaceVerify user={user} onVerified={setUser} />
+        <LikeNotifications />
+        <Leaderboard meId={user.id} />
         <AdminCreator user={user} />
         <ThemePicker />
         <ShareSite />
