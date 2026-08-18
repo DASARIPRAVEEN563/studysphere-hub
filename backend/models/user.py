@@ -16,6 +16,7 @@ PUBLIC_FIELDS = (
     "faceVerified",
     "faceImage",
     "faceVerifiedAt",
+    "identityConfirmed",
 )
 
 

@@ -14,3 +14,8 @@ profile_bp.add_url_rule(
 profile_bp.add_url_rule(
     "/face-verify", view_func=require_auth(profile_controller.verify_face), methods=["POST"]
 )
+profile_bp.add_url_rule(
+    "/confirm-identity",
+    view_func=require_auth(profile_controller.confirm_identity),
+    methods=["POST"],
+)
