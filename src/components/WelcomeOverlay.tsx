@@ -7,7 +7,7 @@ export function WelcomeOverlay({
   name,
   subtitle,
   onDone,
-  duration = 2200,
+  duration = 3000,
 }: {
   name: string;
   subtitle?: string;

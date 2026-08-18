@@ -80,7 +80,7 @@ export function AppShell({
 
   useEffect(() => {
     setFlipping(true);
-    const t = setTimeout(() => setFlipping(false), 850);
+    const t = setTimeout(() => setFlipping(false), 380);
     return () => clearTimeout(t);
   }, [pathname]);
 
