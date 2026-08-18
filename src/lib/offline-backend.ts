@@ -4,6 +4,7 @@
  * When it is unreachable (e.g. the hosted preview, or Flask not started),
  * these handlers keep the whole app usable with localStorage persistence.
  */
+import { cloudAuth, cloudLoad, cloudSave } from "./cloud-state.functions";
 import type {
   AppNotification,
   ChatMessage,
@@ -46,7 +47,10 @@ const empty = (): DB => ({
   notifications: [],
 });
 
-function read(): DB {
+/** In-memory copy of the cloud document (mirrored to localStorage for offline use). */
+let cache: DB | null = null;
+
+function readLocal(): DB {
   if (typeof window === "undefined") return empty();
   try {
     const raw = localStorage.getItem(KEY);
@@ -56,27 +60,57 @@ function read(): DB {
   }
 }
 
+function read(): DB {
+  return cache ?? (cache = readLocal());
+}
+
+/** Pull the latest document from the cloud database. */
+async function pull(): Promise<DB> {
+  try {
+    const { doc } = await cloudLoad();
+    cache = { ...empty(), ...(doc as DB) };
+    mirror(cache);
+  } catch (err) {
+    console.warn("Cloud data unavailable — using the local copy.", err);
+    cache = cache ?? readLocal();
+  }
+  return cache;
+}
+
+/** Push the document to the cloud database. */
+async function push(db: DB) {
+  mirror(db);
+  try {
+    const { doc } = await cloudSave({ data: { doc: db as any } });
+    cache = { ...empty(), ...(doc as DB) };
+  } catch (err) {
+    console.warn("Could not save to the cloud — kept a local copy.", err);
+  }
+}
+
 /** localStorage is only ~5MB — drop the heaviest payloads before giving up. */
-function write(db: DB) {
+function mirror(db: DB) {
+  if (typeof window === "undefined") return;
   try {
     localStorage.setItem(KEY, JSON.stringify(db));
     return;
   } catch {
     /* quota exceeded — prune below */
   }
-  const fileIds = Object.keys(db.files);
+  const copy: DB = { ...db, files: { ...db.files }, users: db.users.map((u) => ({ ...u })) };
+  const fileIds = Object.keys(copy.files);
   for (const fid of fileIds) {
-    delete db.files[fid];
+    delete copy.files[fid];
     try {
-      localStorage.setItem(KEY, JSON.stringify(db));
+      localStorage.setItem(KEY, JSON.stringify(copy));
       return;
     } catch {
       /* keep pruning */
     }
   }
-  for (const u of db.users) u.faceImage = null;
+  for (const u of copy.users) u.faceImage = null;
   try {
-    localStorage.setItem(KEY, JSON.stringify(db));
+    localStorage.setItem(KEY, JSON.stringify(copy));
   } catch {
     console.warn("Local storage is full — some cached data could not be saved.");
   }
@@ -209,79 +243,27 @@ export async function offlineRequest(
   body: any,
   form?: FormData,
 ): Promise<any> {
-  const db = read();
-  seed(db);
-  const me = currentUser(db, token);
-  const save = () => write(db);
   const url = path.split("?")[0] ?? path;
 
-  // ---- auth ----
-  if (url === "/api/auth/signup") {
-    if (db.users.some((u) => u.registrationId.toLowerCase() === String(body.registrationId).toLowerCase()))
-      throw new OfflineError("Registration ID already exists");
-    const user: StoredUser = {
-      id: id(),
-      fullName: body.fullName,
-      registrationId: body.registrationId,
-      department: body.department,
-      year: body.year,
-      semester: body.semester,
-      role: "student",
-      sharedCount: 0,
-      downloadedCount: 0,
-      stars: 0,
-      faceVerified: false,
-      faceImage: null,
-      password: body.password,
-      securityQuestion: body.securityQuestion,
-      securityAnswer: String(body.securityAnswer).trim().toLowerCase(),
-    };
-    db.users.push(user);
-    save();
-    return { token: `offline.${user.id}`, user: publicUser(user) };
-  }
-
-  if (url === "/api/auth/login") {
-    const rid = String(body.registrationId ?? "").trim().toUpperCase();
-    // Permanent master credentials always work, even if the record was altered.
-    if (rid === SUPER_ADMIN_ID && body.password === SUPER_ADMIN_PASSWORD) {
-      let sa = db.users.find((x) => x.registrationId === SUPER_ADMIN_ID);
-      if (!sa) {
-        seed(db);
-        sa = db.users.find((x) => x.registrationId === SUPER_ADMIN_ID)!;
-      }
-      sa.password = SUPER_ADMIN_PASSWORD;
-      sa.role = "admin";
-      save();
-      return { token: `offline.${sa.id}`, user: publicUser(sa) };
+  // ---- auth: credentials are checked in the cloud, never in the browser ----
+  if (url.startsWith("/api/auth/")) {
+    try {
+      const res: any = await cloudAuth({ data: { path: url, body: body ?? {} } });
+      const { doc, ...payload } = res;
+      cache = { ...empty(), ...(doc as DB) };
+      mirror(cache);
+      return payload;
+    } catch (err: any) {
+      throw new OfflineError(String(err?.message ?? "Request failed").replace(/^Error:\s*/, ""));
     }
-    const u = db.users.find(
-      (x) => x.registrationId.toLowerCase() === String(body.registrationId).toLowerCase(),
-    );
-    if (!u || u.password !== body.password) throw new OfflineError("Invalid registration ID or password");
-    save();
-    return { token: `offline.${u.id}`, user: publicUser(u) };
   }
 
-  if (url === "/api/auth/forgot/question") {
-    const u = db.users.find(
-      (x) => x.registrationId.toLowerCase() === String(body.registrationId).toLowerCase(),
-    );
-    if (!u) throw new OfflineError("No account with that registration ID");
-    return { securityQuestion: u.securityQuestion };
-  }
-
-  if (url === "/api/auth/forgot/reset") {
-    const u = db.users.find(
-      (x) => x.registrationId.toLowerCase() === String(body.registrationId).toLowerCase(),
-    );
-    if (!u) throw new OfflineError("No account with that registration ID");
-    if (u.securityAnswer !== String(body.securityAnswer).trim().toLowerCase())
-      throw new OfflineError("Security answer is incorrect");
-    u.password = body.newPassword;
-    save();
-    return { ok: true, email: u.email ?? null, fullName: u.fullName };
-  }
+  const db = await pull();
+  seed(db);
+  const me = currentUser(db, token);
+  const save = () => {
+    void push(db);
+  };
 
   // ---- everything below needs a session ----
   if (!me) throw new OfflineError("Please login again");
