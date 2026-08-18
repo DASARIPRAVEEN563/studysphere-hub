@@ -10,11 +10,12 @@ from email.message import EmailMessage
 SUBJECT = "Face verification successful - STUDENTS KA NOTES SHARING HUB"
 
 
-def send_face_verified_email(to_email: str, full_name: str) -> bool:
+def send_face_verified_email(to_email: str, full_name: str, code: str | None = None) -> bool:
     body = (
         f"Hello {full_name},\n\n"
         "Face verified is successfully completed.\n"
-        "You can now download and share notes on STUDENTS KA NOTES SHARING HUB.\n\n"
+        + (f"Your verification code is: {code}\n" if code else "")
+        + "Paste this code on the website to unlock notes, sharing and chat.\n\n"
         "- Notes Hub Team"
     )
 
