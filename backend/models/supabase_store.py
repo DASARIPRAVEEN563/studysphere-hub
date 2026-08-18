@@ -1,14 +1,10 @@
 """Supabase-backed data store for Railway deployment.
 
 Mirrors the interface of models/store.py so the rest of the Flask app does not
-need to change. Falls back to the JSON store if Supabase is not configured.
-
-Uses the same public.app_state shards that the frontend cloud functions use,
-so data stays in sync whether the browser talks to Flask or directly to
-Lovable Cloud.
+need to change. Uses the same public.app_state shards that the frontend cloud
+functions use, so data stays in sync whether the browser talks to Flask or
+directly to Lovable Cloud.
 """
-import json
-import os
 import threading
 from datetime import datetime, timezone
 from typing import Any
@@ -22,20 +18,12 @@ _ARRAY_SHARDS = set(SHARDS)  # all of them are arrays in this app
 _LOCK = threading.Lock()
 
 
-def _env(key: str) -> str | None:
-    return os.environ.get(key)
+def _client() -> Client:
+    import os
 
-
-def _supabase() -> Client | None:
-    url = _env("SUPABASE_URL")
-    key = _env("SUPABASE_SERVICE_ROLE_KEY") or _env("SUPABASE_ANON_KEY")
-    if not url or not key:
-        return None
+    url = os.environ["SUPABASE_URL"]
+    key = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
     return create_client(url, key)
-
-
-def _enabled() -> bool:
-    return _supabase() is not None
 
 
 def now_iso() -> str:
@@ -53,9 +41,7 @@ def _empty_shard(shard: str) -> Any:
 
 
 def _read_all() -> dict:
-    db = _supabase()
-    if db is None:
-        return {}
+    db = _client()
     rows = db.from_("app_state").select("id, data").execute().data or []
     doc = {s: _empty_shard(s) for s in SHARDS}
     for row in rows:
@@ -65,40 +51,23 @@ def _read_all() -> dict:
 
 
 def _write_shard(doc: dict, shard: str):
-    db = _supabase()
-    if db is None:
-        return
+    db = _client()
     now = datetime.now(timezone.utc).isoformat()
     db.from_("app_state").upsert(
         {"id": shard, "data": doc.get(shard, _empty_shard(shard)), "updated_at": now}
     ).execute()
 
 
-def _read_collection(collection: str) -> list:
-    return _read_all().get(collection, [])
+def read(collection: str) -> list:
+    with _LOCK:
+        return _read_all().get(collection, [])
 
 
-def _write_collection(collection: str, rows: list):
+def write(collection: str, rows: list) -> None:
     with _LOCK:
         doc = _read_all()
         doc[collection] = rows
         _write_shard(doc, collection)
-
-
-def read(collection: str) -> list:
-    if not _enabled():
-        from . import store as json_store
-
-        return json_store.read(collection)
-    return _read_collection(collection)
-
-
-def write(collection: str, rows: list) -> None:
-    if not _enabled():
-        from . import store as json_store
-
-        return json_store.write(collection, rows)
-    _write_collection(collection, rows)
 
 
 def find(collection: str, **filters):
