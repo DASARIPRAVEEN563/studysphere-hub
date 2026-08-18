@@ -147,15 +147,17 @@ export function AppShell({
               </span>
               <button
                 onClick={() => setExiting(true)}
-                className="rounded-full border border-border px-3 py-1.5 text-sm font-medium transition-colors hover:bg-muted"
+                aria-label="Logout"
+                className="shrink-0 rounded-full border border-border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-muted sm:text-sm"
               >
-                Logout
+                <span className="hidden sm:inline">Logout</span>
+                <span className="sm:hidden">⎋</span>
               </button>
             </div>
           )}
         </div>
       </header>
-      <main className="mx-auto max-w-7xl px-3 py-6 sm:px-4 sm:py-8">
+      <main className="mx-auto max-w-7xl px-3 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-4 sm:py-8">
         <div className="mb-6 flex flex-wrap items-end justify-between gap-3 sm:mb-8 sm:gap-4">
           <PageName name={title} />
           {actions}
