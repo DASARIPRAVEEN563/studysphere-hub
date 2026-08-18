@@ -29,6 +29,15 @@ def update_profile():
         email = str(data.get("email") or "").strip()
         if email and not EMAIL_RE.match(email):
             return jsonify({"error": "Incorrect email ID"}), 400
+        if email:
+            taken = [
+                u
+                for u in store.all("users")
+                if u["id"] != g.user["id"]
+                and str(u.get("email") or "").strip().lower() == email.lower()
+            ]
+            if taken:
+                return jsonify({"error": "This email ID is already used by another account"}), 409
         patch["email"] = email or None
     if "profilePicture" in data:
         picture = data["profilePicture"]
