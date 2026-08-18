@@ -46,7 +46,10 @@ const empty = (): DB => ({
   notifications: [],
 });
 
-function read(): DB {
+/** In-memory copy of the cloud document (mirrored to localStorage for offline use). */
+let cache: DB | null = null;
+
+function readLocal(): DB {
   if (typeof window === "undefined") return empty();
   try {
     const raw = localStorage.getItem(KEY);
@@ -56,27 +59,57 @@ function read(): DB {
   }
 }
 
+function read(): DB {
+  return cache ?? (cache = readLocal());
+}
+
+/** Pull the latest document from the cloud database. */
+async function pull(): Promise<DB> {
+  try {
+    const { doc } = await cloudLoad();
+    cache = { ...empty(), ...(doc as DB) };
+    mirror(cache);
+  } catch (err) {
+    console.warn("Cloud data unavailable — using the local copy.", err);
+    cache = cache ?? readLocal();
+  }
+  return cache;
+}
+
+/** Push the document to the cloud database. */
+async function push(db: DB) {
+  mirror(db);
+  try {
+    const { doc } = await cloudSave({ data: { doc: db as any } });
+    cache = { ...empty(), ...(doc as DB) };
+  } catch (err) {
+    console.warn("Could not save to the cloud — kept a local copy.", err);
+  }
+}
+
 /** localStorage is only ~5MB — drop the heaviest payloads before giving up. */
-function write(db: DB) {
+function mirror(db: DB) {
+  if (typeof window === "undefined") return;
   try {
     localStorage.setItem(KEY, JSON.stringify(db));
     return;
   } catch {
     /* quota exceeded — prune below */
   }
-  const fileIds = Object.keys(db.files);
+  const copy: DB = { ...db, files: { ...db.files }, users: db.users.map((u) => ({ ...u })) };
+  const fileIds = Object.keys(copy.files);
   for (const fid of fileIds) {
-    delete db.files[fid];
+    delete copy.files[fid];
     try {
-      localStorage.setItem(KEY, JSON.stringify(db));
+      localStorage.setItem(KEY, JSON.stringify(copy));
       return;
     } catch {
       /* keep pruning */
     }
   }
-  for (const u of db.users) u.faceImage = null;
+  for (const u of copy.users) u.faceImage = null;
   try {
-    localStorage.setItem(KEY, JSON.stringify(db));
+    localStorage.setItem(KEY, JSON.stringify(copy));
   } catch {
     console.warn("Local storage is full — some cached data could not be saved.");
   }
