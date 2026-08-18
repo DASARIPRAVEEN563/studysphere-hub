@@ -16,6 +16,8 @@ export function FaceVerify({ user, onVerified }: { user: User; onVerified: (u: U
   const [busy, setBusy] = useState(false);
   const [hint, setHint] = useState("");
   const [confirmToken, setConfirmToken] = useState<string | null>(null);
+  const [code, setCode] = useState("");
+  const [checking, setChecking] = useState(false);
   const [lastImage, setLastImage] = useState<string | null>(null);
   const [mail, setMail] = useState<{
     status: "idle" | "queued" | "sending" | "sent" | "failed";
@@ -24,21 +26,27 @@ export function FaceVerify({ user, onVerified }: { user: User; onVerified: (u: U
 
   const hasEmail = Boolean(user.email && user.email.includes("@"));
 
-  /** Picks up the confirmation when the student taps "It's me" on another device. */
-  useEffect(() => {
-    if (!user.faceVerified || user.identityConfirmed) return;
-    const t = window.setInterval(() => {
-      api<{ user: User }>("/api/profile")
-        .then((r) => {
-          if (r.user.identityConfirmed) {
-            auth.setUser(r.user);
-            onVerified(r.user);
-          }
-        })
-        .catch(() => {});
-    }, 6000);
-    return () => window.clearInterval(t);
-  }, [user.faceVerified, user.identityConfirmed, onVerified]);
+  /** Confirms the one-time code that was emailed to the student. */
+  const submitCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const value = code.trim();
+    if (!value) return;
+    setChecking(true);
+    try {
+      const r = await api<{ user: User }>("/api/profile/confirm-code", {
+        method: "POST",
+        body: { code: value },
+      });
+      auth.setUser(r.user);
+      onVerified(r.user);
+      setCode("");
+      toast.success("Verification code confirmed — everything is unlocked");
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setChecking(false);
+    }
+  };
 
   const stop = () => {
     if (loopRef.current) window.clearInterval(loopRef.current);
@@ -178,29 +186,25 @@ export function FaceVerify({ user, onVerified }: { user: User; onVerified: (u: U
     to: string,
     image?: string | null,
     token?: string | null,
-    uid?: string,
+    _uid?: string,
   ) => {
     if (!to) {
       setMail({ status: "failed", detail: "No email ID on file to notify." });
       return;
     }
-    setMail({ status: "sending", detail: `Sending confirmation to ${to}...` });
+    setMail({ status: "sending", detail: `Sending your verification code to ${to}...` });
     try {
-      const confirmUrl =
-        typeof window !== "undefined" && (token ?? confirmToken)
-          ? `${window.location.origin}/confirm?uid=${uid ?? user.id}&token=${token ?? confirmToken}`
-          : null;
       const r = await sendFaceVerificationConfirmation({
         data: {
           to,
           fullName: user.fullName,
           image: image ?? lastImage,
-          confirmUrl,
+          code: token ?? confirmToken,
         },
       });
       setMail({
         status: "sent",
-        detail: `Photo + "It's me" link delivered to ${to}${
+        detail: `Photo + verification code delivered to ${to}${
           r?.messageId ? ` (ref ${r.messageId.slice(0, 8)})` : ""
         }. If it is not in your inbox, check Spam / Promotions / Updates.`,
       });
@@ -216,25 +220,33 @@ export function FaceVerify({ user, onVerified }: { user: User; onVerified: (u: U
   if (user.faceVerified && !user.identityConfirmed && !live) {
     return (
       <section className="glass animate-rise space-y-3 rounded-3xl p-6">
-        <h3 className="text-lg font-black">Confirm it's you</h3>
+        <h3 className="text-lg font-black">Enter your verification code</h3>
         <p className="text-muted-foreground text-sm">
-          Your face photo was emailed to <b>{user.email}</b>. Open that mail and tap
-          <b> "It's me"</b> to unlock notes, sharing and chat. Until then only Home and Profile are
-          available.
+          A 6-digit code was emailed to <b>{user.email}</b>. Paste it below to unlock notes, sharing
+          and chat. Until then only Home and Profile are available.
         </p>
+        <form onSubmit={submitCode} className="flex flex-wrap gap-2">
+          <input
+            value={code}
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+            inputMode="numeric"
+            placeholder="000000"
+            aria-label="Verification code"
+            className="border-border bg-background/60 w-40 rounded-xl border px-4 py-2 text-center text-lg font-black tracking-[0.4em]"
+          />
+          <button className={btnClass} disabled={checking} type="submit">
+            {checking ? "Checking..." : "Verify code"}
+          </button>
+        </form>
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => void deliverEmail(user.email ?? "", lastImage, confirmToken)}
             className={ghostBtnClass}
             type="button"
           >
-            Resend email
+            Resend code
           </button>
         </div>
-        <p className="text-muted-foreground text-xs">
-          The moment you tap "It's me" in that mail, this site unlocks automatically — no need to
-          log in again.
-        </p>
         {mail.status !== "idle" && (
           <p className="text-muted-foreground text-xs">{mail.detail}</p>
         )}
