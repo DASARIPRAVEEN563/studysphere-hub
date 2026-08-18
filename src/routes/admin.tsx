@@ -1090,42 +1090,57 @@ function StudentsAdminInner({ isMaster }: { isMaster: boolean }) {
         </button>
         <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
           {shown.map((s) => (
-            <article key={s.id} className="glass animate-rise flex gap-3 rounded-2xl p-4 sm:gap-4 sm:p-5">
-              <div className="size-16 shrink-0 overflow-hidden rounded-xl bg-muted">
-                {s.faceImage ? (
-                  <img src={s.faceImage} alt={s.fullName} className="size-full object-cover" />
-                ) : (
-                  <div className="text-muted-foreground grid size-full place-items-center text-xs">
-                    No face
-                  </div>
-                )}
-              </div>
-              <div className="min-w-0">
-                <p className="truncate font-bold">{s.fullName}</p>
-                <p className="text-muted-foreground text-xs">{s.registrationId}</p>
-                <p className="text-cyan text-xs">
-                  {s.department} · {s.year} · {s.semester}
-                </p>
-                <p className="mt-1 text-xs">
-                  ⭐ {s.stars ?? 0} · {s.sharedCount} shared · {s.downloadedCount} downloaded ·{" "}
-                  {s.faceVerified ? "Verified" : "Unverified"}
-                </p>
-                {(s.role !== "admin" ||
-                  (isMaster && s.registrationId !== "PRAVEEN2207")) && (
-                  <button
-                    onClick={() => removeStudent(s)}
-                    className="text-destructive mt-2 text-xs font-bold hover:underline"
-                  >
-                    🗑 Delete {s.role === "admin" ? "admin" : "user"}
-                  </button>
-                )}
-              </div>
-            </article>
+            <StudentCard key={s.id} s={s} isMaster={isMaster} onDelete={removeStudent} />
           ))}
         </div>
         </div>
       )}
+        </>
+      )}
     </div>
+  );
+}
+
+function StudentCard({
+  s,
+  isMaster,
+  onDelete,
+}: {
+  s: User;
+  isMaster: boolean;
+  onDelete: (s: User) => void;
+}) {
+  return (
+    <article className="glass animate-rise flex gap-3 rounded-2xl p-4 sm:gap-4 sm:p-5">
+      <div className="bg-muted size-16 shrink-0 overflow-hidden rounded-xl">
+        {s.faceImage ? (
+          <img src={s.faceImage} alt={s.fullName} className="size-full object-cover" />
+        ) : (
+          <div className="text-muted-foreground grid size-full place-items-center text-xs">
+            No face
+          </div>
+        )}
+      </div>
+      <div className="min-w-0">
+        <p className="truncate font-bold">{s.fullName}</p>
+        <p className="text-muted-foreground text-xs">{s.registrationId}</p>
+        <p className="text-cyan text-xs">
+          {s.department} · {s.year} · {s.semester}
+        </p>
+        <p className="mt-1 text-xs">
+          ⭐ {s.stars ?? 0} · {s.sharedCount} shared · {s.downloadedCount} downloaded ·{" "}
+          {s.faceVerified ? "Verified" : "Unverified"}
+        </p>
+        {(s.role !== "admin" || (isMaster && s.registrationId !== SUPER_ADMIN_ID)) && (
+          <button
+            onClick={() => onDelete(s)}
+            className="text-destructive mt-2 text-xs font-bold hover:underline"
+          >
+            🗑 Delete {s.role === "admin" ? "admin" : "user"}
+          </button>
+        )}
+      </div>
+    </article>
   );
 }
 
