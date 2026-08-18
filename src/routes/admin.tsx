@@ -738,7 +738,14 @@ function ChatAdmin() {
                         m.from === "admin" ? "hero-gradient text-white" : "bg-muted"
                       }`}
                     >
-                      <p>{m.text}</p>
+                      {m.image && (
+                        <img
+                          src={m.image}
+                          alt="Chat attachment"
+                          className="mb-2 max-h-52 w-full rounded-xl object-cover"
+                        />
+                      )}
+                      {m.text && <p>{m.text}</p>}
                       <p className="mt-1 text-[10px] opacity-70">
                         {m.from === "admin" ? "You" : active.fullName} ·{" "}
                         {new Date(m.createdAt).toLocaleTimeString()}
@@ -747,7 +754,29 @@ function ChatAdmin() {
                   </div>
                 ))}
               </div>
-              <form onSubmit={reply} className="border-border flex gap-2 border-t pt-3">
+              <form onSubmit={reply} className="border-border space-y-2 border-t pt-3">
+                {replyImage && (
+                  <div className="flex items-center gap-2">
+                    <img src={replyImage} alt="Preview" className="size-12 rounded-lg object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => setReplyImage(null)}
+                      className="text-xs font-semibold underline"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                )}
+                <div className="flex gap-2">
+                <label className="glass grid size-10 shrink-0 cursor-pointer place-items-center rounded-xl">
+                  📎
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => pickReplyImage(e.target.files?.[0] ?? null)}
+                  />
+                </label>
                 <input
                   className={inputClass}
                   value={text}
@@ -757,6 +786,7 @@ function ChatAdmin() {
                 <button className={btnClass} disabled={busy}>
                   Send
                 </button>
+                </div>
               </form>
             </>
           )}
