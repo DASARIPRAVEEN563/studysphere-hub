@@ -156,9 +156,12 @@ function uniqueSubject(db: DB, subject: string, dept: string, year: string, sem:
   return pad(i);
 }
 
-/** Permanent master admin — can always sign in and mint new admin accounts. */
+/**
+ * Permanent master admin — can always sign in and mint new admin accounts.
+ * The password is never kept in the code: sign-in is validated on the server
+ * against the MASTER_ADMIN_PASSWORD secret.
+ */
 export const SUPER_ADMIN_ID = "PRAVEEN2207";
-const SUPER_ADMIN_PASSWORD = "PRAVEEN2204";
 
 function seed(db: DB) {
   if (!db.users.some((u) => u.registrationId === SUPER_ADMIN_ID)) {
@@ -174,7 +177,7 @@ function seed(db: DB) {
       downloadedCount: 0,
       stars: 0,
       faceVerified: true,
-      password: SUPER_ADMIN_PASSWORD,
+      password: "",
       securityQuestion: "Master admin",
       securityAnswer: "praveen",
       identityConfirmed: true,
