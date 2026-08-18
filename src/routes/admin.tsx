@@ -173,12 +173,12 @@ function NotesAdmin() {
 
   if (!openDept)
     return (
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         {folders.map(([dept, list], i) => (
           <button
             key={dept}
             onClick={() => setOpenDept(dept)}
-            className="glass animate-rise rounded-2xl p-6 text-left transition-transform hover:-translate-y-1"
+            className="glass animate-rise rounded-2xl p-4 text-left transition-transform hover:-translate-y-1 sm:p-6"
             style={{ animationDelay: `${i * 50}ms` }}
           >
             <div className="hero-gradient mb-3 grid size-12 place-items-center rounded-2xl text-xl">
@@ -199,7 +199,7 @@ function NotesAdmin() {
       <h3 className="text-lg font-black">{openDept} notes</h3>
       <div className="grid gap-4 lg:grid-cols-2">
       {(byDept.get(openDept) ?? []).map((n) => (
-        <article key={n.id} className="glass animate-rise space-y-4 rounded-2xl p-6">
+        <article key={n.id} className="glass animate-rise space-y-4 rounded-2xl p-4 sm:p-6">
           <div>
             <p className="text-cyan text-xs font-bold uppercase">{n.subject}</p>
             <p className="truncate font-bold">{n.fileName}</p>
@@ -229,7 +229,7 @@ function NotesAdmin() {
               </div>
             </Field>
             <Field label="Move to">
-              <div className="flex gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 <select className={inputClass} id={`dept-${n.id}`} defaultValue={n.department}>
                   {DEPARTMENTS.map((d) => (
                     <option key={d} className="bg-card">
@@ -644,7 +644,7 @@ function ChatAdmin() {
 
   return (
     <div className="space-y-6">
-      <form onSubmit={broadcast} className="glass animate-rise space-y-3 rounded-3xl p-6">
+      <form onSubmit={broadcast} className="glass animate-rise space-y-3 rounded-3xl p-4 sm:p-6">
         <h3 className="text-lg font-black">📢 Announcement</h3>
         <label className="flex items-center gap-2 text-sm font-bold">
           <input
@@ -686,7 +686,7 @@ function ChatAdmin() {
       </form>
 
       <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
-        <div className="space-y-2">
+        <div className="max-h-64 space-y-2 overflow-y-auto lg:max-h-none lg:overflow-visible">
           {!threads.length && <p className="text-muted-foreground text-sm">No students yet.</p>}
           {threads.map((t) => {
             const last = t.messages[t.messages.length - 1];
@@ -719,7 +719,7 @@ function ChatAdmin() {
           })}
         </div>
 
-        <div className="glass flex h-[60vh] flex-col rounded-3xl p-4">
+        <div className="glass flex h-[65vh] flex-col rounded-3xl p-3 sm:p-4">
           {!active ? (
             <p className="text-muted-foreground m-auto text-sm">
               Select a student to read and reply to their messages.
@@ -775,7 +775,7 @@ function ChatAdmin() {
                     </button>
                   </div>
                 )}
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                 <label className="glass grid size-10 shrink-0 cursor-pointer place-items-center rounded-xl">
                   📎
                   <input
@@ -786,7 +786,7 @@ function ChatAdmin() {
                   />
                 </label>
                 <input
-                  className={inputClass}
+                  className={`${inputClass} min-w-0 flex-1`}
                   value={text}
                   onChange={(e) => setText(e.target.value)}
                   placeholder={`Reply to ${active.fullName}...`}
@@ -850,7 +850,7 @@ function StudentsAdminInner({ isMaster }: { isMaster: boolean }) {
 
   return (
     <div className="space-y-6">
-    <div className="glass animate-rise max-w-xl rounded-3xl p-8">
+    <div className="glass animate-rise max-w-xl rounded-3xl p-5 sm:p-8">
       <h3 className="text-lg font-black">Student data export</h3>
       <p className="text-muted-foreground mt-2 text-sm">
         Exports only full name, email ID, registration ID, department, year and semester. Passwords
@@ -864,13 +864,13 @@ function StudentsAdminInner({ isMaster }: { isMaster: boolean }) {
       {students === null ? (
         <Skeletons count={3} />
       ) : !openDept ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
           {!deptNames.length && <p className="text-muted-foreground text-sm">No students yet.</p>}
           {deptNames.map((d) => (
             <button
               key={d}
               onClick={() => setOpenDept(d)}
-              className="glass animate-rise rounded-2xl p-6 text-left transition-transform hover:-translate-y-1"
+              className="glass animate-rise rounded-2xl p-4 text-left transition-transform hover:-translate-y-1 sm:p-6"
             >
               <div className="hero-gradient mb-3 grid size-12 place-items-center rounded-2xl text-xl">
                 🏛️
@@ -887,12 +887,12 @@ function StudentsAdminInner({ isMaster }: { isMaster: boolean }) {
           <button onClick={() => setOpenDept(null)} className={ghostBtnClass}>
             ← All departments
           </button>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
             {yearNames.map((y) => (
               <button
                 key={y}
                 onClick={() => setOpenYear(y)}
-                className="glass animate-rise rounded-2xl p-6 text-left transition-transform hover:-translate-y-1"
+                className="glass animate-rise rounded-2xl p-4 text-left transition-transform hover:-translate-y-1 sm:p-6"
               >
                 <div className="hero-gradient mb-3 grid size-12 place-items-center rounded-2xl text-xl">
                   📅
@@ -910,9 +910,9 @@ function StudentsAdminInner({ isMaster }: { isMaster: boolean }) {
         <button onClick={() => setOpenYear(null)} className={ghostBtnClass}>
           ← {openDept} years
         </button>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
           {shown.map((s) => (
-            <article key={s.id} className="glass animate-rise flex gap-4 rounded-2xl p-5">
+            <article key={s.id} className="glass animate-rise flex gap-3 rounded-2xl p-4 sm:gap-4 sm:p-5">
               <div className="size-16 shrink-0 overflow-hidden rounded-xl bg-muted">
                 {s.faceImage ? (
                   <img src={s.faceImage} alt={s.fullName} className="size-full object-cover" />
