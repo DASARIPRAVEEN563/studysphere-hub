@@ -150,8 +150,7 @@ export function AppShell({
                 aria-label="Logout"
                 className="shrink-0 rounded-full border border-border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-muted sm:text-sm"
               >
-                <span className="hidden sm:inline">Logout</span>
-                <span className="sm:hidden">⎋</span>
+                Logout
               </button>
             </div>
           )}

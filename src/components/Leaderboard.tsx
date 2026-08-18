@@ -18,14 +18,14 @@ export function Leaderboard({ meId }: { meId?: string }) {
       [...(rows ?? [])]
         .sort((a, b) => (mode === "likes" ? b.likes - a.likes : b.shares - a.shares))
         .filter((r) => r.shares > 0 || r.likes > 0)
-        .slice(0, 10),
+        .slice(0, 3),
     [rows, mode],
   );
 
   return (
     <section className="glass animate-rise rounded-3xl p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h3 className="text-lg font-black">🏆 Leaderboard</h3>
+        <h3 className="text-lg font-black">🏆 Leaderboard — Top 3</h3>
         <select
           className={`${inputClass} w-auto`}
           value={mode}

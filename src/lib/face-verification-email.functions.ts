@@ -12,14 +12,14 @@ export const sendFaceVerificationConfirmation = createServerFn({ method: "POST" 
         to: z.string().trim().email("Incorrect email ID").max(254),
         fullName: z.string().trim().max(120),
         image: z.string().max(4_000_000).nullish(),
-        confirmUrl: z.string().max(2000).nullish(),
+        code: z.string().trim().max(12).nullish(),
       })
       .parse(data),
   )
   .handler(async ({ data }) =>
     sendFaceVerificationEmail(data.to, data.fullName, {
       image: data.image ?? null,
-      confirmUrl: data.confirmUrl ?? null,
+      code: data.code ?? null,
     }),
   );
 
