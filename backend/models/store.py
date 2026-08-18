@@ -1,4 +1,9 @@
-"""JSON-file backed data store (users, notes, home content)."""
+"""Data store with automatic Supabase persistence on Railway.
+
+Locally (or whenever SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY are missing) it
+falls back to JSON files in backend/data/. On Railway it uses the same
+public.app_state shards that the frontend cloud functions use.
+"""
 import json
 import os
 import threading
@@ -28,7 +33,11 @@ def new_id() -> str:
     return uuid.uuid4().hex
 
 
-def read(collection: str) -> list:
+def _supabase_enabled() -> bool:
+    return bool(os.environ.get("SUPABASE_URL") and os.environ.get("SUPABASE_SERVICE_ROLE_KEY"))
+
+
+def _json_read(collection: str) -> list:
     path = FILES[collection]
     if not os.path.exists(path):
         return []
@@ -39,10 +48,26 @@ def read(collection: str) -> list:
             return []
 
 
-def write(collection: str, rows: list) -> None:
+def _json_write(collection: str, rows: list) -> None:
     with _LOCK:
         with open(FILES[collection], "w", encoding="utf-8") as fh:
             json.dump(rows, fh, indent=2, ensure_ascii=False)
+
+
+def read(collection: str) -> list:
+    if _supabase_enabled():
+        from . import supabase_store
+
+        return supabase_store.read(collection)
+    return _json_read(collection)
+
+
+def write(collection: str, rows: list) -> None:
+    if _supabase_enabled():
+        from . import supabase_store
+
+        return supabase_store.write(collection, rows)
+    _json_write(collection, rows)
 
 
 def find(collection: str, **filters):
