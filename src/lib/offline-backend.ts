@@ -291,6 +291,13 @@ export async function offlineRequest(
       if (body.email !== undefined) {
         const mail = String(body.email ?? "").trim();
         if (mail && !EMAIL_RE.test(mail)) throw new OfflineError("Incorrect email ID");
+        if (
+          mail &&
+          db.users.some(
+            (u) => u.id !== me.id && String(u.email ?? "").trim().toLowerCase() === mail.toLowerCase(),
+          )
+        )
+          throw new OfflineError("This email ID is already used by another account");
       }
       Object.assign(me, {
         department: body.department,
