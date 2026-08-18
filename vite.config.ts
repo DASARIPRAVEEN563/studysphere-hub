@@ -14,4 +14,8 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
+  // Railway needs a Node server, not a Cloudflare Worker.
+  nitro: {
+    preset: "node-server",
+  },
 });
