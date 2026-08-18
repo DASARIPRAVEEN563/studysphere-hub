@@ -5,6 +5,7 @@ import { auth, type User } from "@/lib/api";
 import { PageName } from "./AnimatedTitle";
 import { Logo3D } from "./Logo3D";
 import { BookLoaderOverlay } from "./BookLoader";
+import { ExitReview } from "./ExitReview";
 
 export function useAuthUser() {
   const [user, setUser] = useState<User | null>(null);
@@ -77,6 +78,7 @@ export function AppShell({
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const isRouterLoading = useRouterState({ select: (s) => s.status === "pending" });
   const [flipping, setFlipping] = useState(true);
+  const [exiting, setExiting] = useState(false);
 
   useEffect(() => {
     setFlipping(true);
@@ -84,7 +86,7 @@ export function AppShell({
     return () => clearTimeout(t);
   }, [pathname]);
 
-  const logout = () => {
+  const doLogout = () => {
     auth.clear();
     toast.success("Logged out successfully");
     navigate({ to: "/login", replace: true });
@@ -144,7 +146,7 @@ export function AppShell({
                 Welcome, <span className="text-foreground font-semibold">{user.fullName}</span>
               </span>
               <button
-                onClick={logout}
+                onClick={() => setExiting(true)}
                 className="rounded-full border border-border px-3 py-1.5 text-sm font-medium transition-colors hover:bg-muted"
               >
                 Logout
@@ -160,6 +162,16 @@ export function AppShell({
         </div>
         {children}
       </main>
+      {exiting && user && (
+        <ExitReview
+          name={user.fullName}
+          onClose={() => setExiting(false)}
+          onFinish={() => {
+            setExiting(false);
+            doLogout();
+          }}
+        />
+      )}
     </div>
   );
 }

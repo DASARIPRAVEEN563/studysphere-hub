@@ -25,6 +25,7 @@ function ChatPage() {
   const user = useRequireVerified();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [text, setText] = useState("");
+  const [image, setImage] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const endRef = useRef<HTMLDivElement | null>(null);
 
@@ -45,17 +46,41 @@ function ChatPage() {
 
   const send = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!text.trim()) return;
+    if (!text.trim() && !image) return;
     setSending(true);
     try {
-      await api("/api/chat", { body: { text } });
+      await api("/api/chat", { body: { text, image } });
       setText("");
+      setImage(null);
       await load();
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
       setSending(false);
     }
+  };
+
+  /** Compresses the picked photo so chat images fit comfortably in storage. */
+  const pickImage = (file: File | null) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Only images can be attached");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const scale = Math.min(1, 800 / Math.max(img.width, img.height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        canvas.getContext("2d")?.drawImage(img, 0, 0, canvas.width, canvas.height);
+        setImage(canvas.toDataURL("image/jpeg", 0.7));
+      };
+      img.src = String(reader.result);
+    };
+    reader.readAsDataURL(file);
   };
 
   return (
@@ -87,7 +112,14 @@ function ChatPage() {
                   m.from === "user" ? "hero-gradient text-white" : "glass"
                 }`}
               >
-                <p>{m.text}</p>
+                {m.image && (
+                  <img
+                    src={m.image}
+                    alt="Shared in chat"
+                    className="mb-2 max-h-56 w-full rounded-xl object-cover"
+                  />
+                )}
+                {m.text && <p>{m.text}</p>}
                 <p className="mt-1 text-[10px] opacity-70">
                   {m.from === "user" ? "You" : "Admin"} ·{" "}
                   {new Date(m.createdAt).toLocaleTimeString()}
@@ -98,7 +130,29 @@ function ChatPage() {
           <div ref={endRef} />
         </div>
 
-        <form onSubmit={send} className="flex gap-2 border-t border-border pt-4">
+        <form onSubmit={send} className="space-y-2 border-t border-border pt-4">
+          {image && (
+            <div className="flex items-center gap-2">
+              <img src={image} alt="Attachment preview" className="size-14 rounded-lg object-cover" />
+              <button
+                type="button"
+                onClick={() => setImage(null)}
+                className="text-xs font-semibold underline"
+              >
+                Remove
+              </button>
+            </div>
+          )}
+          <div className="flex gap-2">
+          <label className="glass grid size-10 shrink-0 cursor-pointer place-items-center rounded-xl text-lg">
+            📎
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => pickImage(e.target.files?.[0] ?? null)}
+            />
+          </label>
           <input
             className={inputClass}
             value={text}
@@ -108,6 +162,7 @@ function ChatPage() {
           <button className={btnClass} disabled={sending}>
             Send
           </button>
+          </div>
         </form>
       </div>
     </AppShell>

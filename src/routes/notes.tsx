@@ -49,6 +49,7 @@ function NotesPage() {
   const [dDept, setDDept] = useState("");
   const [dYear, setDYear] = useState("");
   const [dSem, setDSem] = useState("");
+  const [sort, setSort] = useState<"recent" | "likes" | "downloads" | "views">("recent");
 
   useEffect(() => {
     api<{ notes: Note[] }>("/api/notes")
@@ -60,6 +61,19 @@ function NotesPage() {
   }, []);
 
   const term = q.trim();
+
+  /** Applies the "most liked / downloaded / viewed" dropdown to any list of files. */
+  const applySort = useMemo(
+    () => (list: Note[]) => {
+      const arr = [...list];
+      if (sort === "likes") arr.sort((a, b) => (b.likes ?? 0) - (a.likes ?? 0));
+      else if (sort === "downloads") arr.sort((a, b) => (b.downloads ?? 0) - (a.downloads ?? 0));
+      else if (sort === "views") arr.sort((a, b) => (b.views ?? 0) - (a.views ?? 0));
+      else arr.sort((a, b) => b.uploadedAt.localeCompare(a.uploadedAt));
+      return arr;
+    },
+    [sort],
+  );
 
   /** Live subject search: prefix matches first, then any-position matches. */
   const searchResults = useMemo(() => {
@@ -168,7 +182,7 @@ function NotesPage() {
       </nav>
 
       <form
-        className="glass animate-rise mb-6 grid gap-3 rounded-2xl p-4 sm:grid-cols-2 lg:grid-cols-5"
+        className="glass animate-rise mb-6 grid gap-3 rounded-2xl p-4 sm:grid-cols-2 lg:grid-cols-6"
         onSubmit={(e) => {
           e.preventDefault();
           setDepartment(dDept || null);
@@ -231,6 +245,17 @@ function NotesPage() {
             <option key={s} value={s} className="bg-card">{s}</option>
           ))}
         </select>
+        <select
+          className={inputClass}
+          value={sort}
+          onChange={(e) => setSort(e.target.value as typeof sort)}
+          aria-label="Sort files"
+        >
+          <option value="recent" className="bg-card">Newest first</option>
+          <option value="likes" className="bg-card">Most liked</option>
+          <option value="downloads" className="bg-card">Most downloaded</option>
+          <option value="views" className="bg-card">Most viewed</option>
+        </select>
       </form>
 
       {notes === null ? (
@@ -241,7 +266,12 @@ function NotesPage() {
             <h3 className="mb-4 text-lg font-bold">
               {searchResults.length} result(s) for “{term}”
             </h3>
-            <FileGrid notes={searchResults} onView={view} onDownload={download} onLike={like} />
+            <FileGrid
+              notes={applySort(searchResults)}
+              onView={view}
+              onDownload={download}
+              onLike={like}
+            />
           </section>
         ) : (
           <Empty text={`No subject or file matches “${term}”.`} />
@@ -276,7 +306,7 @@ function NotesPage() {
           <Empty text="No subjects uploaded here yet." />
         )
       ) : scoped.length ? (
-        <FileGrid notes={scoped} onView={view} onDownload={download} onLike={like} />
+        <FileGrid notes={applySort(scoped)} onView={view} onDownload={download} onLike={like} />
       ) : (
         <Empty text="No files for this subject yet." />
       )}

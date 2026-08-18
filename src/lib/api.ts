@@ -44,6 +44,7 @@ export type Note = {
   mimeType: string;
   size: number;
   uploadedBy: string;
+  uploadedById?: string;
   uploadedAt: string;
   driveFileId?: string | null;
   likes?: number;
@@ -60,6 +61,7 @@ export type ContentItem = {
   url?: string;
   badge?: string;
   effect?: string;
+  pinned?: boolean;
   createdAt: string;
 };
 
@@ -77,7 +79,25 @@ export type ChatMessage = {
   userId: string;
   from: "user" | "admin";
   text: string;
+  image?: string | null;
   createdAt: string;
+};
+
+export type AppNotification = {
+  id: string;
+  userId: string;
+  text: string;
+  createdAt: string;
+  read?: boolean;
+};
+
+export type LeaderRow = {
+  id: string;
+  fullName: string;
+  registrationId: string;
+  department: string;
+  shares: number;
+  likes: number;
 };
 
 export type ChatThread = {

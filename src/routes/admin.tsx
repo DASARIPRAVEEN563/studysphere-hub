@@ -129,6 +129,7 @@ function useUnreadChat(viewing: boolean) {
 
 function NotesAdmin() {
   const [notes, setNotes] = useState<Note[] | null>(null);
+  const [openDept, setOpenDept] = useState<string | null>(null);
   const load = () =>
     api<{ notes: Note[] }>("/api/admin/notes")
       .then((r) => setNotes(r.notes))
@@ -163,9 +164,41 @@ function NotesAdmin() {
 
   if (notes === null) return <Skeletons count={6} />;
 
+  // One folder per department so files are easy to find.
+  const byDept = new Map<string, Note[]>();
+  for (const n of notes) byDept.set(n.department, [...(byDept.get(n.department) ?? []), n]);
+  const folders = [...byDept.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+
+  if (!notes.length) return <p className="text-muted-foreground">No notes uploaded yet.</p>;
+
+  if (!openDept)
+    return (
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {folders.map(([dept, list], i) => (
+          <button
+            key={dept}
+            onClick={() => setOpenDept(dept)}
+            className="glass animate-rise rounded-2xl p-6 text-left transition-transform hover:-translate-y-1"
+            style={{ animationDelay: `${i * 50}ms` }}
+          >
+            <div className="hero-gradient mb-3 grid size-12 place-items-center rounded-2xl text-xl">
+              📂
+            </div>
+            <p className="text-lg font-black">{dept}</p>
+            <p className="text-muted-foreground text-xs">{list.length} note(s)</p>
+          </button>
+        ))}
+      </div>
+    );
+
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
-      {notes.map((n) => (
+    <div className="space-y-4">
+      <button onClick={() => setOpenDept(null)} className={ghostBtnClass}>
+        ← All departments
+      </button>
+      <h3 className="text-lg font-black">{openDept} notes</h3>
+      <div className="grid gap-4 lg:grid-cols-2">
+      {(byDept.get(openDept) ?? []).map((n) => (
         <article key={n.id} className="glass animate-rise space-y-4 rounded-2xl p-6">
           <div>
             <p className="text-cyan text-xs font-bold uppercase">{n.subject}</p>
@@ -241,7 +274,7 @@ function NotesAdmin() {
           </div>
         </article>
       ))}
-      {!notes.length && <p className="text-muted-foreground">No notes uploaded yet.</p>}
+      </div>
     </div>
   );
 }
@@ -327,6 +360,19 @@ function ContentAdmin() {
     try {
       await api(`/api/admin/content/${item.id}`, { method: "PATCH", body: { title } });
       toast.success("Updated");
+      void load();
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
+  };
+
+  /** Pinned content stays on top of the home page until the admin unpins it. */
+  const togglePin = async (item: ContentItem) => {
+    try {
+      await api(`/api/admin/content/${item.id}`, {
+        method: "PATCH",
+        body: { pinned: !item.pinned },
+      });
       void load();
     } catch (err) {
       toast.error((err as Error).message);
@@ -459,10 +505,18 @@ function ContentAdmin() {
                   {i.badge}
                 </span>
               )}
+              {i.pinned && (
+                <span className="bg-pink/20 text-pink rounded-full px-2 py-0.5 text-[10px] font-black">
+                  📌 PINNED
+                </span>
+              )}
               <div className="min-w-0 flex-1">
                 <p className="truncate font-bold">{i.title}</p>
                 <p className="text-muted-foreground truncate text-xs">{i.description}</p>
               </div>
+              <button onClick={() => togglePin(i)} className={ghostBtnClass}>
+                {i.pinned ? "Unpin" : "Pin"}
+              </button>
               <button onClick={() => rename(i)} className={ghostBtnClass}>
                 Rename
               </button>
