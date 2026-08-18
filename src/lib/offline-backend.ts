@@ -283,18 +283,6 @@ export async function offlineRequest(
     return { ok: true, email: u.email ?? null, fullName: u.fullName };
   }
 
-  // Public: "It's me" confirmation link from the face verification email.
-  if (url === "/api/auth/confirm-identity") {
-    const uid = String(body?.uid ?? "");
-    const tok = String(body?.token ?? "");
-    const u = db.users.find((x) => x.id === uid);
-    if (!u || !u.identityToken || u.identityToken !== tok)
-      throw new OfflineError("This confirmation link is invalid or already used");
-    u.identityConfirmed = true;
-    save();
-    return { user: publicUser(u), token: `offline.${u.id}`, message: "Identity confirmed" };
-  }
-
   // ---- everything below needs a session ----
   if (!me) throw new OfflineError("Please login again");
 
@@ -321,7 +309,7 @@ export async function offlineRequest(
     if (!EMAIL_RE.test(String(me.email))) throw new OfflineError("Incorrect email ID");
     if (body.faces !== undefined && Number(body.faces) !== 1)
       throw new OfflineError("Exactly one person must be in front of the camera");
-    const identityToken = id() + id();
+    const identityToken = String(Math.floor(100000 + Math.random() * 900000));
     const photo = typeof body.image === "string" && body.image.length < 400_000 ? body.image : null;
     Object.assign(me, {
       faceImage: photo,
@@ -340,10 +328,15 @@ export async function offlineRequest(
     };
   }
 
-  if (url === "/api/profile/confirm-identity" && method === "POST") {
+  // Code verification: the student pastes the 6-digit code from the email.
+  if (url === "/api/profile/confirm-code" && method === "POST") {
+    const code = String(body?.code ?? "").trim();
+    if (!code) throw new OfflineError("Enter the code from your email");
+    if (!me.identityToken || code !== me.identityToken)
+      throw new OfflineError("Incorrect verification code");
     me.identityConfirmed = true;
     save();
-    return { user: publicUser(me) };
+    return { user: publicUser(me), message: "Verification code confirmed" };
   }
 
   // ---- feedback ----
