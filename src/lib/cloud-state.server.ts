@@ -5,7 +5,7 @@
  */
 const ROW_ID = "main";
 
-type AnyDoc = Record<string, any>;
+type AnyDoc = any;
 
 async function admin() {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");

@@ -1,5 +1,5 @@
 /** Server-only credential logic: sign-up, login, security-question recovery. */
-type AnyDoc = Record<string, any>;
+type AnyDoc = any;
 
 export const SUPER_ADMIN_ID = "PRAVEEN2207";
 const SUPER_ADMIN_PASSWORD = "PRAVEEN2204";
