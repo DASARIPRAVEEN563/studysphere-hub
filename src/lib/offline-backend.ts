@@ -255,8 +255,10 @@ export async function offlineRequest(
       const { doc, ...payload } = res;
       cache = { ...empty(), ...(doc as DB) };
       mirror(cache);
+      if (payload.error) throw new OfflineError(String(payload.error));
       return payload;
     } catch (err: any) {
+      if (err instanceof OfflineError) throw err;
       throw new OfflineError(String(err?.message ?? "Request failed").replace(/^Error:\s*/, ""));
     }
   }
