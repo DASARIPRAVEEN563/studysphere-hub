@@ -515,7 +515,7 @@ export async function offlineRequest(
     const nid = url.split("/")[3]!;
     const note = db.notes.find((n) => n.id === nid);
     if (!note) throw new OfflineError("Note not found");
-    const data = db.files[nid];
+    const data = await fileData(db, nid);
     if (!data) throw new OfflineError("File not found");
     note.views = (note.views ?? 0) + 1;
     save();
@@ -555,7 +555,7 @@ export async function offlineRequest(
   if (url.startsWith("/api/notes/") && url.endsWith("/download")) {
     if (!me.faceVerified) throw new OfflineError("You are not face verified");
     const noteId = url.split("/")[3]!;
-    const data = db.files[noteId];
+    const data = await fileData(db, noteId);
     if (!data) throw new OfflineError("File not found");
     me.downloadedCount += 1;
     const note = db.notes.find((n) => n.id === noteId);
@@ -653,6 +653,7 @@ export async function offlineRequest(
       if (method === "DELETE") {
         db.notes.splice(idx, 1);
         delete db.files[nid];
+        db.filesRemove = [...(db.filesRemove ?? []), nid];
       } else {
         Object.assign(db.notes[idx]!, body);
       }
