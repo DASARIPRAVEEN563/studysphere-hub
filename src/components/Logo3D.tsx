@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export const LOGO_SRC =
   "https://static.vecteezy.com/system/resources/thumbnails/054/043/179/small_2x/3d-icon-happy-student-man-icon-with-headphones-using-a-laptop-sitting-on-a-stack-of-books-online-education-studying-and-learning-with-a-transparent-background-png.png";
@@ -16,6 +16,16 @@ export function Logo3D({
   const ref = useRef<HTMLDivElement | null>(null);
   const [tilt, setTilt] = useState({ x: 0, y: 0 });
   const [hover, setHover] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  // If the mascot image is slow or blocked (weak mobile network), fall back fast.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const img = ref.current?.querySelector("img");
+      if (img && !(img as HTMLImageElement).naturalWidth) setFailed(true);
+    }, 3000);
+    return () => clearTimeout(t);
+  }, []);
 
   const move = (e: React.MouseEvent) => {
     const el = ref.current;
@@ -38,9 +48,20 @@ export function Logo3D({
       className={`shrink-0 select-none ${className}`}
       style={{ width: size, height: size, perspective: `${size * 5}px` }}
     >
+      {failed ? (
+        <span
+          className="hero-gradient grid size-full place-items-center rounded-2xl font-black text-white"
+          style={{ fontSize: size * 0.5 }}
+          aria-label="Students Ka Notes Sharing Hub"
+        >
+          S
+        </span>
+      ) : (
       <img
         src={LOGO_SRC}
-        alt="Students Ka Notes Sharing Hub 3D mascot"
+        alt=""
+        onError={() => setFailed(true)}
+        decoding="async"
         draggable={false}
         className={spin ? "animate-logo-spin size-full object-contain" : "size-full object-contain"}
         style={{
@@ -52,6 +73,7 @@ export function Logo3D({
           filter: "drop-shadow(0 12px 22px rgba(0,0,0,.35))",
         }}
       />
+      )}
     </div>
   );
 }

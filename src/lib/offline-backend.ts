@@ -70,19 +70,33 @@ function read(): DB {
   return cache ?? (cache = readLocal());
 }
 
+/** Coalesces the background polls so the app never fetches the same data twice. */
+let pullInFlight: Promise<DB> | null = null;
+let pulledAt = 0;
+/** Reads that happen within this window reuse the in-memory copy (keeps the UI snappy). */
+const PULL_TTL = 2500;
+
 /** Pull the latest document from the cloud database. */
-async function pull(): Promise<DB> {
-  try {
-    const res = await cloudLoad();
-    const doc = res.doc;
-    baseIds = res.baseIds ?? {};
-    cache = { ...empty(), ...(doc as DB) };
-    mirror(cache);
-  } catch (err) {
-    console.warn("Cloud data unavailable — using the local copy.", err);
-    cache = cache ?? readLocal();
-  }
-  return cache;
+async function pull(force = false): Promise<DB> {
+  if (!force && cache && Date.now() - pulledAt < PULL_TTL) return cache;
+  if (pullInFlight) return pullInFlight;
+  pullInFlight = (async () => {
+    try {
+      const res = await cloudLoad();
+      const doc = res.doc;
+      baseIds = res.baseIds ?? {};
+      cache = { ...empty(), ...(doc as DB) };
+      pulledAt = Date.now();
+      mirror(cache);
+    } catch (err) {
+      console.warn("Cloud data unavailable — using the local copy.", err);
+      cache = cache ?? readLocal();
+    } finally {
+      pullInFlight = null;
+    }
+    return cache!;
+  })();
+  return pullInFlight;
 }
 
 /** Saves are chained so two quick actions never race each other. */
@@ -100,34 +114,44 @@ async function pushNow(db: DB) {
     const res = await cloudSave({ data: { doc: db as any, baseIds } });
     baseIds = res.baseIds ?? baseIds;
     cache = { ...empty(), ...(res.doc as DB) };
+    pulledAt = Date.now();
+    mirror(cache);
   } catch (err) {
     console.warn("Could not save to the cloud — kept a local copy.", err);
   }
 }
 
-/** localStorage is only ~5MB — drop the heaviest payloads before giving up. */
+/**
+ * Mirroring to localStorage is only an offline fallback, so it runs off the main
+ * work: at most once a second, while the browser is idle, and without the heavy
+ * base64 blobs that used to make every save stutter.
+ */
+let mirrorTimer: ReturnType<typeof setTimeout> | null = null;
+let mirrorPending: DB | null = null;
+
 function mirror(db: DB) {
   if (typeof window === "undefined") return;
+  mirrorPending = db;
+  if (mirrorTimer) return;
+  mirrorTimer = setTimeout(() => {
+    mirrorTimer = null;
+    const next = mirrorPending;
+    mirrorPending = null;
+    if (!next) return;
+    const run = () => writeMirror(next);
+    const idle = (window as any).requestIdleCallback as
+      | ((cb: () => void, o?: { timeout: number }) => number)
+      | undefined;
+    if (idle) idle(run, { timeout: 1500 });
+    else run();
+  }, 1000);
+}
+
+/** localStorage is only ~5MB — drop the heaviest payloads before giving up. */
+function writeMirror(db: DB) {
+  const light: DB = { ...db, files: {}, users: db.users.map((u) => ({ ...u, faceImage: null })) };
   try {
-    localStorage.setItem(KEY, JSON.stringify(db));
-    return;
-  } catch {
-    /* quota exceeded — prune below */
-  }
-  const copy: DB = { ...db, files: { ...db.files }, users: db.users.map((u) => ({ ...u })) };
-  const fileIds = Object.keys(copy.files);
-  for (const fid of fileIds) {
-    delete copy.files[fid];
-    try {
-      localStorage.setItem(KEY, JSON.stringify(copy));
-      return;
-    } catch {
-      /* keep pruning */
-    }
-  }
-  for (const u of copy.users) u.faceImage = null;
-  try {
-    localStorage.setItem(KEY, JSON.stringify(copy));
+    localStorage.setItem(KEY, JSON.stringify(light));
   } catch {
     console.warn("Local storage is full — some cached data could not be saved.");
   }
@@ -281,7 +305,8 @@ export async function offlineRequest(
     }
   }
 
-  const db = await pull();
+  // Reads reuse the fresh in-memory copy; writes always start from server truth.
+  const db = await pull(method !== "GET");
   seed(db);
   const me = currentUser(db, token);
   const save = () => {

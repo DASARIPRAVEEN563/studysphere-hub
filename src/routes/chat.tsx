@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { AppShell, useRequireVerified } from "@/components/AppShell";
 import { btnClass, inputClass } from "@/components/Field";
 import { api, type ChatMessage } from "@/lib/api";
+import { usePoll } from "@/lib/use-poll";
 
 export const Route = createFileRoute("/chat")({
   head: () => ({
@@ -34,11 +35,7 @@ function ChatPage() {
       .then((r) => setMessages(r.messages))
       .catch(() => {});
 
-  useEffect(() => {
-    void load();
-    const t = setInterval(() => void load(), 4000);
-    return () => clearInterval(t);
-  }, []);
+  usePoll(load, 6000);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });

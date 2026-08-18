@@ -153,8 +153,46 @@
       radial-gradient(1000px 600px at 8% -10%, oklch(0.58 0.2 290 / 45%), transparent 62%),
       radial-gradient(900px 600px at 100% 0%, oklch(0.65 0.22 5 / 40%), transparent 62%),
       radial-gradient(900px 700px at 50% 110%, oklch(0.7 0.15 195 / 35%), transparent 62%);
-    background-attachment: fixed;
     font-family: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+    overflow-x: hidden;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* Fixed backgrounds repaint on every scroll frame on phones — desktop only. */
+  @media (min-width: 768px) {
+    body {
+      background-attachment: fixed;
+    }
+  }
+
+  /* Nothing may push the page sideways on a phone. */
+  img,
+  video,
+  canvas,
+  iframe,
+  table,
+  pre,
+  input[type="file"] {
+    max-width: 100%;
+  }
+
+  /* iOS zooms in when a focused field is under 16px. */
+  @media (max-width: 640px) {
+    input,
+    select,
+    textarea {
+      font-size: 16px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 }
 

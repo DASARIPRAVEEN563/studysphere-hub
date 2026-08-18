@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, type AppNotification } from "@/lib/api";
+import { usePoll } from "@/lib/use-poll";
 import { ghostBtnClass } from "./Field";
 
 /** Anonymous "someone liked your note" alerts for the signed-in student. */
@@ -11,11 +12,7 @@ export function LikeNotifications() {
       .then((r) => setList(r.notifications ?? []))
       .catch(() => {});
 
-  useEffect(() => {
-    void load();
-    const t = window.setInterval(() => void load(), 15000);
-    return () => window.clearInterval(t);
-  }, []);
+  usePoll(load, 20000);
 
   const clear = async () => {
     await api("/api/notifications", { method: "POST", body: {} }).catch(() => {});

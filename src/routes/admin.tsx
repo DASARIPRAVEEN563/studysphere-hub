@@ -1,11 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { AppShell, useRequireAuth } from "@/components/AppShell";
 import { btnClass, Field, ghostBtnClass, inputClass, Skeletons } from "@/components/Field";
 import { CONTENT_EFFECTS, ContentEffect } from "@/components/ContentEffect";
 import { SUPER_ADMIN_ID } from "@/lib/offline-backend";
 import { sendAdminEmailBlast } from "@/lib/admin-email.functions";
+import { usePoll } from "@/lib/use-poll";
 import {
   api,
   DEPARTMENTS,
@@ -92,41 +93,32 @@ const SEEN_KEY = "sknsh_admin_chat_seen";
 /** Polls student chat and notifies the admin about new incoming messages. */
 function useUnreadChat(viewing: boolean) {
   const [unread, setUnread] = useState(0);
-  useEffect(() => {
-    let stop = false;
-    let known = -1;
-    const tick = async () => {
-      try {
+  const knownRef = useRef(-1);
+  const tick = async () => {
+    try {
         const r = await api<{ threads: ChatThread[] }>("/api/admin/chat");
         const seen = Number(localStorage.getItem(SEEN_KEY) ?? 0);
         const incoming = r.threads.flatMap((t) =>
           t.messages.filter((m) => m.from === "user" && new Date(m.createdAt).getTime() > seen),
         );
-        if (stop) return;
         if (viewing) {
           localStorage.setItem(SEEN_KEY, String(Date.now()));
           setUnread(0);
-          known = 0;
+          knownRef.current = 0;
           return;
         }
-        if (known >= 0 && incoming.length > known) {
+        if (knownRef.current >= 0 && incoming.length > knownRef.current) {
           toast.message(`New chat message from ${incoming[incoming.length - 1]?.userId ? "a student" : "a student"}`, {
             description: incoming[incoming.length - 1]?.text.slice(0, 80),
           });
         }
-        known = incoming.length;
+        knownRef.current = incoming.length;
         setUnread(incoming.length);
-      } catch {
-        /* offline */
-      }
-    };
-    void tick();
-    const timer = setInterval(tick, 8000);
-    return () => {
-      stop = true;
-      clearInterval(timer);
-    };
-  }, [viewing]);
+    } catch {
+      /* offline */
+    }
+  };
+  usePoll(tick, 12000);
   return unread;
 }
 
@@ -669,11 +661,7 @@ function ChatAdmin() {
         setThreads([]);
       });
 
-  useEffect(() => {
-    void load();
-    const t = setInterval(() => void load(), 5000);
-    return () => clearInterval(t);
-  }, []);
+  usePoll(load, 7000);
 
   const active = (threads ?? []).find((t) => t.userId === activeId) ?? null;
 
