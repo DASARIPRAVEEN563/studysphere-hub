@@ -911,6 +911,11 @@ function StudentsAdminInner({ isMaster }: { isMaster: boolean }) {
   const [students, setStudents] = useState<User[] | null>(null);
   const [openDept, setOpenDept] = useState<string | null>(null);
   const [openYear, setOpenYear] = useState<string | null>(null);
+  // Manual shortlist filters (applied only when Search is pressed).
+  const [fName, setFName] = useState("");
+  const [fDept, setFDept] = useState("");
+  const [fYear, setFYear] = useState("");
+  const [applied, setApplied] = useState<{ name: string; dept: string; year: string } | null>(null);
 
   useEffect(() => {
     api<{ students: User[] }>("/api/admin/students")
@@ -945,6 +950,16 @@ function StudentsAdminInner({ isMaster }: { isMaster: boolean }) {
 
   // Department folders → year folders → student cards.
   const list = students ?? [];
+  const matches = applied
+    ? list.filter(
+        (s) =>
+          (!applied.name ||
+            s.fullName.toLowerCase().includes(applied.name.toLowerCase()) ||
+            s.registrationId.toLowerCase().includes(applied.name.toLowerCase())) &&
+          (!applied.dept || s.department === applied.dept) &&
+          (!applied.year || s.year === applied.year),
+      )
+    : [];
   const deptNames = Array.from(new Set(list.map((s) => s.department || "Other"))).sort();
   const inDept = list.filter((s) => (s.department || "Other") === openDept);
   const yearNames = Array.from(new Set(inDept.map((s) => s.year || "Other"))).sort();
