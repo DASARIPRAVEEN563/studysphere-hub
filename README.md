@@ -3,6 +3,10 @@
 A premium, colourful student notes-sharing platform with live face verification,
 Google Drive storage, gamification (stars, likes, leaderboard) and a full admin portal.
 
+> **Setting up on a new laptop?** Follow **[SETUP.md](./SETUP.md)** — it covers
+> installing the tools, creating `backend/.env` (which is git-ignored and must
+> be created by hand), and fixing the most common errors.
+
 - **Frontend** — React 19 + TanStack Router/Start + Tailwind CSS v4 (`src/`)
 - **Backend** — Python 3 + Flask + JWT + bcrypt + Google Drive + openpyxl (`backend/`)
 - **Offline fallback** — the frontend ships with a built-in browser backend
