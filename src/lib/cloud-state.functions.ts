@@ -30,7 +30,13 @@ export const cloudAuth = createServerFn({ method: "POST" })
     const { readDoc, writeDoc, sanitize } = await import("./cloud-state.server");
     const { handleAuth, seedDoc } = await import("./cloud-auth.server");
     const doc = seedDoc(await readDoc()).doc;
-    const result = handleAuth(data.path, data.body ?? {}, doc);
-    if (result.persist) await writeDoc(doc);
-    return { ...result.payload, doc: sanitize(doc) };
+    // Expected credential problems are returned as data, never thrown: a thrown
+    // server-function error surfaces as a runtime crash/blank screen.
+    try {
+      const result = handleAuth(data.path, data.body ?? {}, doc);
+      if (result.persist) await writeDoc(doc);
+      return { ...result.payload, doc: sanitize(doc) };
+    } catch (err) {
+      return { error: (err as Error).message || "Request failed", doc: sanitize(doc) };
+    }
   });
