@@ -91,7 +91,9 @@ async function pull(force = false): Promise<DB> {
       const res = await cloudLoad();
       const doc = res.doc;
       baseIds = res.baseIds ?? {};
-      cache = { ...empty(), ...(doc as DB) };
+      // Blobs staged locally but not pushed yet must survive a refresh.
+      const staged = cache?.files ?? {};
+      cache = { ...empty(), ...(doc as DB), files: { ...staged } };
       pulledAt = Date.now();
       mirror(cache);
     } catch (err) {
@@ -119,11 +121,23 @@ async function pushNow(db: DB) {
   try {
     const res = await cloudSave({ data: { doc: db as any, baseIds } });
     baseIds = res.baseIds ?? baseIds;
-    cache = { ...empty(), ...(res.doc as DB) };
+    cache = { ...empty(), ...(res.doc as DB), files: {}, filesRemove: [] };
     pulledAt = Date.now();
     mirror(cache);
   } catch (err) {
     console.warn("Could not save to the cloud — kept a local copy.", err);
+  }
+}
+
+/** Blob for a note: served from memory when just uploaded, else fetched once. */
+async function fileData(db: DB, fileId: string): Promise<string | null> {
+  const local = db.files[fileId];
+  if (local) return local;
+  try {
+    const res = await cloudFile({ data: { id: fileId } });
+    return res.dataUrl ?? null;
+  } catch {
+    return null;
   }
 }
 
