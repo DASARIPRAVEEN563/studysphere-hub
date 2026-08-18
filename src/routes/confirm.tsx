@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { AnimatedTitle } from "@/components/AnimatedTitle";
 import { btnClass } from "@/components/Field";
 import { api, auth, type User } from "@/lib/api";
+import { Celebration } from "@/components/Celebration";
 
 export const Route = createFileRoute("/confirm")({
   head: () => ({
@@ -54,6 +55,7 @@ function ConfirmPage() {
 
   return (
     <div className="grid min-h-screen place-items-center px-4 py-12">
+      {state === "done" && <Celebration effect="crackers" message="All features unlocked!" />}
       <div className="w-full max-w-md">
         <AnimatedTitle className="mb-8 text-center text-2xl sm:text-3xl" />
         <div className="glass animate-rise space-y-4 rounded-3xl p-8 text-center">
