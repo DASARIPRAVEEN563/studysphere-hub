@@ -4,6 +4,7 @@
  * When it is unreachable (e.g. the hosted preview, or Flask not started),
  * these handlers keep the whole app usable with localStorage persistence.
  */
+import { cloudAuth, cloudLoad, cloudSave } from "./cloud-state.functions";
 import type {
   AppNotification,
   ChatMessage,
