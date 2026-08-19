@@ -908,11 +908,28 @@ function StudentsAdminInner({ isMaster }: { isMaster: boolean }) {
   const [fYear, setFYear] = useState("");
   const [applied, setApplied] = useState<{ name: string; dept: string; year: string } | null>(null);
 
-  useEffect(() => {
+  const loadStudents = () =>
     api<{ students: User[] }>("/api/admin/students")
       .then((r) => setStudents(r.students))
       .catch(() => setStudents([]));
+
+  useEffect(() => {
+    void loadStudents();
   }, []);
+
+  /** Approve / reject a manual verification request raised by a student. */
+  const decide = async (s: User, approve: boolean) => {
+    try {
+      const r = await api<{ user: User }>(`/api/admin/students/${s.id}/verify`, {
+        method: "POST",
+        body: { approve },
+      });
+      setStudents((prev) => (prev ?? []).map((x) => (x.id === s.id ? { ...x, ...r.user } : x)));
+      toast.success(approve ? `${s.fullName} is verified` : "Request declined");
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
 
   const exportExcel = async () => {
     setBusy(true);
@@ -958,6 +975,8 @@ function StudentsAdminInner({ isMaster }: { isMaster: boolean }) {
 
   return (
     <div className="space-y-6">
+      <AddStudentForm onCreated={loadStudents} />
+      <VerificationRequests list={students ?? []} onDecide={decide} />
     <div className="glass animate-rise max-w-xl rounded-3xl p-5 sm:p-8">
       <h3 className="text-lg font-black">Student data export</h3>
       <p className="text-muted-foreground mt-2 text-sm">
