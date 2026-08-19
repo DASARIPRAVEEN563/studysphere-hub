@@ -121,8 +121,7 @@ export function handleAuth(
       faceVerified: false,
       faceImage: null,
       password: body.password,
-      securityQuestion: body.securityQuestion,
-      securityAnswer: String(body.securityAnswer ?? "").trim().toLowerCase(),
+      email: String(body.email ?? "").trim() || null,
     };
     users.push(user);
     return { payload: { token: `offline.${user.id}`, user: publicUser(user) }, persist: true };
@@ -141,18 +140,33 @@ export function handleAuth(
     return { payload: { token: `offline.${u.id}`, user: publicUser(u) }, persist: false };
   }
 
-  if (path === "/api/auth/forgot/question") {
+  // Password recovery by email code: step 1 issues the code, step 2 resets.
+  if (path === "/api/auth/forgot/code") {
     const u = find();
     if (!u) throw new Error("No account with that registration ID");
-    return { payload: { securityQuestion: u.securityQuestion }, persist: false };
+    const mail = String(u.email ?? "").trim();
+    if (!mail)
+      throw new Error(
+        "No email ID is saved on this account — ask the admin to reset your password.",
+      );
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    u.resetCode = code;
+    u.resetAt = Date.now();
+    return { payload: { email: mail, fullName: u.fullName, code }, persist: true };
   }
 
   if (path === "/api/auth/forgot/reset") {
     const u = find();
     if (!u) throw new Error("No account with that registration ID");
-    if (u.securityAnswer !== String(body.securityAnswer ?? "").trim().toLowerCase())
-      throw new Error("Security answer is incorrect");
+    const code = String(body.code ?? "").trim();
+    if (!u.resetCode || code !== String(u.resetCode))
+      throw new Error("Incorrect verification code");
+    if (u.resetAt && Date.now() - Number(u.resetAt) > 20 * 60 * 1000)
+      throw new Error("This code has expired — request a new one");
+    if (String(body.newPassword ?? "").length < 6)
+      throw new Error("Password must be at least 6 characters");
     u.password = body.newPassword;
+    u.resetCode = null;
     return {
       payload: { ok: true, email: u.email ?? null, fullName: u.fullName },
       persist: true,
