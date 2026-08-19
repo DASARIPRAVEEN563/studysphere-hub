@@ -359,11 +359,13 @@ function FileGrid({
   onView,
   onDownload,
   onLike,
+  highlight,
 }: {
   notes: Note[];
   onView: (n: Note) => void;
   onDownload: (n: Note) => void;
   onLike: (n: Note) => void;
+  highlight?: string;
 }) {
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -374,8 +376,15 @@ function FileGrid({
           style={{ animationDelay: `${i * 40}ms` }}
         >
           <p className="text-cyan text-xs font-semibold uppercase">{n.subject}</p>
-          <p className="mt-1 truncate font-bold" title={n.fileName}>
-            {n.fileName}
+          <p
+            className={
+              highlight
+                ? "mt-1 text-xl leading-snug font-black break-words"
+                : "mt-1 truncate font-bold"
+            }
+            title={n.fileName}
+          >
+            <Highlight text={n.fileName} term={highlight} />
           </p>
           <p className="text-muted-foreground mt-1 text-xs">
             {n.department} · {n.year} · {n.semester} · {(n.size / 1024).toFixed(0)} KB
