@@ -22,6 +22,7 @@ FILES = {
     "feedback": os.path.join(DATA_DIR, "feedback.json"),
     "chats": os.path.join(DATA_DIR, "chats.json"),
     "notifications": os.path.join(DATA_DIR, "notifications.json"),
+    "likes": os.path.join(DATA_DIR, "likes.json"),
 }
 
 
@@ -35,6 +36,23 @@ def new_id() -> str:
 
 def _supabase_enabled() -> bool:
     return bool(os.environ.get("SUPABASE_URL") and os.environ.get("SUPABASE_SERVICE_ROLE_KEY"))
+
+
+def _bridge_enabled() -> bool:
+    """Lovable Cloud hides the service-role key; persist through the app bridge."""
+    return bool(os.environ.get("APP_BRIDGE_URL") and os.environ.get("BACKEND_BRIDGE_SECRET"))
+
+
+def _remote():
+    if _supabase_enabled():
+        from . import supabase_store
+
+        return supabase_store
+    if _bridge_enabled():
+        from . import bridge_store
+
+        return bridge_store
+    return None
 
 
 def _json_read(collection: str) -> list:
@@ -55,18 +73,23 @@ def _json_write(collection: str, rows: list) -> None:
 
 
 def read(collection: str) -> list:
-    if _supabase_enabled():
-        from . import supabase_store
-
-        return supabase_store.read(collection)
+    remote = _remote()
+    if remote:
+        try:
+            return remote.read(collection)
+        except Exception as err:  # network/bridge failure -> keep serving
+            print(f"[store] remote read failed ({err}); using local JSON")
     return _json_read(collection)
 
 
 def write(collection: str, rows: list) -> None:
-    if _supabase_enabled():
-        from . import supabase_store
-
-        return supabase_store.write(collection, rows)
+    remote = _remote()
+    if remote:
+        try:
+            remote.write(collection, rows)
+            return
+        except Exception as err:
+            print(f"[store] remote write failed ({err}); using local JSON")
     _json_write(collection, rows)
 
 

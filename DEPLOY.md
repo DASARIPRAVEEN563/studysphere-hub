@@ -33,9 +33,10 @@ ADMIN_ID=ADMIN001
 ADMIN_PASSWORD=<strong password>
 ADMIN_NAME=Portal Administrator
 
-# Lovable Cloud / Supabase (so data persists on Railway)
-SUPABASE_URL=<from Lovable Cloud settings>
-SUPABASE_SERVICE_ROLE_KEY=<from Lovable Cloud settings>
+# Persistence bridge (Lovable Cloud does NOT expose a service-role key,
+# so Flask writes through the published frontend instead)
+APP_BRIDGE_URL=https://<your-published-frontend>.lovable.app
+BACKEND_BRIDGE_SECRET=<one strong random string, same value saved in Lovable secrets>
 
 # Lovable Google Drive connector (already set in your project secrets)
 LOVABLE_API_KEY=<your secret>
