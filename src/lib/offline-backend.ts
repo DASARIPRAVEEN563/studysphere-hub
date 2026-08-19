@@ -4,7 +4,7 @@
  * When it is unreachable (e.g. the hosted preview, or Flask not started),
  * these handlers keep the whole app usable with localStorage persistence.
  */
-import { cloudAuth, cloudFile, cloudLoad, cloudSave } from "./cloud-state.functions";
+import { cloudAuth, cloudCode, cloudFile, cloudLoad, cloudSave } from "./cloud-state.functions";
 import type {
   AppNotification,
   ChatMessage,
@@ -365,14 +365,17 @@ export async function offlineRequest(
     if (!EMAIL_RE.test(String(me.email))) throw new OfflineError("Incorrect email ID");
     if (body.faces !== undefined && Number(body.faces) !== 1)
       throw new OfflineError("Exactly one person must be in front of the camera");
-    const identityToken = String(Math.floor(100000 + Math.random() * 900000));
+    // The code lives in a private server row, so nobody else's save can wipe it.
+    const issued: any = await cloudCode({ data: { action: "issue", kind: "face", userId: me.id } });
+    if (!issued?.ok) throw new OfflineError(String(issued?.error ?? "Could not send the code"));
+    const identityToken = String(issued.code);
     const photo = typeof body.image === "string" && body.image.length < 400_000 ? body.image : null;
     Object.assign(me, {
       faceImage: photo,
       faceVerified: true,
       faceVerifiedAt: new Date().toISOString(),
       identityConfirmed: false,
-      identityToken,
+      identityToken: null,
     });
     // Must be persisted before the student can submit the emailed code.
     await save();
@@ -387,11 +390,12 @@ export async function offlineRequest(
 
   // Code verification: the student pastes the 6-digit code from the email.
   if (url === "/api/profile/confirm-code" && method === "POST") {
-    const code = String(body?.code ?? "").trim();
+    const code = String(body?.code ?? "").replace(/\D/g, "");
     if (!code) throw new OfflineError("Enter the code from your email");
-    if (!me.identityToken || code !== me.identityToken)
-      throw new OfflineError("Incorrect verification code");
+    const res: any = await cloudCode({ data: { action: "verify", kind: "face", userId: me.id, code } });
+    if (!res?.ok) throw new OfflineError(String(res?.error ?? "Incorrect verification code"));
     me.identityConfirmed = true;
+    me.faceVerified = true;
     await save();
     return { user: publicUser(me), message: "Verification code confirmed" };
   }
