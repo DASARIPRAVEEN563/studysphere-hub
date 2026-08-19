@@ -376,16 +376,18 @@ function FileGrid({
           className="glass animate-rise rounded-2xl p-5 transition-all hover:-translate-y-1 hover:shadow-2xl"
           style={{ animationDelay: `${i * 40}ms` }}
         >
-          <p className="text-cyan text-xs font-semibold uppercase">{n.subject}</p>
           <p
             className={
               highlight
-                ? "mt-1 text-xl leading-snug font-black break-words"
-                : "mt-1 truncate font-bold"
+                ? "text-cyan text-xl leading-snug font-black break-words uppercase"
+                : "text-cyan text-xs font-semibold uppercase"
             }
-            title={n.fileName}
+            title={n.subject}
           >
-            <MatchText text={n.fileName} term={highlight} />
+            <MatchText text={n.subject} term={highlight} />
+          </p>
+          <p className="mt-1 truncate font-bold" title={n.fileName}>
+            {n.fileName}
           </p>
           <p className="text-muted-foreground mt-1 text-xs">
             {n.department} · {n.year} · {n.semester} · {(n.size / 1024).toFixed(0)} KB
@@ -445,7 +447,7 @@ function Grid({
   );
 }
 
-/** Makes the searched words pop inside a file name. */
+/** Makes the searched words pop inside the subject name. */
 function MatchText({ text, term }: { text: string; term?: string | undefined }) {
   const t = (term ?? "").trim();
   if (!t) return <>{text}</>;
