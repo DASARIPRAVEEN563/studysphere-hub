@@ -190,6 +190,63 @@ export async function readFile(fileId: string): Promise<string | null> {
   return files[fileId] ?? null;
 }
 
+/**
+ * Verification codes live in their own row (`code:<kind>:<userId>`) and never
+ * travel inside the synced document. Two students verifying at the same time
+ * used to overwrite each other's code through the shared `users` collection,
+ * which made a correct code look invalid — a private row per person makes that
+ * impossible.
+ */
+const CODE_TTL_MS = 30 * 60 * 1000;
+const codeRowId = (kind: string, userId: string) => `code:${kind}:${userId}`;
+
+export async function putCode(kind: string, userId: string, code: string): Promise<void> {
+  const db = await admin();
+  const { error } = await db.from("app_state").upsert({
+    id: codeRowId(kind, userId),
+    data: { code, at: Date.now() } as any,
+    updated_at: new Date().toISOString(),
+  });
+  if (error) throw new Error(error.message);
+}
+
+/** True when the code matches an unexpired code for this person. */
+export async function checkCode(kind: string, userId: string, code: string): Promise<boolean> {
+  const db = await admin();
+  const { data } = await db
+    .from("app_state")
+    .select("data")
+    .eq("id", codeRowId(kind, userId))
+    .maybeSingle();
+  const row = (data?.data as { code?: string; at?: number } | null) ?? null;
+  if (!row?.code) return false;
+  if (row.at && Date.now() - row.at > CODE_TTL_MS) return false;
+  return String(row.code).trim() === String(code).trim();
+}
+
+export async function clearCode(kind: string, userId: string): Promise<void> {
+  const db = await admin();
+  await db.from("app_state").delete().eq("id", codeRowId(kind, userId));
+}
+
+/** Flip flags on one person without rewriting the whole users collection. */
+export async function patchUser(userId: string, patch: Record<string, unknown>): Promise<AnyDoc | null> {
+  const db = await admin();
+  const { data } = await db.from("app_state").select("data").eq("id", "users").maybeSingle();
+  const users: AnyDoc[] = Array.isArray(data?.data) ? (data!.data as AnyDoc[]) : [];
+  let updated: AnyDoc | null = null;
+  const next = users.map((u) => {
+    if (String(u?.id) !== String(userId)) return u;
+    updated = { ...u, ...patch };
+    return updated;
+  });
+  if (!updated) return null;
+  await db
+    .from("app_state")
+    .upsert({ id: "users", data: next as any, updated_at: new Date().toISOString() });
+  return updated;
+}
+
 /** Merge a browser-sent doc back in, keeping credentials the browser never saw. */
 export function merge(incoming: AnyDoc, current: AnyDoc, baseIds?: Record<string, string[]>): AnyDoc {
   const merged = mergeShards(incoming, current, baseIds);
@@ -203,6 +260,10 @@ export function merge(incoming: AnyDoc, current: AnyDoc, baseIds?: Record<string
       password: u.password ?? old?.password ?? "",
       securityAnswer: u.securityAnswer ?? old?.securityAnswer ?? "",
       securityQuestion: u.securityQuestion ?? old?.securityQuestion ?? "",
+      // Never sent to the browser, so a save must not erase them: without this
+      // one student's save wiped another student's pending reset code.
+      resetCode: old?.resetCode ?? null,
+      resetAt: old?.resetAt ?? null,
     };
   });
   return { ...merged, users };
