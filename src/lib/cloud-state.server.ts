@@ -28,10 +28,14 @@ type AnyDoc = any;
 
 const ARRAY_SHARDS: Shard[] = ["users", "notes", "content", "chats", "feedback", "notifications"];
 /**
- * Uploaded file blobs are big, so they never travel with the document: the
- * browser gets the ids only and fetches one blob on demand.
+ * Uploaded file blobs are big, so they never travel with the document and are
+ * never kept in one row: each blob lives in its own `file:<id>` row. Reads skip
+ * them entirely and an upload only writes the single new row, which is what
+ * keeps sharing a note fast no matter how many files exist.
  */
 const FILES: Shard = "files";
+const FILE_PREFIX = "file:";
+const DOC_SHARDS = SHARDS.filter((s) => s !== FILES);
 
 const emptyShard = (s: Shard): AnyDoc => (ARRAY_SHARDS.includes(s) ? [] : {});
 
@@ -55,7 +59,10 @@ export function idsOf(doc: AnyDoc): Record<string, string[]> {
 
 export async function readDoc(): Promise<AnyDoc> {
   const db = await admin();
-  const { data, error } = await db.from("app_state").select("id, data");
+  const { data, error } = await db
+    .from("app_state")
+    .select("id, data")
+    .in("id", [...DOC_SHARDS, LEGACY_ID]);
   if (error) throw new Error(error.message);
   const rows = data ?? [];
 
@@ -78,25 +85,40 @@ export async function readDoc(): Promise<AnyDoc> {
   return doc;
 }
 
-/** Upsert only the collections whose content actually changed. */
+/** Upsert only the collections whose content actually changed (blobs excluded). */
 async function writeShards(doc: AnyDoc, previous: AnyDoc) {
   const db = await admin();
   const now = new Date().toISOString();
-  const rows = SHARDS.filter(
-    (s) =>
-      s === FILES
-        ? // Comparing megabytes of base64 on every save is the slow path — the
-          // key set is enough to know whether the blob store changed.
-          Object.keys(doc[s] ?? {}).join("|") !== Object.keys(previous?.[s] ?? {}).join("|")
-        : JSON.stringify(doc[s] ?? emptyShard(s)) !== JSON.stringify(previous?.[s]),
+  const rows = DOC_SHARDS.filter(
+    (s) => JSON.stringify(doc[s] ?? emptyShard(s)) !== JSON.stringify(previous?.[s]),
   ).map((s) => ({ id: s, data: (doc[s] ?? emptyShard(s)) as any, updated_at: now }));
   if (!rows.length) return;
   const { error } = await db.from("app_state").upsert(rows);
   if (error) throw new Error(error.message);
 }
 
+/** One row per uploaded blob: an upload writes only its own row. */
+async function writeFiles(files: Record<string, string> | undefined) {
+  const entries = Object.entries(files ?? {});
+  if (!entries.length) return;
+  const db = await admin();
+  const now = new Date().toISOString();
+  const { error } = await db
+    .from("app_state")
+    .upsert(entries.map(([key, value]) => ({ id: FILE_PREFIX + key, data: value as any, updated_at: now })));
+  if (error) throw new Error(error.message);
+}
+
+async function deleteFiles(ids: string[] | undefined) {
+  if (!ids?.length) return;
+  const db = await admin();
+  await db.from("app_state").delete().in("id", ids.map((i) => FILE_PREFIX + i));
+}
+
 export async function writeDoc(doc: AnyDoc, previous: AnyDoc = {}): Promise<void> {
   await writeShards(doc, previous);
+  await writeFiles(doc[FILES]);
+  await deleteFiles(doc.filesRemove);
 }
 
 /**
@@ -112,8 +134,8 @@ export function mergeShards(
   for (const s of SHARDS) {
     if (incoming?.[s] === undefined) continue;
     if (s === FILES) {
-      // Additive: the browser only ever sends newly uploaded blobs.
-      out[s] = { ...(current[s] ?? {}), ...(incoming[s] ?? {}) };
+      // Additive and write-only: the browser sends just the new blobs.
+      out[s] = { ...(incoming[s] ?? {}) };
       continue;
     }
     const seen = new Set(baseIds[s] ?? []);
@@ -131,11 +153,7 @@ export function mergeShards(
     }
   }
   const removed: string[] = Array.isArray(incoming?.filesRemove) ? incoming.filesRemove : [];
-  if (removed.length) {
-    const files = { ...(out[FILES] ?? {}) } as Record<string, AnyDoc>;
-    for (const key of removed) delete files[key];
-    out[FILES] = files;
-  }
+  out.filesRemove = removed;
   return out;
 }
 
@@ -145,7 +163,8 @@ export function sanitize(doc: AnyDoc): AnyDoc {
   return {
     ...doc,
     files: {},
-    fileIds: Object.keys(doc.files ?? {}),
+    filesRemove: [],
+    fileIds: [],
     users: users.map((u: AnyDoc) => {
       const { password: _p, securityAnswer: _a, resetCode: _r, resetAt: _t, ...rest } = u;
       return rest;
@@ -156,9 +175,16 @@ export function sanitize(doc: AnyDoc): AnyDoc {
 /** One uploaded file, fetched only when a note is viewed or downloaded. */
 export async function readFile(fileId: string): Promise<string | null> {
   const db = await admin();
-  const { data, error } = await db.from("app_state").select("data").eq("id", FILES).maybeSingle();
+  const { data, error } = await db
+    .from("app_state")
+    .select("data")
+    .eq("id", FILE_PREFIX + fileId)
+    .maybeSingle();
   if (error) throw new Error(error.message);
-  const files = (data?.data as Record<string, string>) ?? {};
+  if (typeof data?.data === "string") return data.data;
+  // Older uploads still live inside the single legacy blob row.
+  const legacy = await db.from("app_state").select("data").eq("id", FILES).maybeSingle();
+  const files = (legacy.data?.data as Record<string, string>) ?? {};
   return files[fileId] ?? null;
 }
 
