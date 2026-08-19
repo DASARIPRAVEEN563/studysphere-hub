@@ -271,6 +271,7 @@ function NotesPage() {
               onView={view}
               onDownload={download}
               onLike={like}
+              highlight={term}
             />
           </section>
         ) : (
