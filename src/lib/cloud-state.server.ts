@@ -260,6 +260,10 @@ export function merge(incoming: AnyDoc, current: AnyDoc, baseIds?: Record<string
       password: u.password ?? old?.password ?? "",
       securityAnswer: u.securityAnswer ?? old?.securityAnswer ?? "",
       securityQuestion: u.securityQuestion ?? old?.securityQuestion ?? "",
+      // Never sent to the browser, so a save must not erase them: without this
+      // one student's save wiped another student's pending reset code.
+      resetCode: old?.resetCode ?? null,
+      resetAt: old?.resetAt ?? null,
     };
   });
   return { ...merged, users };
