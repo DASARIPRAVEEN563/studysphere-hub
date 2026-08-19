@@ -384,7 +384,7 @@ function FileGrid({
             }
             title={n.fileName}
           >
-            <Highlight text={n.fileName} term={highlight} />
+            <MatchText text={n.fileName} term={highlight} />
           </p>
           <p className="text-muted-foreground mt-1 text-xs">
             {n.department} · {n.year} · {n.semester} · {(n.size / 1024).toFixed(0)} KB
@@ -416,6 +416,52 @@ function FileGrid({
 }
 
 function Grid({
+  items,
+  onPick,
+  icon,
+}: {
+  items: { label: string; sub: string }[];
+  onPick: (v: string) => void;
+  icon: string;
+}) {
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {items.map((it, i) => (
+        <button
+          key={it.label}
+          onClick={() => onPick(it.label)}
+          className="glass animate-rise group rounded-2xl p-6 text-left transition-all hover:-translate-y-1 hover:shadow-2xl"
+          style={{ animationDelay: `${i * 50}ms` }}
+        >
+          <div className="hero-gradient mb-3 grid size-12 place-items-center rounded-2xl text-xl transition-transform group-hover:scale-110 group-hover:rotate-6">
+            {icon}
+          </div>
+          <p className="text-lg font-black">{it.label}</p>
+          <p className="text-muted-foreground text-xs">{it.sub}</p>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** Makes the searched words pop inside a file name. */
+function MatchText({ text, term }: { text: string; term?: string }) {
+  const t = (term ?? "").trim();
+  if (!t) return <>{text}</>;
+  const idx = text.toLowerCase().indexOf(t.toLowerCase());
+  if (idx < 0) return <>{text}</>;
+  return (
+    <>
+      {text.slice(0, idx)}
+      <span className="hero-gradient rounded-md px-1.5 py-0.5 text-white">
+        {text.slice(idx, idx + t.length)}
+      </span>
+      {text.slice(idx + t.length)}
+    </>
+  );
+}
+
+function GridLegacyUnused({
   items,
   onPick,
   icon,
