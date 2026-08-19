@@ -88,7 +88,7 @@ export function seedDoc(input: AnyDoc): { doc: AnyDoc; changed: boolean } {
 }
 
 function publicUser(u: AnyDoc) {
-  const { password: _p, securityAnswer: _a, ...rest } = u;
+  const { password: _p, securityAnswer: _a, resetCode: _r, resetAt: _t, ...rest } = u;
   return { stars: 0, faceVerified: false, identityConfirmed: false, ...rest };
 }
 

@@ -182,7 +182,7 @@ const id = () => Math.random().toString(36).slice(2, 11);
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 function publicUser(u: StoredUser): User {
-  const { password: _p, securityAnswer: _a, securityQuestion: _q, identityToken: _t, ...rest } = u;
+  const { password: _p, securityAnswer: _a, securityQuestion: _q, identityToken: _t, resetCode: _rc, resetAt: _ra, ...rest } = u as any;
   return {
     stars: 0,
     faceVerified: false,
