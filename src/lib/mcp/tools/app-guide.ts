@@ -1,5 +1,6 @@
 import { defineTool } from "@lovable.dev/mcp-js";
 import { z } from "zod";
+import { requireSignedIn } from "../auth-guard";
 
 const GUIDES: Record<string, string> = {
   signup:
@@ -30,7 +31,9 @@ export default defineTool({
   },
   outputSchema: undefined as never,
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
-  handler: ({ topic }) => {
+  handler: ({ topic }, ctx) => {
+    const denied = requireSignedIn(ctx);
+    if (denied) return denied;
     const payload = topic ? { [topic]: GUIDES[topic] } : GUIDES;
     return {
       content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
