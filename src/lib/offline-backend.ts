@@ -182,7 +182,7 @@ const id = () => Math.random().toString(36).slice(2, 11);
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 function publicUser(u: StoredUser): User {
-  const { password: _p, securityAnswer: _a, securityQuestion: _q, identityToken: _t, ...rest } = u;
+  const { password: _p, securityAnswer: _a, securityQuestion: _q, identityToken: _t, resetCode: _rc, resetAt: _ra, ...rest } = u as any;
   return {
     stars: 0,
     faceVerified: false,
@@ -619,6 +619,15 @@ export async function offlineRequest(
     }
 
     if (url === "/api/admin/feedback") return { feedback: db.feedback };
+
+    if (url.startsWith("/api/admin/feedback/") && method === "DELETE") {
+      const fid = url.split("/").pop();
+      const before = db.feedback.length;
+      db.feedback = db.feedback.filter((f) => f.id !== fid);
+      if (db.feedback.length === before) throw new OfflineError("Feedback not found");
+      save();
+      return { ok: true };
+    }
 
     if (url === "/api/admin/content" && method === "POST") {
       const item: ContentItem = {

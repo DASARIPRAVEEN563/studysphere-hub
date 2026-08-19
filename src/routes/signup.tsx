@@ -21,13 +21,6 @@ export const Route = createFileRoute("/signup")({
   component: SignupPage,
 });
 
-const QUESTIONS = [
-  "What is your nickname?",
-  "What is your favourite subject?",
-  "What is your mother's maiden name?",
-  "Which city were you born in?",
-];
-
 function SignupPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -36,8 +29,6 @@ function SignupPage() {
     fullName: "",
     registrationId: "",
     password: "",
-    securityQuestion: QUESTIONS[0],
-    securityAnswer: "",
     department: DEPARTMENTS[0],
     year: YEARS[0],
     semester: SEMESTERS[0],
@@ -136,28 +127,6 @@ function SignupPage() {
                   </option>
                 ))}
               </select>
-            </Field>
-            <Field label="Security Question">
-              <select
-                className={inputClass}
-                value={form.securityQuestion}
-                onChange={(e) => set("securityQuestion", e.target.value)}
-              >
-                {QUESTIONS.map((q) => (
-                  <option key={q} value={q} className="bg-card">
-                    {q}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Security Answer">
-              <input
-                className={`${inputClass} uppercase`}
-                value={form.securityAnswer}
-                onChange={(e) => set("securityAnswer", e.target.value.toUpperCase())}
-                autoCapitalize="characters"
-                required
-              />
             </Field>
           </div>
           <button className={`${btnClass} w-full`} disabled={loading}>

@@ -147,7 +147,7 @@ export function sanitize(doc: AnyDoc): AnyDoc {
     files: {},
     fileIds: Object.keys(doc.files ?? {}),
     users: users.map((u: AnyDoc) => {
-      const { password: _p, securityAnswer: _a, ...rest } = u;
+      const { password: _p, securityAnswer: _a, resetCode: _r, resetAt: _t, ...rest } = u;
       return rest;
     }),
   };

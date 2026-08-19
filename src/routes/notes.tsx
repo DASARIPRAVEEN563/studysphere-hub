@@ -271,6 +271,7 @@ function NotesPage() {
               onView={view}
               onDownload={download}
               onLike={like}
+              highlight={term}
             />
           </section>
         ) : (
@@ -359,11 +360,13 @@ function FileGrid({
   onView,
   onDownload,
   onLike,
+  highlight,
 }: {
   notes: Note[];
   onView: (n: Note) => void;
   onDownload: (n: Note) => void;
   onLike: (n: Note) => void;
+  highlight?: string | undefined;
 }) {
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -374,8 +377,15 @@ function FileGrid({
           style={{ animationDelay: `${i * 40}ms` }}
         >
           <p className="text-cyan text-xs font-semibold uppercase">{n.subject}</p>
-          <p className="mt-1 truncate font-bold" title={n.fileName}>
-            {n.fileName}
+          <p
+            className={
+              highlight
+                ? "mt-1 text-xl leading-snug font-black break-words"
+                : "mt-1 truncate font-bold"
+            }
+            title={n.fileName}
+          >
+            <MatchText text={n.fileName} term={highlight} />
           </p>
           <p className="text-muted-foreground mt-1 text-xs">
             {n.department} · {n.year} · {n.semester} · {(n.size / 1024).toFixed(0)} KB
@@ -432,6 +442,23 @@ function Grid({
         </button>
       ))}
     </div>
+  );
+}
+
+/** Makes the searched words pop inside a file name. */
+function MatchText({ text, term }: { text: string; term?: string | undefined }) {
+  const t = (term ?? "").trim();
+  if (!t) return <>{text}</>;
+  const idx = text.toLowerCase().indexOf(t.toLowerCase());
+  if (idx < 0) return <>{text}</>;
+  return (
+    <>
+      {text.slice(0, idx)}
+      <span className="hero-gradient rounded-md px-1.5 py-0.5 text-white">
+        {text.slice(idx, idx + t.length)}
+      </span>
+      {text.slice(idx + t.length)}
+    </>
   );
 }
 

@@ -118,7 +118,7 @@ function useUnreadChat(viewing: boolean) {
       /* offline */
     }
   };
-  usePoll(tick, 12000);
+  usePoll(tick, 25000);
   return unread;
 }
 
@@ -661,7 +661,7 @@ function ChatAdmin() {
         setThreads([]);
       });
 
-  usePoll(load, 7000);
+  usePoll(load, 15000);
 
   const active = (threads ?? []).find((t) => t.userId === activeId) ?? null;
 
@@ -1143,6 +1143,18 @@ function FeedbackAdmin() {
       .catch(() => setList([]));
   }, []);
   if (list === null) return <Skeletons count={4} />;
+
+  const remove = async (f: Feedback) => {
+    if (!confirm(`Delete the feedback from ${f.userName}?`)) return;
+    try {
+      await api(`/api/admin/feedback/${f.id}`, { method: "DELETE" });
+      setList((prev) => (prev ?? []).filter((x) => x.id !== f.id));
+      toast.success("Feedback deleted");
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
+  };
+
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {!list.length && <p className="text-muted-foreground text-sm">No feedback yet.</p>}
@@ -1154,9 +1166,18 @@ function FeedbackAdmin() {
           </div>
           <p className="text-muted-foreground text-xs">{f.registrationId}</p>
           <p className="mt-2 text-sm">{f.comment}</p>
-          <p className="text-muted-foreground mt-2 text-xs">
-            {new Date(f.createdAt).toLocaleString()}
-          </p>
+          <div className="mt-2 flex items-center justify-between gap-2">
+            <p className="text-muted-foreground text-xs">
+              {new Date(f.createdAt).toLocaleString()}
+            </p>
+            <button
+              type="button"
+              onClick={() => remove(f)}
+              className="text-pink text-xs font-bold hover:underline"
+            >
+              Delete
+            </button>
+          </div>
         </article>
       ))}
     </div>
