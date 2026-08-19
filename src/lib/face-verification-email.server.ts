@@ -39,11 +39,11 @@ async function sendRaw(message: string) {
 const FROM = "STUDENTS KA NOTES SHARING HUB <studentsnotessharing@gmail.com>";
 
 export type UserDetails = {
-  registrationId?: string | null;
-  department?: string | null;
-  year?: string | null;
-  semester?: string | null;
-  email?: string | null;
+  registrationId?: string | null | undefined;
+  department?: string | null | undefined;
+  year?: string | null | undefined;
+  semester?: string | null | undefined;
+  email?: string | null | undefined;
 };
 
 /** Renders the student's account details so every mail identifies the recipient. */
