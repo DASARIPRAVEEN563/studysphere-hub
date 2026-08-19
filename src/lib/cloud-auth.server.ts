@@ -152,7 +152,18 @@ export function handleAuth(
     const code = String(Math.floor(100000 + Math.random() * 900000));
     u.resetCode = code;
     u.resetAt = Date.now();
-    return { payload: { email: mail, fullName: u.fullName, code }, persist: true };
+    return {
+      payload: {
+        email: mail,
+        fullName: u.fullName,
+        code,
+        registrationId: u.registrationId,
+        department: u.department,
+        year: u.year,
+        semester: u.semester,
+      },
+      persist: true,
+    };
   }
 
   if (path === "/api/auth/forgot/reset") {
@@ -168,7 +179,15 @@ export function handleAuth(
     u.password = body.newPassword;
     u.resetCode = null;
     return {
-      payload: { ok: true, email: u.email ?? null, fullName: u.fullName },
+      payload: {
+        ok: true,
+        email: u.email ?? null,
+        fullName: u.fullName,
+        registrationId: u.registrationId,
+        department: u.department,
+        year: u.year,
+        semester: u.semester,
+      },
       persist: true,
     };
   }

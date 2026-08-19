@@ -251,6 +251,13 @@ export function FaceVerify({ user, onVerified }: { user: User; onVerified: (u: U
           fullName: user.fullName,
           image: image ?? lastImage,
           code: token ?? confirmToken,
+          details: {
+            registrationId: user.registrationId,
+            department: user.department,
+            year: user.year,
+            semester: user.semester,
+            email: to,
+          },
         },
       });
       setMail({

@@ -37,12 +37,28 @@ function ForgotPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await api<{ email: string; fullName: string; code: string }>(
-        "/api/auth/forgot/code",
-        { body: { registrationId } },
-      );
+      const res = await api<{
+        email: string;
+        fullName: string;
+        code: string;
+        registrationId?: string;
+        department?: string;
+        year?: string;
+        semester?: string;
+      }>("/api/auth/forgot/code", { body: { registrationId } });
       await sendPasswordResetCode({
-        data: { to: res.email, fullName: res.fullName ?? "Student", code: res.code },
+        data: {
+          to: res.email,
+          fullName: res.fullName ?? "Student",
+          code: res.code,
+          details: {
+            registrationId: res.registrationId ?? registrationId,
+            department: res.department,
+            year: res.year,
+            semester: res.semester,
+            email: res.email,
+          },
+        },
       });
       const [name = "", domain = ""] = res.email.split("@");
       setMaskedEmail(`${name.slice(0, 2)}${"*".repeat(Math.max(1, name.length - 2))}@${domain}`);
@@ -59,14 +75,29 @@ function ForgotPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await api<{ email?: string | null; fullName?: string }>("/api/auth/forgot/reset", {
-        body: { registrationId, code, newPassword },
-      });
+      const res = await api<{
+        email?: string | null;
+        fullName?: string;
+        registrationId?: string;
+        department?: string;
+        year?: string;
+        semester?: string;
+      }>("/api/auth/forgot/reset", { body: { registrationId, code, newPassword } });
       toast.success("Password updated. Please login.");
       if (res?.email) {
         try {
           await sendPasswordChangedNotice({
-            data: { to: res.email, fullName: res.fullName ?? "Student" },
+            data: {
+              to: res.email,
+              fullName: res.fullName ?? "Student",
+              details: {
+                registrationId: res.registrationId ?? registrationId,
+                department: res.department,
+                year: res.year,
+                semester: res.semester,
+                email: res.email,
+              },
+            },
           });
           toast.success("Your password was changed — a confirmation email was sent.");
         } catch {

@@ -38,6 +38,45 @@ async function sendRaw(message: string) {
 
 const FROM = "STUDENTS KA NOTES SHARING HUB <studentsnotessharing@gmail.com>";
 
+export type UserDetails = {
+  registrationId?: string | null | undefined;
+  department?: string | null | undefined;
+  year?: string | null | undefined;
+  semester?: string | null | undefined;
+  email?: string | null | undefined;
+};
+
+/** Renders the student's account details so every mail identifies the recipient. */
+function detailsHtml(fullName: string, details: UserDetails = {}) {
+  const rows: [string, string][] = [
+    ["Name", clean(fullName) || "Student"],
+    ["Registration ID", clean(String(details.registrationId ?? "")) || "-"],
+    ["Department", clean(String(details.department ?? "")) || "-"],
+    ["Year", clean(String(details.year ?? "")) || "-"],
+    ["Semester", clean(String(details.semester ?? "")) || "-"],
+    ["Email ID", clean(String(details.email ?? "")) || "-"],
+  ];
+  return [
+    '<table style="border-collapse:collapse;margin:14px 0;font-size:14px">',
+    ...rows.map(
+      ([k, v]) =>
+        `<tr><td style="padding:6px 14px 6px 0;color:#555">${k}</td><td style="padding:6px 0;font-weight:bold">${v}</td></tr>`,
+    ),
+    "</table>",
+  ].join("");
+}
+
+function detailsText(fullName: string, details: UserDetails = {}) {
+  return [
+    `Name: ${clean(fullName) || "Student"}`,
+    `Registration ID: ${clean(String(details.registrationId ?? "")) || "-"}`,
+    `Department: ${clean(String(details.department ?? "")) || "-"}`,
+    `Year: ${clean(String(details.year ?? "")) || "-"}`,
+    `Semester: ${clean(String(details.semester ?? "")) || "-"}`,
+    `Email ID: ${clean(String(details.email ?? "")) || "-"}`,
+  ].join("\r\n");
+}
+
 /**
  * Face verification mail: contains the captured photo and a one-time
  * verification code the student pastes on the website to unlock everything.
@@ -45,7 +84,7 @@ const FROM = "STUDENTS KA NOTES SHARING HUB <studentsnotessharing@gmail.com>";
 export async function sendFaceVerificationEmail(
   to: string,
   fullName: string,
-  options: { image?: string | null; code?: string | null } = {},
+  options: { image?: string | null; code?: string | null; details?: UserDetails } = {},
 ) {
   const safeName = clean(fullName) || "Student";
   const safeTo = clean(to);
@@ -56,6 +95,7 @@ export async function sendFaceVerificationEmail(
     "<div style=\"font-family:Arial,Helvetica,sans-serif;font-size:15px;color:#111\">",
     `<p>Hello ${safeName},</p>`,
     "<p><b>Face verified is successfully completed.</b></p>",
+    detailsHtml(safeName, { ...(options.details ?? {}), email: options.details?.email ?? safeTo }),
     "<p>The photo captured during verification is attached below. Enter the code shown here on the website to unlock notes, sharing and chat on STUDENTS KA NOTES SHARING HUB.</p>",
     options.image ? '<p><img src="cid:faceimage" alt="Captured face" width="240" style="border-radius:12px" /></p>' : "",
     code
@@ -98,13 +138,19 @@ export async function sendFaceVerificationEmail(
 }
 
 /** Security notice sent whenever an account password changes. */
-export async function sendPasswordResetCodeEmail(to: string, fullName: string, code: string) {
+export async function sendPasswordResetCodeEmail(
+  to: string,
+  fullName: string,
+  code: string,
+  details: UserDetails = {},
+) {
   const safeName = clean(fullName) || "Student";
   const safeTo = clean(to);
   const safeCode = clean(code);
   const html = [
     '<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;color:#111">',
     `<p>Hello ${safeName},</p>`,
+    detailsHtml(safeName, { ...details, email: details.email ?? safeTo }),
     "<p>Use the code below on the website to reset your password.</p>",
     `<p style="background:#6d28d9;color:#fff;padding:14px 22px;border-radius:12px;font-size:30px;letter-spacing:8px;font-weight:bold;display:inline-block">${safeCode}</p>`,
     '<p style="font-size:12px;color:#555">The code expires in 20 minutes. Never share it with anyone. If you did not request a reset, ignore this email.</p>',
@@ -126,7 +172,11 @@ export async function sendPasswordResetCodeEmail(to: string, fullName: string, c
 }
 
 /** Security notice sent whenever an account password changes. */
-export async function sendPasswordChangedEmail(to: string, fullName: string) {
+export async function sendPasswordChangedEmail(
+  to: string,
+  fullName: string,
+  details: UserDetails = {},
+) {
   const safeName = clean(fullName) || "Student";
   const safeTo = clean(to);
   const message = [
@@ -138,6 +188,8 @@ export async function sendPasswordChangedEmail(to: string, fullName: string) {
     "MIME-Version: 1.0",
     "",
     `Hello ${safeName},`,
+    "",
+    detailsText(safeName, { ...details, email: details.email ?? safeTo }),
     "",
     `Your account password was changed on ${new Date().toUTCString()}.`,
     "If this was not you, contact the admin immediately.",
