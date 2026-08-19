@@ -1,5 +1,6 @@
 import { defineTool } from "@lovable.dev/mcp-js";
 import { z } from "zod";
+import { requireSignedIn } from "../auth-guard";
 
 const ALLOWED = [
   { extension: ".pdf", mimeType: "application/pdf" },
@@ -21,7 +22,9 @@ export default defineTool({
   },
   outputSchema: undefined as never,
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
-  handler: ({ filename, sizeMb }) => {
+  handler: ({ filename, sizeMb }, ctx) => {
+    const denied = requireSignedIn(ctx);
+    if (denied) return denied;
     const problems: string[] = [];
     if (filename) {
       const ok = ALLOWED.some((a) => filename.toLowerCase().endsWith(a.extension));

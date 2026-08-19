@@ -1,5 +1,6 @@
 import { defineTool } from "@lovable.dev/mcp-js";
 import { z } from "zod";
+import { requireSignedIn } from "../auth-guard";
 
 const DEPARTMENTS = ["AMIL & CSM", "CSE", "ECE", "EEE", "MECH", "CIVIL"] as const;
 const YEARS = ["1 Year", "2 Year", "3 Year", "4 Year"] as const;
@@ -18,7 +19,9 @@ export default defineTool({
   },
   outputSchema: undefined as never,
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
-  handler: ({ department }) => {
+  handler: ({ department }, ctx) => {
+    const denied = requireSignedIn(ctx);
+    if (denied) return denied;
     const departments = department
       ? DEPARTMENTS.filter((d) => d.toLowerCase().includes(department.toLowerCase()))
       : [...DEPARTMENTS];
