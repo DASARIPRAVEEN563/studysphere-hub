@@ -80,11 +80,23 @@ function read(): DB {
 let pullInFlight: Promise<DB> | null = null;
 let pulledAt = 0;
 /** Reads that happen within this window reuse the in-memory copy (keeps the UI snappy). */
-const PULL_TTL = 2500;
+const PULL_TTL = 8000;
 
-/** Pull the latest document from the cloud database. */
+/**
+ * Pull the latest document from the cloud database.
+ * Reads are stale-while-revalidate: a cached copy is returned instantly and the
+ * refresh happens in the background, so screens never wait on the network.
+ */
 async function pull(force = false): Promise<DB> {
   if (!force && cache && Date.now() - pulledAt < PULL_TTL) return cache;
+  if (!force && cache) {
+    void refresh();
+    return cache;
+  }
+  return refresh();
+}
+
+async function refresh(): Promise<DB> {
   if (pullInFlight) return pullInFlight;
   pullInFlight = (async () => {
     try {
