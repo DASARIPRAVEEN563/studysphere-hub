@@ -36,6 +36,10 @@ export type User = {
   faceVerifiedAt?: string | null;
   /** True once the student clicked "It's me" in the verification email. */
   identityConfirmed?: boolean;
+  /** Raised by a student who cannot finish camera/email verification. */
+  accessRequested?: boolean;
+  accessRequestedAt?: string | null;
+  accessRequestNote?: string | null;
 };
 
 export type Note = {
