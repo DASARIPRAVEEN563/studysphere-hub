@@ -29,7 +29,8 @@ export function FaceVerify({ user, onVerified }: { user: User; onVerified: (u: U
   /** Confirms the one-time code that was emailed to the student. */
   const submitCode = async (e: React.FormEvent) => {
     e.preventDefault();
-    const value = code.trim();
+    // Digits only, so a pasted code with spaces or a stray character still works.
+    const value = code.replace(/\D/g, "");
     if (!value) return;
     setChecking(true);
     try {
