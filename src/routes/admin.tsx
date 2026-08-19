@@ -118,7 +118,7 @@ function useUnreadChat(viewing: boolean) {
       /* offline */
     }
   };
-  usePoll(tick, 25000);
+  usePoll(tick, 60000);
   return unread;
 }
 
@@ -661,7 +661,7 @@ function ChatAdmin() {
         setThreads([]);
       });
 
-  usePoll(load, 15000);
+  usePoll(load, 30000);
 
   const active = (threads ?? []).find((t) => t.userId === activeId) ?? null;
 
@@ -898,6 +898,214 @@ function ChatAdmin() {
 }
 
 function StudentsAdminInner({ isMaster }: { isMaster: boolean }) {
+  return <StudentsAdminBody isMaster={isMaster} />;
+}
+
+/** Students waiting for a manual (in-person) verification by an admin. */
+function VerificationRequests({
+  list,
+  onDecide,
+}: {
+  list: User[];
+  onDecide: (s: User, approve: boolean) => void | Promise<void>;
+}) {
+  const pending = list.filter((s) => s.accessRequested);
+  if (!pending.length) return null;
+  return (
+    <section className="glass animate-rise space-y-3 rounded-3xl p-5 sm:p-6">
+      <h3 className="text-lg font-black">🙋 Verification requests ({pending.length})</h3>
+      <p className="text-muted-foreground text-sm">
+        These students could not finish camera or email verification. Verify them in person, then
+        approve to unlock their account.
+      </p>
+      <ul className="space-y-2">
+        {pending.map((s) => (
+          <li
+            key={s.id}
+            className="glass flex flex-wrap items-center justify-between gap-3 rounded-2xl px-4 py-3 text-sm"
+          >
+            <div className="min-w-0">
+              <p className="font-black">{s.fullName}</p>
+              <p className="text-muted-foreground text-xs">
+                {s.registrationId} · {s.department} · {s.year} · {s.semester}
+                {s.email ? ` · ${s.email}` : ""}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button className={btnClass} onClick={() => void onDecide(s, true)} type="button">
+                Approve
+              </button>
+              <button
+                className={ghostBtnClass}
+                onClick={() => void onDecide(s, false)}
+                type="button"
+              >
+                Decline
+              </button>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/** Admin-side account creation: details are taken in person and pre-verified. */
+function AddStudentForm({ onCreated }: { onCreated: () => void | Promise<void> }) {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [verified, setVerified] = useState(true);
+  const [form, setForm] = useState({
+    fullName: "",
+    registrationId: "",
+    email: "",
+    password: "",
+    department: DEPARTMENTS[0] as string,
+    year: YEARS[0] as string,
+    semester: SEMESTERS[0] as string,
+  });
+  const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      await api("/api/admin/create-student", {
+        method: "POST",
+        body: { ...form, registrationId: form.registrationId.toUpperCase(), verified },
+      });
+      toast.success(
+        verified
+          ? "Student added and verified — they can log in right away"
+          : "Student added — they must finish verification themselves",
+      );
+      setForm({
+        fullName: "",
+        registrationId: "",
+        email: "",
+        password: "",
+        department: DEPARTMENTS[0],
+        year: YEARS[0],
+        semester: SEMESTERS[0],
+      });
+      await onCreated();
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="glass animate-rise rounded-3xl p-5 sm:p-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="text-lg font-black">➕ Add a user</h3>
+          <p className="text-muted-foreground text-sm">
+            Create an account from the details you collect at the desk. Ticking the box counts as
+            in-person face verification, so no camera or email code is needed.
+          </p>
+        </div>
+        <button type="button" className={ghostBtnClass} onClick={() => setOpen((o) => !o)}>
+          {open ? "Close" : "New user"}
+        </button>
+      </div>
+      {open && (
+        <form onSubmit={submit} className="mt-5 grid gap-4 sm:grid-cols-2">
+          <Field label="Full Name">
+            <input
+              className={inputClass}
+              value={form.fullName}
+              onChange={(e) => set("fullName", e.target.value)}
+              required
+            />
+          </Field>
+          <Field label="Registration ID (Hall Ticket No)">
+            <input
+              className={`${inputClass} uppercase`}
+              value={form.registrationId}
+              onChange={(e) => set("registrationId", e.target.value.toUpperCase())}
+              required
+            />
+          </Field>
+          <Field label="Email ID">
+            <input
+              className={inputClass}
+              type="email"
+              value={form.email}
+              onChange={(e) => set("email", e.target.value)}
+              placeholder="student@example.com"
+            />
+          </Field>
+          <Field label="Password">
+            <input
+              className={inputClass}
+              value={form.password}
+              onChange={(e) => set("password", e.target.value)}
+              minLength={6}
+              required
+            />
+          </Field>
+          <Field label="Department">
+            <select
+              className={inputClass}
+              value={form.department}
+              onChange={(e) => set("department", e.target.value)}
+            >
+              {DEPARTMENTS.map((d) => (
+                <option key={d} value={d} className="bg-card">
+                  {d}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Year">
+            <select
+              className={inputClass}
+              value={form.year}
+              onChange={(e) => set("year", e.target.value)}
+            >
+              {YEARS.map((y) => (
+                <option key={y} value={y} className="bg-card">
+                  {y}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Semester">
+            <select
+              className={inputClass}
+              value={form.semester}
+              onChange={(e) => set("semester", e.target.value)}
+            >
+              {SEMESTERS.map((s) => (
+                <option key={s} value={s} className="bg-card">
+                  {s}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <label className="flex items-center gap-2 self-end text-sm font-bold">
+            <input
+              type="checkbox"
+              className="size-4 accent-[var(--primary)]"
+              checked={verified}
+              onChange={(e) => setVerified(e.target.checked)}
+            />
+            Face verified in person (skip code)
+          </label>
+          <div className="sm:col-span-2">
+            <button className={btnClass} disabled={busy}>
+              {busy ? "Creating..." : "Create user"}
+            </button>
+          </div>
+        </form>
+      )}
+    </section>
+  );
+}
+
+function StudentsAdminBody({ isMaster }: { isMaster: boolean }) {
   const [busy, setBusy] = useState(false);
   const [students, setStudents] = useState<User[] | null>(null);
   const [openDept, setOpenDept] = useState<string | null>(null);
@@ -908,11 +1116,28 @@ function StudentsAdminInner({ isMaster }: { isMaster: boolean }) {
   const [fYear, setFYear] = useState("");
   const [applied, setApplied] = useState<{ name: string; dept: string; year: string } | null>(null);
 
-  useEffect(() => {
+  const loadStudents = () =>
     api<{ students: User[] }>("/api/admin/students")
       .then((r) => setStudents(r.students))
       .catch(() => setStudents([]));
+
+  useEffect(() => {
+    void loadStudents();
   }, []);
+
+  /** Approve / reject a manual verification request raised by a student. */
+  const decide = async (s: User, approve: boolean) => {
+    try {
+      const r = await api<{ user: User }>(`/api/admin/students/${s.id}/verify`, {
+        method: "POST",
+        body: { approve },
+      });
+      setStudents((prev) => (prev ?? []).map((x) => (x.id === s.id ? { ...x, ...r.user } : x)));
+      toast.success(approve ? `${s.fullName} is verified` : "Request declined");
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
 
   const exportExcel = async () => {
     setBusy(true);
@@ -958,6 +1183,8 @@ function StudentsAdminInner({ isMaster }: { isMaster: boolean }) {
 
   return (
     <div className="space-y-6">
+      <AddStudentForm onCreated={loadStudents} />
+      <VerificationRequests list={students ?? []} onDecide={decide} />
     <div className="glass animate-rise max-w-xl rounded-3xl p-5 sm:p-8">
       <h3 className="text-lg font-black">Student data export</h3>
       <p className="text-muted-foreground mt-2 text-sm">

@@ -19,12 +19,55 @@ export function FaceVerify({ user, onVerified }: { user: User; onVerified: (u: U
   const [code, setCode] = useState("");
   const [checking, setChecking] = useState(false);
   const [lastImage, setLastImage] = useState<string | null>(null);
+  const [requested, setRequested] = useState(Boolean(user.accessRequested));
+  const [requesting, setRequesting] = useState(false);
   const [mail, setMail] = useState<{
     status: "idle" | "queued" | "sending" | "sent" | "failed";
     detail: string;
   }>({ status: "idle", detail: "" });
 
   const hasEmail = Boolean(user.email && user.email.includes("@"));
+
+  /** Fallback when the camera or the emailed code never works for a student. */
+  const requestAdminApproval = async () => {
+    setRequesting(true);
+    try {
+      const r = await api<{ user: User }>("/api/profile/request-access", {
+        method: "POST",
+        body: { note: "Could not complete verification" },
+      });
+      auth.setUser(r.user);
+      onVerified(r.user);
+      setRequested(true);
+      toast.success("Request sent to the admin", {
+        description: "An admin will verify you manually and unlock your account.",
+      });
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setRequesting(false);
+    }
+  };
+
+  const requestBlock = (
+    <div className="border-border/60 mt-2 rounded-2xl border border-dashed p-3">
+      <p className="text-muted-foreground text-xs">
+        Code not arriving or camera not working? Ask an admin to verify you manually.
+      </p>
+      <button
+        type="button"
+        onClick={() => void requestAdminApproval()}
+        className={`${ghostBtnClass} mt-2`}
+        disabled={requesting || requested}
+      >
+        {requested
+          ? "✅ Request sent — waiting for admin"
+          : requesting
+            ? "Sending request..."
+            : "🙋 Request admin verification"}
+      </button>
+    </div>
+  );
 
   /** Confirms the one-time code that was emailed to the student. */
   const submitCode = async (e: React.FormEvent) => {
@@ -309,6 +352,7 @@ export function FaceVerify({ user, onVerified }: { user: User; onVerified: (u: U
         {mail.status !== "idle" && (
           <p className="text-muted-foreground text-xs">{mail.detail}</p>
         )}
+        {requestBlock}
       </section>
     );
   }
@@ -388,6 +432,7 @@ export function FaceVerify({ user, onVerified }: { user: User; onVerified: (u: U
               Verified on {new Date(user.faceVerifiedAt).toLocaleString()}
             </p>
           )}
+          {!live && requestBlock}
           {mail.status !== "idle" && (
             <div
               className={`rounded-xl px-3 py-2 text-xs font-semibold ${

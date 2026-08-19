@@ -35,7 +35,7 @@ function ChatPage() {
       .then((r) => setMessages(r.messages))
       .catch(() => {});
 
-  usePoll(load, 10000);
+  usePoll(load, 20000);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
