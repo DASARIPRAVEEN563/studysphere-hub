@@ -75,6 +75,8 @@ export async function readDoc(): Promise<AnyDoc> {
     const blob = (legacy.data as AnyDoc) ?? {};
     for (const s of SHARDS) if (blob[s] !== undefined) doc[s] = blob[s];
     await writeShards(doc, {});
+    await writeFiles(doc[FILES]);
+    doc[FILES] = {};
     await db.from("app_state").delete().eq("id", LEGACY_ID);
     return doc;
   }
