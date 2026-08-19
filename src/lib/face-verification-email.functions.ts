@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   sendFaceVerificationEmail,
   sendPasswordChangedEmail,
+  sendPasswordResetCodeEmail,
 } from "./face-verification-email.server";
 
 export const sendFaceVerificationConfirmation = createServerFn({ method: "POST" })
@@ -33,3 +34,15 @@ export const sendPasswordChangedNotice = createServerFn({ method: "POST" })
       .parse(data),
   )
   .handler(async ({ data }) => sendPasswordChangedEmail(data.to, data.fullName));
+
+export const sendPasswordResetCode = createServerFn({ method: "POST" })
+  .validator((data) =>
+    z
+      .object({
+        to: z.string().trim().email("Incorrect email ID").max(254),
+        fullName: z.string().trim().max(120),
+        code: z.string().trim().min(4).max(12),
+      })
+      .parse(data),
+  )
+  .handler(async ({ data }) => sendPasswordResetCodeEmail(data.to, data.fullName, data.code));
