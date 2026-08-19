@@ -12,7 +12,7 @@ export function LikeNotifications() {
       .then((r) => setList(r.notifications ?? []))
       .catch(() => {});
 
-  usePoll(load, 20000);
+  usePoll(load, 45000);
 
   const clear = async () => {
     await api("/api/notifications", { method: "POST", body: {} }).catch(() => {});

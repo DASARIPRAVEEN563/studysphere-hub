@@ -118,7 +118,7 @@ function useUnreadChat(viewing: boolean) {
       /* offline */
     }
   };
-  usePoll(tick, 12000);
+  usePoll(tick, 25000);
   return unread;
 }
 
@@ -661,7 +661,7 @@ function ChatAdmin() {
         setThreads([]);
       });
 
-  usePoll(load, 7000);
+  usePoll(load, 15000);
 
   const active = (threads ?? []).find((t) => t.userId === activeId) ?? null;
 
