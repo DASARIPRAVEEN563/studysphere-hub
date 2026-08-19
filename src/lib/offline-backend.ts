@@ -412,6 +412,20 @@ export async function offlineRequest(
     return { user: publicUser(me), message: "Verification code confirmed" };
   }
 
+  /**
+   * Fallback for students whose camera or email code never works: they raise a
+   * request and an admin approves them by hand from the admin portal.
+   */
+  if (url === "/api/profile/request-access" && method === "POST") {
+    Object.assign(me, {
+      accessRequested: true,
+      accessRequestedAt: new Date().toISOString(),
+      accessRequestNote: String(body?.note ?? "").slice(0, 300),
+    });
+    await save();
+    return { user: publicUser(me), message: "Request sent to the admin" };
+  }
+
   // ---- feedback ----
   if (url === "/api/feedback") {
     if (method === "POST") {
