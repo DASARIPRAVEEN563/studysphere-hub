@@ -620,6 +620,15 @@ export async function offlineRequest(
 
     if (url === "/api/admin/feedback") return { feedback: db.feedback };
 
+    if (url.startsWith("/api/admin/feedback/") && method === "DELETE") {
+      const fid = url.split("/").pop();
+      const before = db.feedback.length;
+      db.feedback = db.feedback.filter((f) => f.id !== fid);
+      if (db.feedback.length === before) throw new OfflineError("Feedback not found");
+      save();
+      return { ok: true };
+    }
+
     if (url === "/api/admin/content" && method === "POST") {
       const item: ContentItem = {
         id: id(),
