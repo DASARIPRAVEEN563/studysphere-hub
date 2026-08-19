@@ -169,8 +169,9 @@ export function handleAuth(
   if (path === "/api/auth/forgot/reset") {
     const u = find();
     if (!u) throw new Error("No account with that registration ID");
-    const code = String(body.code ?? "").trim();
-    if (!u.resetCode || code !== String(u.resetCode))
+    // Accept the code however it was pasted (spaces, dashes, stray characters).
+    const code = String(body.code ?? "").replace(/\D/g, "");
+    if (!u.resetCode || code !== String(u.resetCode).replace(/\D/g, ""))
       throw new Error("Incorrect verification code");
     if (u.resetAt && Date.now() - Number(u.resetAt) > 20 * 60 * 1000)
       throw new Error("This code has expired — request a new one");
