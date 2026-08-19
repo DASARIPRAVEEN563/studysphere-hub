@@ -702,6 +702,61 @@ export async function offlineRequest(
 
     if (url === "/api/admin/students") return { students: db.users.map(publicUser) };
 
+    /** Admin approves (or rejects) a manual verification request. */
+    if (url.startsWith("/api/admin/students/") && url.endsWith("/verify") && method === "POST") {
+      const uid = url.split("/")[4]!;
+      const target = db.users.find((u) => u.id === uid);
+      if (!target) throw new OfflineError("Student not found");
+      const approve = body?.approve !== false;
+      Object.assign(target, {
+        faceVerified: approve,
+        identityConfirmed: approve,
+        accessRequested: false,
+        faceVerifiedAt: approve ? new Date().toISOString() : null,
+      });
+      await save();
+      return { user: publicUser(target) };
+    }
+
+    /** Admin creates a student account after verifying the person face-to-face. */
+    if (url === "/api/admin/create-student" && method === "POST") {
+      const rid = String(body.registrationId ?? "").trim().toUpperCase();
+      const pwd = String(body.password ?? "");
+      const name = String(body.fullName ?? "").trim();
+      const mail = String(body.email ?? "").trim();
+      if (!name) throw new OfflineError("Full name is required");
+      if (!rid) throw new OfflineError("Registration ID is required");
+      if (pwd.length < 6) throw new OfflineError("Password must be at least 6 characters");
+      if (mail && !EMAIL_RE.test(mail)) throw new OfflineError("Incorrect email ID");
+      if (db.users.some((u) => u.registrationId.toUpperCase() === rid))
+        throw new OfflineError("This ID is already registered");
+      if (mail && db.users.some((u) => String(u.email ?? "").toLowerCase() === mail.toLowerCase()))
+        throw new OfflineError("This email ID is already used by another account");
+      const verified = body.verified !== false;
+      const student: StoredUser = {
+        id: id(),
+        fullName: name,
+        registrationId: rid,
+        email: mail || null,
+        department: String(body.department ?? "CSE"),
+        year: String(body.year ?? "1 Year"),
+        semester: String(body.semester ?? "1 Sem"),
+        role: "student",
+        sharedCount: 0,
+        downloadedCount: 0,
+        stars: 0,
+        faceVerified: verified,
+        identityConfirmed: verified,
+        faceVerifiedAt: verified ? new Date().toISOString() : null,
+        password: pwd,
+        securityQuestion: "Created by admin",
+        securityAnswer: "admin",
+      };
+      db.users.push(student);
+      await save();
+      return { user: publicUser(student) };
+    }
+
     if (url === "/api/admin/create-admin" && method === "POST") {
       if (me.registrationId !== SUPER_ADMIN_ID)
         throw new OfflineError("Only the master admin can create admin accounts");
