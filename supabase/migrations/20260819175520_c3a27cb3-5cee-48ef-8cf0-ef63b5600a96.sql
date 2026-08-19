@@ -1,0 +1,1 @@
+update app_state set data = (select jsonb_agg(u) from jsonb_array_elements(data) u where u->>'registrationId' not like 'TEST%') where id='users';

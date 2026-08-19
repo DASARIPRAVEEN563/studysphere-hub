@@ -329,9 +329,8 @@ export async function offlineRequest(
   const db = await pull(method !== "GET");
   seed(db);
   const me = currentUser(db, token);
-  const save = () => {
-    void push(db);
-  };
+  /** Returns a promise: await it whenever the next request depends on the write. */
+  const save = () => push(db);
 
   // ---- everything below needs a session ----
   if (!me) throw new OfflineError("Please login again");
@@ -375,7 +374,8 @@ export async function offlineRequest(
       identityConfirmed: false,
       identityToken,
     });
-    save();
+    // Must be persisted before the student can submit the emailed code.
+    await save();
     return {
       user: publicUser(me),
       emailedTo: me.email,
@@ -392,7 +392,7 @@ export async function offlineRequest(
     if (!me.identityToken || code !== me.identityToken)
       throw new OfflineError("Incorrect verification code");
     me.identityConfirmed = true;
-    save();
+    await save();
     return { user: publicUser(me), message: "Verification code confirmed" };
   }
 
@@ -548,7 +548,7 @@ export async function offlineRequest(
     db.notes.unshift(note);
     me.sharedCount += 1;
     me.stars = (me.stars ?? 0) + 1;
-    save();
+    await save();
     return { note, stars: me.stars };
   }
 
