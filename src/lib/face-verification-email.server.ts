@@ -98,6 +98,34 @@ export async function sendFaceVerificationEmail(
 }
 
 /** Security notice sent whenever an account password changes. */
+export async function sendPasswordResetCodeEmail(to: string, fullName: string, code: string) {
+  const safeName = clean(fullName) || "Student";
+  const safeTo = clean(to);
+  const safeCode = clean(code);
+  const html = [
+    '<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;color:#111">',
+    `<p>Hello ${safeName},</p>`,
+    "<p>Use the code below on the website to reset your password.</p>",
+    `<p style="background:#6d28d9;color:#fff;padding:14px 22px;border-radius:12px;font-size:30px;letter-spacing:8px;font-weight:bold;display:inline-block">${safeCode}</p>`,
+    '<p style="font-size:12px;color:#555">The code expires in 20 minutes. Never share it with anyone. If you did not request a reset, ignore this email.</p>',
+    "<p>- Notes Hub Team</p>",
+    "</div>",
+  ].join("");
+  const message = [
+    `To: ${safeTo}`,
+    `From: ${FROM}`,
+    "Reply-To: studentsnotessharing@gmail.com",
+    `Subject: ${safeCode} is your password reset code | STUDENTS KA NOTES SHARING HUB`,
+    "MIME-Version: 1.0",
+    "Content-Type: text/html; charset=UTF-8",
+    "",
+    html,
+  ].join("\r\n");
+  const result = await sendRaw(message);
+  return { ...result, to: safeTo };
+}
+
+/** Security notice sent whenever an account password changes. */
 export async function sendPasswordChangedEmail(to: string, fullName: string) {
   const safeName = clean(fullName) || "Student";
   const safeTo = clean(to);
