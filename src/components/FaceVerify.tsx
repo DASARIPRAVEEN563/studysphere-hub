@@ -94,9 +94,33 @@ export function FaceVerify({ user, onVerified }: { user: User; onVerified: (u: U
     return { canvas, ctx };
   };
 
+  /**
+   * Fallback face check for browsers without the FaceDetector API: measures how
+   * much of the centre of the frame looks like skin. A wall, a phone screen or a
+   * printed photo of something else fails this, so we never capture "anything".
+   */
+  const looksLikeFace = (ctx: CanvasRenderingContext2D) => {
+    const { data } = ctx.getImageData(90, 40, 140, 160);
+    let skin = 0;
+    let total = 0;
+    for (let i = 0; i < data.length; i += 16) {
+      const r = data[i]!;
+      const g = data[i + 1]!;
+      const b = data[i + 2]!;
+      total++;
+      const max = Math.max(r, g, b);
+      const min = Math.min(r, g, b);
+      if (r > 70 && g > 40 && b > 20 && r > g && g > b && max - min > 12 && Math.abs(r - g) > 10)
+        skin++;
+    }
+    return total > 0 && skin / total > 0.28;
+  };
+
   const startBlinkLoop = () => {
     const history: number[] = [];
     let dipped = false;
+    let dipDepth = 0;
+    let faceFrames = 0;
     const FD = (window as unknown as { FaceDetector?: new (o?: unknown) => Detector }).FaceDetector;
     const detector = FD ? new FD({ fastMode: true, maxDetectedFaces: 5 }) : null;
 
@@ -107,20 +131,41 @@ export function FaceVerify({ user, onVerified }: { user: User; onVerified: (u: U
       const { canvas, ctx } = frame;
 
       let faces = 1;
+      let detected = false;
       if (detector) {
         try {
-          faces = (await detector.detect(canvas)).length;
+          const found = await detector.detect(canvas);
+          faces = found.length;
+          detected = true;
         } catch {
-          faces = 1;
+          detected = false;
         }
+      }
+      if (detected) {
         if (faces === 0) {
           setHint("No face detected — center your face in the frame.");
+          faceFrames = 0;
+          history.length = 0;
           return;
         }
         if (faces > 1) {
           setHint("More than one person detected — only one person is allowed.");
+          faceFrames = 0;
+          history.length = 0;
           return;
         }
+      } else if (!looksLikeFace(ctx)) {
+        setHint("Face not clear — move closer and light up your face.");
+        faceFrames = 0;
+        history.length = 0;
+        return;
+      }
+
+      // Require the face to stay in frame for a moment before a blink counts.
+      faceFrames++;
+      if (faceFrames < 6) {
+        setHint("Hold still — blink once when you are ready.");
+          return;
       }
 
       // Average brightness of the eye band (upper-middle strip of the face area).
@@ -135,13 +180,19 @@ export function FaceVerify({ user, onVerified }: { user: User; onVerified: (u: U
       if (history.length < 8) return;
 
       const baseline = history.slice(0, -1).reduce((a, b) => a + b, 0) / (history.length - 1);
-      if (!dipped && level < baseline * 0.955) {
+      if (!dipped && level < baseline * 0.95) {
         dipped = true;
+        dipDepth = baseline - level;
         setHint("Blink detected — hold still...");
         return;
       }
       if (dipped && level > baseline * 0.985) {
         dipped = false;
+        // Ignore tiny flickers: only a real blink produces a clear dip.
+        if (dipDepth < baseline * 0.02) {
+          setHint("Blink a little more clearly — capture is automatic.");
+          return;
+        }
         void submit(canvas.toDataURL("image/jpeg", 0.85), faces);
       }
     }, 120);
