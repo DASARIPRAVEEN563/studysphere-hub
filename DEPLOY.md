@@ -5,7 +5,7 @@
 | Piece | Deploy target | Why |
 |-------|---------------|-----|
 | **React frontend** | **Lovable Publish** (one-click) | The project is built with TanStack Start + the Lovable Vite config, which outputs a Cloudflare Worker. Railway is not the easiest host for this part. |
-| **Flask backend** | **Railway** | Standard Python service. I added `Procfile`, `runtime.txt`, `railway.json`, and Supabase persistence so data survives restarts. |
+| **Flask backend** | **Railway** | Standard Python service. I added `Procfile`, `runtime.txt`, `railway.json`, and a bridge so data survives restarts. |
 | **Database** | **Lovable Cloud / Supabase** | Kept as you requested. |
 | **Files** | **Google Drive** | Kept as you requested. |
 
@@ -33,10 +33,11 @@ ADMIN_ID=ADMIN001
 ADMIN_PASSWORD=<strong password>
 ADMIN_NAME=Portal Administrator
 
-# Persistence bridge (Lovable Cloud does NOT expose a service-role key,
+# Persistence bridge (Lovable Cloud does NOT expose a Supabase service-role key,
 # so Flask writes through the published frontend instead)
-APP_BRIDGE_URL=https://<your-published-frontend>.lovable.app
-BACKEND_BRIDGE_SECRET=<one strong random string, same value saved in Lovable secrets>
+# Use the preview URL first, then update to the published URL after publishing.
+APP_BRIDGE_URL=https://<your-frontend>.lovable.app
+BACKEND_BRIDGE_SECRET=<same value saved in Lovable secrets>
 
 # Lovable Google Drive connector (already set in your project secrets)
 LOVABLE_API_KEY=<your secret>
@@ -58,7 +59,7 @@ MASTER_ADMIN_ID=PRAVEEN2207
 MASTER_ADMIN_PASSWORD=PRAVEEN2204
 ```
 
-> **Important:** `SUPABASE_SERVICE_ROLE_KEY` is needed so Railway’s Flask app writes to the same `public.app_state` table the frontend uses. Without it, Flask falls back to JSON files and data is lost every time Railway restarts the container.
+> **Important:** Lovable Cloud does **not** expose `SUPABASE_SERVICE_ROLE_KEY`. Railway’s Flask app persists by calling `/api/public/state` on the published frontend. Both sides must share the same `BACKEND_BRIDGE_SECRET`.
 
 ### 1.2 Create the Railway service
 
@@ -97,7 +98,7 @@ MASTER_ADMIN_PASSWORD=PRAVEEN2204
    VITE_API_URL=https://students-notes-api.up.railway.app
    ```
 3. Re-publish the frontend so the new API URL is baked into the build.
-4. Update the backend’s `CORS_ORIGINS` variable to match your published frontend URL, then redeploy the backend.
+4. Update the backend’s `CORS_ORIGINS` and `APP_BRIDGE_URL` variables to match your published frontend URL, then redeploy the backend.
 
 ---
 
@@ -106,15 +107,16 @@ MASTER_ADMIN_PASSWORD=PRAVEEN2204
 - `backend/Procfile` – tells Railway how to start Flask.
 - `backend/runtime.txt` – pins Python 3.12.
 - `backend/railway.json` – Railway service config.
-- `backend/requirements.txt` – added `gunicorn` and `supabase`.
-- `backend/models/store.py` – now uses Supabase when `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` are present; otherwise falls back to local JSON.
-- `backend/models/supabase_store.py` – new Supabase-backed store that shares the same `public.app_state` shards the frontend uses.
+- `backend/requirements.txt` – added `gunicorn` and `requests`.
+- `backend/models/store.py` – uses the bridge when `APP_BRIDGE_URL` + `BACKEND_BRIDGE_SECRET` are present; otherwise falls back to local JSON.
+- `backend/models/bridge_store.py` – new bridge client that calls `/api/public/state` on the published frontend.
+- `src/routes/api/public/state.ts` – bearer-protected endpoint that reads/writes the Lovable Cloud database for the backend.
 
 ---
 
 ## 5. Common gotchas
 
-- **Data loss on Railway restarts?** Make sure `SUPABASE_SERVICE_ROLE_KEY` is set in Railway. Without it, Flask uses JSON files and they are wiped on every redeploy.
+- **Data loss on Railway restarts?** Make sure `APP_BRIDGE_URL` and `BACKEND_BRIDGE_SECRET` are set in Railway and match the Lovable secret. Without them, Flask uses JSON files and data is lost on every redeploy.
 - **CORS errors in the browser?** Make sure `CORS_ORIGINS` in Railway exactly matches your published frontend URL (including `https://`).
 - **Google Drive uploads fail?** Verify `LOVABLE_API_KEY` and `GOOGLE_DRIVE_API_KEY` are copied from your Lovable project secrets.
 - **Face-verification emails not sent?** Check the SMTP password is a Gmail **App Password**, not your regular Gmail password.
