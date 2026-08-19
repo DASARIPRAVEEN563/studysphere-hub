@@ -432,6 +432,7 @@ export function FaceVerify({ user, onVerified }: { user: User; onVerified: (u: U
               Verified on {new Date(user.faceVerifiedAt).toLocaleString()}
             </p>
           )}
+          {!live && requestBlock}
           {mail.status !== "idle" && (
             <div
               className={`rounded-xl px-3 py-2 text-xs font-semibold ${
