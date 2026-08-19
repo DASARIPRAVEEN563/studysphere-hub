@@ -1,7 +1,11 @@
 import { offlineRequest, offlineStudentsCsv } from "./offline-backend";
 
-export const API_BASE =
-  (import.meta.env["VITE_API_URL"] as string | undefined) ?? "http://localhost:5000";
+/**
+ * When empty (the default), every request is served by the built-in cloud
+ * backend so sign-up, login and uploads always hit the same data store.
+ * Set VITE_API_URL only when a matching Flask server is running.
+ */
+export const API_BASE = (import.meta.env["VITE_API_URL"] as string | undefined) ?? "";
 
 export const DEPARTMENTS = [
   "AMIL & CSM",
@@ -192,6 +196,7 @@ export async function api<T = any>(
     body = JSON.stringify(options.body);
   }
   const method = options.method ?? (body ? "POST" : "GET");
+  if (!API_BASE) return (await offlineRequest(path, method, token, options.body, options.form)) as T;
   try {
     const res = await fetch(`${API_BASE}${path}`, { method, headers, body });
     return (await handle(res)) as T;
@@ -204,6 +209,16 @@ export async function api<T = any>(
 
 export async function downloadNote(note: Note) {
   const token = auth.token();
+  if (!API_BASE) {
+    const { dataUrl } = await offlineRequest(
+      `/api/notes/${note.id}/download`,
+      "GET",
+      token,
+      undefined,
+    );
+    saveBlobUrl(dataUrl, note.fileName);
+    return;
+  }
   try {
     const res = await fetch(`${API_BASE}/api/notes/${note.id}/download`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -227,6 +242,13 @@ export async function downloadNote(note: Note) {
 
 export async function downloadStudentsExcel() {
   const token = auth.token();
+  if (!API_BASE) {
+    const csv = offlineStudentsCsv();
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    saveBlobUrl(url, "students.csv");
+    URL.revokeObjectURL(url);
+    return "students.csv";
+  }
   try {
     const res = await fetch(`${API_BASE}/api/admin/students.xlsx`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -250,6 +272,19 @@ export async function downloadStudentsExcel() {
 /** Opens the file in a new tab (counts as a view) instead of downloading it. */
 export async function viewNote(note: Note) {
   const token = auth.token();
+  if (!API_BASE) {
+    const { dataUrl } = await offlineRequest(`/api/notes/${note.id}/view`, "GET", token, undefined);
+    const win = window.open();
+    if (win) {
+      win.document.write(
+        note.mimeType === "application/pdf"
+          ? `<iframe src="${dataUrl}" style="border:0;width:100%;height:100%"></iframe>`
+          : `<img src="${dataUrl}" style="max-width:100%" alt="${note.fileName}" />`,
+      );
+      win.document.title = note.fileName;
+    }
+    return;
+  }
   try {
     const res = await fetch(`${API_BASE}/api/notes/${note.id}/view`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
