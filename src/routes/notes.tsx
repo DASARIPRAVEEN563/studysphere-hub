@@ -365,7 +365,7 @@ function FileGrid({
   onView: (n: Note) => void;
   onDownload: (n: Note) => void;
   onLike: (n: Note) => void;
-  highlight?: string;
+  highlight?: string | undefined;
 }) {
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -445,7 +445,7 @@ function Grid({
 }
 
 /** Makes the searched words pop inside a file name. */
-function MatchText({ text, term }: { text: string; term?: string }) {
+function MatchText({ text, term }: { text: string; term?: string | undefined }) {
   const t = (term ?? "").trim();
   if (!t) return <>{text}</>;
   const idx = text.toLowerCase().indexOf(t.toLowerCase());
@@ -458,35 +458,6 @@ function MatchText({ text, term }: { text: string; term?: string }) {
       </span>
       {text.slice(idx + t.length)}
     </>
-  );
-}
-
-function GridLegacyUnused({
-  items,
-  onPick,
-  icon,
-}: {
-  items: { label: string; sub: string }[];
-  onPick: (v: string) => void;
-  icon: string;
-}) {
-  return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      {items.map((it, i) => (
-        <button
-          key={it.label}
-          onClick={() => onPick(it.label)}
-          className="glass animate-rise group rounded-2xl p-6 text-left transition-all hover:-translate-y-1 hover:shadow-2xl"
-          style={{ animationDelay: `${i * 50}ms` }}
-        >
-          <div className="hero-gradient mb-3 grid size-12 place-items-center rounded-2xl text-xl transition-transform group-hover:scale-110 group-hover:rotate-6">
-            {icon}
-          </div>
-          <p className="text-lg font-black">{it.label}</p>
-          <p className="text-muted-foreground text-xs">{it.sub}</p>
-        </button>
-      ))}
-    </div>
   );
 }
 
