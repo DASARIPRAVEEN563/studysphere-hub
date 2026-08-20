@@ -1878,6 +1878,14 @@ function FoldersAdmin() {
               placeholder="Mid 1"
             />
           </Field>
+          <Field label="Description (optional)">
+            <input
+              className={inputClass}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Mid 1 question papers and keys"
+            />
+          </Field>
           <Field label="Department">
             <select
               className={inputClass}
