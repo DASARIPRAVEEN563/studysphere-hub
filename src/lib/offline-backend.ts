@@ -703,6 +703,154 @@ export async function offlineRequest(
 
     if (url === "/api/admin/notes") return { notes: db.notes };
 
+    // ---- admin-managed folders (Mid 1, Mid 2 …) ----
+    if (url === "/api/admin/folders") {
+      if (method === "POST") {
+        const name = String(body?.name ?? "").trim();
+        if (!name) throw new OfflineError("Folder name is required");
+        const department = String(body?.department ?? "");
+        const year = String(body?.year ?? "");
+        const semester = String(body?.semester ?? "");
+        if (!department || !year || !semester)
+          throw new OfflineError("Pick a department, year and semester");
+        db.folders = db.folders ?? [];
+        if (
+          db.folders.some(
+            (f) =>
+              f.department === department &&
+              f.year === year &&
+              f.semester === semester &&
+              f.name.toLowerCase() === name.toLowerCase(),
+          )
+        )
+          throw new OfflineError("A folder with this name already exists here");
+        const folder: Folder = {
+          id: id(),
+          name,
+          department,
+          year,
+          semester,
+          createdAt: new Date().toISOString(),
+        };
+        db.folders.unshift(folder);
+        await save();
+        return { folder };
+      }
+      return { folders: db.folders ?? [] };
+    }
+
+    if (url.startsWith("/api/admin/folders/")) {
+      const fid = url.split("/")[4]!;
+      db.folders = db.folders ?? [];
+      const folder = db.folders.find((f) => f.id === fid);
+      if (!folder) throw new OfflineError("Folder not found");
+      if (method === "DELETE") {
+        const inside = db.notes.filter((n) => n.folderId === fid);
+        db.notes = db.notes.filter((n) => n.folderId !== fid);
+        db.folders = db.folders.filter((f) => f.id !== fid);
+        toTrash(
+          db,
+          "folder",
+          folder.name,
+          { folder, notes: inside },
+          `${folder.department} · ${folder.year} · ${folder.semester} · ${inside.length} file(s)`,
+          me.fullName,
+        );
+        await save();
+        return { ok: true };
+      }
+      // Rename and/or move the folder — the files inside travel with it.
+      const name = String(body?.name ?? folder.name).trim();
+      if (!name) throw new OfflineError("Folder name is required");
+      const department = String(body?.department ?? folder.department);
+      const year = String(body?.year ?? folder.year);
+      const semester = String(body?.semester ?? folder.semester);
+      Object.assign(folder, { name, department, year, semester });
+      db.notes.forEach((n) => {
+        if (n.folderId === fid) Object.assign(n, { department, year, semester });
+      });
+      await save();
+      return { folder };
+    }
+
+    // ---- recently deleted (10 day recovery bin) ----
+    if (url === "/api/admin/trash") return { trash: db.trash ?? [] };
+
+    if (url.startsWith("/api/admin/trash/")) {
+      const tid = url.split("/")[4]!;
+      db.trash = db.trash ?? [];
+      const entry = db.trash.find((t) => t.id === tid);
+      if (!entry) throw new OfflineError("Item not found in the bin");
+      if (method === "POST") {
+        if (entry.kind === "note") db.notes.unshift(entry.payload);
+        else if (entry.kind === "user") db.users.push(entry.payload);
+        else if (entry.kind === "content") db.content.unshift(entry.payload);
+        else if (entry.kind === "feedback") db.feedback.unshift(entry.payload);
+        else if (entry.kind === "chat")
+          db.chats.push(...(Array.isArray(entry.payload) ? entry.payload : [entry.payload]));
+        else if (entry.kind === "folder") {
+          db.folders = [...(db.folders ?? []), entry.payload.folder];
+          db.notes.unshift(...(entry.payload.notes ?? []));
+        }
+        db.trash = db.trash.filter((t) => t.id !== tid);
+        await save();
+        return { ok: true, restored: entry.kind };
+      }
+      if (method === "DELETE") {
+        if (entry.kind === "note")
+          db.filesRemove = [...(db.filesRemove ?? []), String(entry.payload?.id)];
+        if (entry.kind === "folder")
+          db.filesRemove = [
+            ...(db.filesRemove ?? []),
+            ...(entry.payload?.notes ?? []).map((n: Note) => n.id),
+          ];
+        db.trash = db.trash.filter((t) => t.id !== tid);
+        await save();
+        return { ok: true };
+      }
+    }
+
+    // ---- access reject: take chat / share / feedback away from a student ----
+    if (url.startsWith("/api/admin/students/") && url.endsWith("/access") && method === "POST") {
+      const uid = url.split("/")[4]!;
+      const target = db.users.find((u) => u.id === uid);
+      if (!target) throw new OfflineError("Student not found");
+      const allowed = ["chat", "share", "feedback"];
+      const list = Array.isArray(body?.blocked) ? body.blocked : [];
+      target.blocked = list.filter((a: string) => allowed.includes(a)) as AccessArea[];
+      await save();
+      return { user: publicUser(target) };
+    }
+
+    // ---- admin removes chat messages ----
+    if (url.startsWith("/api/admin/chat/") && method === "DELETE") {
+      const parts = url.split("/");
+      if (parts[4] === "message") {
+        const mid = parts[5]!;
+        const gone = db.chats.find((c) => c.id === mid);
+        if (!gone) throw new OfflineError("Message not found");
+        db.chats = db.chats.filter((c) => c.id !== mid);
+        toTrash(db, "chat", gone.text || "Photo message", gone, `from ${gone.from}`, me.fullName);
+        await save();
+        return { ok: true };
+      }
+      const uid = parts[4]!;
+      const thread = db.chats.filter((c) => c.userId === uid);
+      if (!thread.length) throw new OfflineError("This conversation is already empty");
+      db.chats = db.chats.filter((c) => c.userId !== uid);
+      const owner = db.users.find((u) => u.id === uid);
+      toTrash(
+        db,
+        "chat",
+        `Conversation with ${owner?.fullName ?? "student"}`,
+        thread,
+        `${thread.length} message(s)`,
+        me.fullName,
+      );
+      await save();
+      return { ok: true, removed: thread.length };
+    }
+
     if (url === "/api/admin/chat") {
       const threads: ChatThread[] = db.users
         .filter((u) => u.role !== "admin")
