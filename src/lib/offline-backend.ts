@@ -133,11 +133,14 @@ async function refresh(): Promise<DB> {
 /** Saves are chained so two quick actions never race each other. */
 let saveChain: Promise<void> = Promise.resolve();
 
-/** Push the document to the cloud database. */
+/**
+ * Push the document to the cloud database. The in-memory + mirrored copy is
+ * already up to date, so the caller never waits on the network: the upload is
+ * queued in the background and the screen responds instantly.
+ */
 async function push(db: DB) {
   mirror(db);
   saveChain = saveChain.then(() => pushNow(db)).catch(() => {});
-  return saveChain;
 }
 
 async function pushNow(db: DB) {
