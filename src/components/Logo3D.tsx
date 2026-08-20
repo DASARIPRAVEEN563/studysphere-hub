@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
-/** The project's own brand icon — also used for the favicon and mobile install. */
-export const LOGO_SRC = "/app-icon.png";
+/** The original 3D student mascot logo — also used for favicon and mobile install. */
+export const LOGO_SRC = "/logo-3d.png";
 
 /** 3D brand logo that rotates and tilts as the cursor moves over it. */
 export function Logo3D({
