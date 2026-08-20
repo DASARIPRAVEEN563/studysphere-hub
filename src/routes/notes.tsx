@@ -9,8 +9,8 @@ import {
   auth,
   DEPARTMENTS,
   downloadNote,
+  noteViewUrl,
   SEMESTERS,
-  viewNote,
   YEARS,
   type Note,
 } from "@/lib/api";
@@ -38,9 +38,11 @@ export const Route = createFileRoute("/notes")({
 });
 
 function NotesPage() {
-  useRequireVerified();
+  const me = useRequireVerified();
   const { dept } = Route.useSearch();
   const [notes, setNotes] = useState<Note[] | null>(null);
+  const [viewing, setViewing] = useState<{ note: Note; url: string } | null>(null);
+  const [opening, setOpening] = useState<string | null>(null);
   const [department, setDepartment] = useState<string | null>(dept ?? null);
   const [year, setYear] = useState<string | null>(null);
   const [semester, setSemester] = useState<string | null>(null);
@@ -142,11 +144,45 @@ function NotesPage() {
   };
 
   const view = async (note: Note) => {
+    setOpening(note.id);
     try {
-      await viewNote(note);
+      const url = await noteViewUrl(note);
+      setViewing({ note, url });
       setNotes((prev) =>
         (prev ?? []).map((n) => (n.id === note.id ? { ...n, views: (n.views ?? 0) + 1 } : n)),
       );
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setOpening(null);
+    }
+  };
+
+  /** Owner tools — a student manages only the notes they shared. */
+  const rename = async (note: Note) => {
+    const next = window.prompt("New subject name for this note", note.subject);
+    if (next === null) return;
+    const subject = next.trim();
+    if (!subject) return;
+    try {
+      const r = await api<{ note: Note }>(`/api/notes/${note.id}`, {
+        method: "PUT",
+        body: { subject },
+      });
+      setNotes((prev) => (prev ?? []).map((n) => (n.id === note.id ? { ...n, ...r.note } : n)));
+      toast.success("Note renamed");
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
+
+  const remove = async (note: Note) => {
+    if (!window.confirm(`Delete "${note.subject}" (${note.fileName})? This cannot be undone.`))
+      return;
+    try {
+      await api(`/api/notes/${note.id}`, { method: "DELETE" });
+      setNotes((prev) => (prev ?? []).filter((n) => n.id !== note.id));
+      toast.success("Note deleted");
     } catch (e) {
       toast.error((e as Error).message);
     }
@@ -271,6 +307,10 @@ function NotesPage() {
               onView={view}
               onDownload={download}
               onLike={like}
+              meId={me?.id}
+              onRename={rename}
+              onDelete={remove}
+              opening={opening}
               highlight={term}
             />
           </section>
@@ -307,7 +347,16 @@ function NotesPage() {
           <Empty text="No subjects uploaded here yet." />
         )
       ) : scoped.length ? (
-        <FileGrid notes={applySort(scoped)} onView={view} onDownload={download} onLike={like} />
+        <FileGrid
+          notes={applySort(scoped)}
+          onView={view}
+          onDownload={download}
+          onLike={like}
+          meId={me?.id}
+          onRename={rename}
+          onDelete={remove}
+          opening={opening}
+        />
       ) : (
         <Empty text="No files for this subject yet." />
       )}
@@ -334,6 +383,12 @@ function NotesPage() {
                     <p className="text-cyan truncate text-xs">
                       Shared by {n.uploadedBy} · {new Date(n.uploadedAt).toLocaleDateString()}
                     </p>
+                    {n.note && (
+                      <p className="text-muted-foreground truncate text-xs italic">( {n.note} )</p>
+                    )}
+                    <p className="text-muted-foreground text-[10px] font-black uppercase">
+                      {fileFormat(n)}
+                    </p>
                   </div>
                   <div className="flex shrink-0 gap-2">
                     <button onClick={() => view(n)} className={ghostBtnClass}>
@@ -351,6 +406,14 @@ function NotesPage() {
           )}
         </section>
       )}
+
+      {viewing && (
+        <NoteViewer
+          note={viewing.note}
+          url={viewing.url}
+          onClose={() => setViewing(null)}
+        />
+      )}
     </AppShell>
   );
 }
@@ -360,17 +423,27 @@ function FileGrid({
   onView,
   onDownload,
   onLike,
+  meId,
+  onRename,
+  onDelete,
+  opening,
   highlight,
 }: {
   notes: Note[];
   onView: (n: Note) => void;
   onDownload: (n: Note) => void;
   onLike: (n: Note) => void;
+  meId?: string | undefined;
+  onRename?: ((n: Note) => void) | undefined;
+  onDelete?: ((n: Note) => void) | undefined;
+  opening?: string | null | undefined;
   highlight?: string | undefined;
 }) {
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {notes.map((n, i) => (
+      {notes.map((n, i) => {
+        const mine = !!meId && n.uploadedById === meId;
+        return (
         <article
           key={n.id}
           className="glass animate-rise rounded-2xl p-5 transition-all hover:-translate-y-1 hover:shadow-2xl"
@@ -389,8 +462,14 @@ function FileGrid({
           <p className="mt-1 truncate font-bold" title={n.fileName}>
             {n.fileName}
           </p>
+          {n.note && <p className="text-muted-foreground mt-0.5 text-xs italic">( {n.note} )</p>}
           <p className="text-muted-foreground mt-1 text-xs">
             {n.department} · {n.year} · {n.semester} · {(n.size / 1024).toFixed(0)} KB
+          </p>
+          <p className="mt-1 text-xs">
+            <span className="bg-primary/20 text-cyan rounded-md px-2 py-0.5 text-[10px] font-black tracking-wide uppercase">
+              {fileFormat(n)}
+            </span>
           </p>
           <p className="text-pink mt-1 text-xs font-semibold">Shared by {n.uploadedBy}</p>
           <div className="text-muted-foreground mt-3 flex flex-wrap items-center gap-3 text-xs font-semibold">
@@ -405,15 +484,87 @@ function FileGrid({
             <span>⬇ {n.downloads ?? 0} downloads</span>
           </div>
           <div className="mt-4 flex gap-2">
-            <button onClick={() => onView(n)} className={`${ghostBtnClass} flex-1`}>
-              View
+            <button
+              onClick={() => onView(n)}
+              className={`${ghostBtnClass} flex-1`}
+              disabled={opening === n.id}
+            >
+              {opening === n.id ? "Opening..." : "View"}
             </button>
             <button onClick={() => onDownload(n)} className={`${ghostBtnClass} flex-1`}>
               Download
             </button>
           </div>
+          {mine && (onRename || onDelete) && (
+            <div className="mt-2 flex gap-2">
+              {onRename && (
+                <button onClick={() => onRename(n)} className={`${ghostBtnClass} flex-1 text-xs`}>
+                  ✏️ Rename
+                </button>
+              )}
+              {onDelete && (
+                <button
+                  onClick={() => onDelete(n)}
+                  className={`${ghostBtnClass} text-destructive flex-1 text-xs`}
+                >
+                  🗑 Delete
+                </button>
+              )}
+            </div>
+          )}
         </article>
-      ))}
+        );
+      })}
+    </div>
+  );
+}
+
+/** PDF / PNG / JPEG label taken from the mime type, with the extension as backup. */
+function fileFormat(n: Note) {
+  const mime = (n.mimeType ?? "").toLowerCase();
+  if (mime.includes("pdf")) return "PDF";
+  if (mime.includes("jpeg") || mime.includes("jpg")) return "JPEG";
+  if (mime.includes("png")) return "PNG";
+  if (mime.includes("webp")) return "WEBP";
+  const ext = (n.fileName.split(".").pop() ?? "").toUpperCase();
+  return ext || "FILE";
+}
+
+/** In-app file viewer — popup blockers break `window.open` on phones. */
+function NoteViewer({ note, url, onClose }: { note: Note; url: string; onClose: () => void }) {
+  const isPdf = (note.mimeType ?? "").toLowerCase().includes("pdf");
+  return (
+    <div
+      className="fixed inset-0 z-50 grid place-items-center bg-black/80 p-2 sm:p-6"
+      role="dialog"
+      aria-label={`Viewing ${note.fileName}`}
+    >
+      <div className="glass flex h-full max-h-[92vh] w-full max-w-4xl flex-col rounded-3xl p-3 sm:p-4">
+        <div className="flex items-center gap-3 pb-3">
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-black">{note.subject}</p>
+            <p className="text-muted-foreground truncate text-xs">
+              {note.fileName} · {fileFormat(note)}
+              {note.note ? ` · ( ${note.note} )` : ""}
+            </p>
+          </div>
+          <a href={url} target="_blank" rel="noopener noreferrer" className={ghostBtnClass}>
+            Open tab
+          </a>
+          <button onClick={onClose} className={ghostBtnClass} aria-label="Close viewer">
+            ✕
+          </button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-auto rounded-2xl bg-white">
+          {isPdf ? (
+            <object data={url} type="application/pdf" className="size-full min-h-[60vh]">
+              <iframe src={url} title={note.fileName} className="size-full min-h-[60vh] border-0" />
+            </object>
+          ) : (
+            <img src={url} alt={note.fileName} className="mx-auto max-h-full w-auto object-contain" />
+          )}
+        </div>
+      </div>
     </div>
   );
 }

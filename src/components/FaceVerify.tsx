@@ -21,6 +21,22 @@ export function FaceVerify({ user, onVerified }: { user: User; onVerified: (u: U
   const [lastImage, setLastImage] = useState<string | null>(null);
   const [requested, setRequested] = useState(Boolean(user.accessRequested));
   const [requesting, setRequesting] = useState(false);
+  /** The manual-request fallback only appears after three failed attempts. */
+  const failKey = `sknsh_verify_fails_${user.id}`;
+  const [fails, setFails] = useState(0);
+  useEffect(() => {
+    setFails(Number(localStorage.getItem(failKey) ?? 0));
+  }, [failKey]);
+  const addFail = () =>
+    setFails((f) => {
+      const next = f + 1;
+      try {
+        localStorage.setItem(failKey, String(next));
+      } catch {
+        /* storage full */
+      }
+      return next;
+    });
   const [mail, setMail] = useState<{
     status: "idle" | "queued" | "sending" | "sent" | "failed";
     detail: string;
@@ -49,7 +65,7 @@ export function FaceVerify({ user, onVerified }: { user: User; onVerified: (u: U
     }
   };
 
-  const requestBlock = (
+  const requestBlock = fails < 3 ? null : (
     <div className="border-border/60 mt-2 rounded-2xl border border-dashed p-3">
       <p className="text-muted-foreground text-xs">
         Code not arriving or camera not working? Ask an admin to verify you manually.
@@ -87,6 +103,7 @@ export function FaceVerify({ user, onVerified }: { user: User; onVerified: (u: U
       toast.success("Verification code confirmed — everything is unlocked");
     } catch (err) {
       toast.error((err as Error).message);
+      addFail();
     } finally {
       setChecking(false);
     }
@@ -123,6 +140,7 @@ export function FaceVerify({ user, onVerified }: { user: User; onVerified: (u: U
       });
     } catch {
       toast.error("Camera permission is required for live face verification");
+      addFail();
     }
   };
 
@@ -269,6 +287,7 @@ export function FaceVerify({ user, onVerified }: { user: User; onVerified: (u: U
     } catch (e) {
       setMail({ status: "idle", detail: "" });
       toast.error((e as Error).message);
+      addFail();
       setHint("Verification failed — try blinking again.");
     } finally {
       busyRef.current = false;

@@ -31,6 +31,7 @@ function SharePage() {
   const [year, setYear] = useState<string>(YEARS[0]);
   const [semester, setSemester] = useState<string>(SEMESTERS[0]);
   const [file, setFile] = useState<File | null>(null);
+  const [extraNote, setExtraNote] = useState("");
   const [loading, setLoading] = useState(false);
   const [reward, setReward] = useState<number | null>(null);
 
@@ -54,6 +55,7 @@ function SharePage() {
     form.append("department", department);
     form.append("year", year);
     form.append("semester", semester);
+    form.append("note", extraNote.trim());
     form.append("file", file);
     setLoading(true);
     try {
@@ -64,6 +66,7 @@ function SharePage() {
       setReward(stars);
       toast.success("Note uploaded to Google Drive successfully!");
       setSubject("");
+      setExtraNote("");
       setFile(null);
     } catch (err) {
       toast.error((err as Error).message);
@@ -123,6 +126,18 @@ function SharePage() {
               </select>
             </Field>
           </div>
+          <Field label="Additional note (optional)">
+            <input
+              className={inputClass}
+              value={extraNote}
+              onChange={(e) => setExtraNote(e.target.value)}
+              placeholder="e.g. Unit 1 to 3 only"
+              maxLength={200}
+            />
+            <span className="text-muted-foreground text-xs">
+              Shown with the file as ( {extraNote.trim() || "your note"} )
+            </span>
+          </Field>
           <label className="border-primary/40 hover:bg-primary/10 block cursor-pointer rounded-2xl border-2 border-dashed p-8 text-center transition-colors">
             <input
               type="file"

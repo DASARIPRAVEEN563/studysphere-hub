@@ -652,6 +652,31 @@ function ChatAdmin() {
   const [selected, setSelected] = useState<string[]>([]);
   const [allUsers, setAllUsers] = useState(true);
   const [replyImage, setReplyImage] = useState<string | null>(null);
+  const [requests, setRequests] = useState<User[]>([]);
+
+  /** Opening the chat board clears the unread badge straight away. */
+  useEffect(() => {
+    localStorage.setItem(SEEN_KEY, String(Date.now()));
+  }, []);
+
+  const loadRequests = () =>
+    api<{ students: User[] }>("/api/admin/students")
+      .then((r) => setRequests(r.students.filter((s) => s.accessRequested && !s.faceVerified)))
+      .catch(() => {});
+
+  useEffect(() => {
+    void loadRequests();
+  }, []);
+
+  const decideRequest = async (s: User, approve: boolean) => {
+    try {
+      await api(`/api/admin/students/${s.id}/verify`, { method: "POST", body: { approve } });
+      toast.success(approve ? `${s.fullName} is verified` : "Request declined");
+      await loadRequests();
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
+  };
 
   const load = () =>
     api<{ threads: ChatThread[] }>("/api/admin/chat")
@@ -737,6 +762,40 @@ function ChatAdmin() {
 
   return (
     <div className="space-y-6">
+      {requests.length > 0 && (
+        <section className="glass animate-rise space-y-3 rounded-3xl p-4 sm:p-6">
+          <h3 className="text-lg font-black">
+            🔔 Verification requests{" "}
+            <span className="bg-destructive ml-1 rounded-full px-2 py-0.5 text-xs text-white">
+              {requests.length}
+            </span>
+          </h3>
+          {requests.map((s) => (
+            <div
+              key={s.id}
+              className="border-border flex flex-wrap items-center gap-3 rounded-2xl border p-3"
+            >
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-bold">{s.fullName}</p>
+                <p className="text-muted-foreground truncate text-xs">
+                  {s.registrationId} · {s.department} · {s.year} · {s.semester}
+                  {s.email ? ` · ${s.email}` : ""}
+                </p>
+              </div>
+              <button type="button" className={btnClass} onClick={() => void decideRequest(s, true)}>
+                Approve
+              </button>
+              <button
+                type="button"
+                className={ghostBtnClass}
+                onClick={() => void decideRequest(s, false)}
+              >
+                Decline
+              </button>
+            </div>
+          ))}
+        </section>
+      )}
       <form onSubmit={broadcast} className="glass animate-rise space-y-3 rounded-3xl p-4 sm:p-6">
         <h3 className="text-lg font-black">📢 Announcement</h3>
         <label className="flex items-center gap-2 text-sm font-bold">
