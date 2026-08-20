@@ -711,11 +711,31 @@ function ChatAdmin() {
   const removeMessage = async (messageId: string) => {
     try {
       await api(`/api/admin/chat/message/${messageId}`, { method: "DELETE" });
+      setPicked((p) => p.filter((x) => x !== messageId));
       await load();
     } catch (err) {
       toast.error((err as Error).message);
     }
   };
+
+  /** Deletes every ticked message in one go. */
+  const removePicked = async () => {
+    if (!picked.length) return;
+    if (!confirm(`Delete ${picked.length} selected message(s)? You can restore them from the bin.`))
+      return;
+    try {
+      await Promise.all(
+        picked.map((id) => api(`/api/admin/chat/message/${id}`, { method: "DELETE" })),
+      );
+      setPicked([]);
+      await load();
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
+  };
+
+  const togglePicked = (id: string) =>
+    setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
 
   const clearThread = async (userId: string, name: string) => {
     if (!confirm(`Delete the whole conversation with ${name}? You can restore it from the bin.`))
