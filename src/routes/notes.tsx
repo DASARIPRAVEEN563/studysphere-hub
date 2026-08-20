@@ -12,6 +12,7 @@ import {
   noteViewUrl,
   SEMESTERS,
   YEARS,
+  type Folder,
   type Note,
 } from "@/lib/api";
 import { ensureFaceVerified } from "@/lib/verify";
@@ -47,11 +48,19 @@ function NotesPage() {
   const [year, setYear] = useState<string | null>(null);
   const [semester, setSemester] = useState<string | null>(null);
   const [subject, setSubject] = useState<string | null>(null);
+  const [folders, setFolders] = useState<Folder[]>([]);
+  const [folder, setFolder] = useState<Folder | null>(null);
   const [q, setQ] = useState("");
   const [dDept, setDDept] = useState("");
   const [dYear, setDYear] = useState("");
   const [dSem, setDSem] = useState("");
   const [sort, setSort] = useState<"recent" | "likes" | "downloads" | "views">("recent");
+
+  useEffect(() => {
+    api<{ folders: Folder[] }>("/api/folders")
+      .then((r) => setFolders(r.folders ?? []))
+      .catch(() => setFolders([]));
+  }, []);
 
   useEffect(() => {
     api<{ notes: Note[] }>("/api/notes")
@@ -100,9 +109,20 @@ function NotesPage() {
           (!department || n.department === department) &&
           (!year || n.year === year) &&
           (!semester || n.semester === semester) &&
+          // Files inside an admin folder only show up inside that folder.
+          (folder ? n.folderId === folder.id : !n.folderId) &&
           (!subject || n.subject === subject),
       ),
-    [notes, department, year, semester, subject],
+    [notes, department, year, semester, semester, subject, folder],
+  );
+
+  /** Admin folders published for the semester the student is browsing. */
+  const semesterFolders = useMemo(
+    () =>
+      folders.filter(
+        (f) => f.department === department && f.year === year && f.semester === semester,
+      ),
+    [folders, department, year, semester],
   );
 
   const subjects = useMemo(
@@ -119,10 +139,11 @@ function NotesPage() {
   );
 
   const crumbs = [
-    { label: "Departments", onClick: () => { setDepartment(null); setYear(null); setSemester(null); setSubject(null); } },
-    department && { label: department, onClick: () => { setYear(null); setSemester(null); setSubject(null); } },
-    year && { label: year, onClick: () => { setSemester(null); setSubject(null); } },
-    semester && { label: semester, onClick: () => setSubject(null) },
+    { label: "Departments", onClick: () => { setDepartment(null); setYear(null); setSemester(null); setSubject(null); setFolder(null); } },
+    department && { label: department, onClick: () => { setYear(null); setSemester(null); setSubject(null); setFolder(null); } },
+    year && { label: year, onClick: () => { setSemester(null); setSubject(null); setFolder(null); } },
+    semester && { label: semester, onClick: () => { setSubject(null); setFolder(null); } },
+    folder && { label: `📁 ${folder.name}`, onClick: () => setSubject(null) },
     subject && { label: subject, onClick: () => {} },
   ].filter(Boolean) as { label: string; onClick: () => void }[];
 
