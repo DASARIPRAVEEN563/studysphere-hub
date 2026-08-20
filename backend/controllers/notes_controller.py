@@ -191,3 +191,40 @@ def like_note(note_id: str):
             )
     updated = store.update("notes", note_id, {"likedBy": liked_by})
     return jsonify({"note": public_note(updated)})
+
+
+def _owned(note: dict) -> bool:
+    """Only the student who shared a note may rename or delete it."""
+    return note.get("uploadedById") == g.user["id"] or g.user.get("role") == "admin"
+
+
+def update_own_note(note_id: str):
+    note = store.find("notes", id=note_id)
+    if not note:
+        return jsonify({"error": "Note not found"}), 404
+    if not _owned(note):
+        return jsonify({"error": "You can only manage the notes you shared"}), 403
+    data = request.get_json(silent=True) or {}
+    patch: dict = {}
+    subject = (data.get("subject") or "").strip()
+    if subject:
+        patch["subject"] = subject
+    if "note" in data:
+        patch["note"] = (str(data.get("note") or "").strip()[:200]) or None
+    if not patch:
+        return jsonify({"error": "Nothing to update"}), 400
+    return jsonify({"note": public_note(store.update("notes", note_id, patch))})
+
+
+def delete_own_note(note_id: str):
+    note = store.find("notes", id=note_id)
+    if not note:
+        return jsonify({"error": "Note not found"}), 404
+    if not _owned(note):
+        return jsonify({"error": "You can only manage the notes you shared"}), 403
+    try:
+        drive_service.delete_file(note)
+    except Exception:  # noqa: BLE001 - metadata removal must still succeed
+        pass
+    store.delete("notes", note_id)
+    return jsonify({"ok": True})
