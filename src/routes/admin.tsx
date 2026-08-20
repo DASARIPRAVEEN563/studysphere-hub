@@ -1798,9 +1798,10 @@ function FoldersAdmin() {
     try {
       await api("/api/admin/folders", {
         method: "POST",
-        body: { name: name.trim(), department, year, semester },
+        body: { name: name.trim(), description: description.trim(), department, year, semester },
       });
       setName("");
+      setDescription("");
       toast.success("Folder created");
       await load();
     } catch (err) {
