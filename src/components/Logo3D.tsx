@@ -48,12 +48,6 @@ export function Logo3D({
       className={`relative shrink-0 select-none ${className}`}
       style={{ width: size, height: size, perspective: `${size * 5}px` }}
     >
-      {credit && hover && (
-        <span className="glass animate-rise pointer-events-none absolute top-full left-1/2 z-50 mt-2 -translate-x-1/2 rounded-xl px-3 py-1.5 text-[11px] font-semibold whitespace-nowrap shadow-xl">
-          created and ideology by{" "}
-          <span className="gradient-text animate-shine text-sm font-black">Praveen</span>
-        </span>
-      )}
       {failed ? (
         <span
           className="hero-gradient grid size-full place-items-center rounded-2xl font-black text-white"
