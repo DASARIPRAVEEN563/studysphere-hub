@@ -682,6 +682,8 @@ function ChatAdmin() {
   const [allUsers, setAllUsers] = useState(true);
   const [replyImage, setReplyImage] = useState<string | null>(null);
   const [requests, setRequests] = useState<User[]>([]);
+  /** Message ids ticked for a bulk delete. */
+  const [picked, setPicked] = useState<string[]>([]);
 
   /** Opening the chat board clears the unread badge straight away. */
   useEffect(() => {
@@ -711,11 +713,31 @@ function ChatAdmin() {
   const removeMessage = async (messageId: string) => {
     try {
       await api(`/api/admin/chat/message/${messageId}`, { method: "DELETE" });
+      setPicked((p) => p.filter((x) => x !== messageId));
       await load();
     } catch (err) {
       toast.error((err as Error).message);
     }
   };
+
+  /** Deletes every ticked message in one go. */
+  const removePicked = async () => {
+    if (!picked.length) return;
+    if (!confirm(`Delete ${picked.length} selected message(s)? You can restore them from the bin.`))
+      return;
+    try {
+      await Promise.all(
+        picked.map((id) => api(`/api/admin/chat/message/${id}`, { method: "DELETE" })),
+      );
+      setPicked([]);
+      await load();
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
+  };
+
+  const togglePicked = (id: string) =>
+    setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
 
   const clearThread = async (userId: string, name: string) => {
     if (!confirm(`Delete the whole conversation with ${name}? You can restore it from the bin.`))
@@ -929,42 +951,53 @@ function ChatAdmin() {
             </p>
           ) : (
             <>
-              <div className="border-border flex items-start gap-2 border-b pb-3">
+              <div className="border-border flex flex-wrap items-start gap-2 border-b pb-3">
                 <div className="min-w-0 flex-1">
                   <p className="font-black">{active.fullName}</p>
                   <p className="text-muted-foreground text-xs">
                     {active.registrationId} · {active.department} · {active.year} · {active.semester}
                   </p>
                 </div>
+                {picked.length > 0 && (
+                  <button
+                    type="button"
+                    className="bg-destructive rounded-xl px-4 py-2 text-sm font-black text-white shadow-lg"
+                    onClick={() => void removePicked()}
+                  >
+                    🗑 Delete {picked.length} selected
+                  </button>
+                )}
                 <button
                   type="button"
-                  className={ghostBtnClass}
+                  className="border-destructive text-destructive rounded-xl border-2 px-4 py-2 text-sm font-black"
                   onClick={() => void clearThread(active.userId, active.fullName)}
                 >
-                  🗑 Clear chat
+                  🗑 Clear whole chat
                 </button>
               </div>
               <div className="flex-1 space-y-2 overflow-y-auto py-3">
                 {!active.messages.length && (
                   <p className="text-muted-foreground text-center text-sm">No messages yet.</p>
                 )}
+                {active.messages.length > 0 && (
+                  <p className="text-muted-foreground text-center text-[11px]">
+                    Tick messages to delete only those ones.
+                  </p>
+                )}
                 {active.messages.map((m) => (
                   <div
                     key={m.id}
-                    className={`group flex items-center gap-1 ${m.from === "admin" ? "justify-end" : "justify-start"}`}
+                    className={`flex items-center gap-2 ${m.from === "admin" ? "justify-end" : "justify-start"}`}
                   >
-                    {m.from === "admin" && (
-                      <button
-                        type="button"
-                        aria-label="Delete message"
-                        onClick={() => void removeMessage(m.id)}
-                        className="text-muted-foreground shrink-0 text-xs opacity-60 hover:opacity-100"
-                      >
-                        🗑
-                      </button>
-                    )}
+                    <input
+                      type="checkbox"
+                      aria-label="Select message"
+                      className="size-5 shrink-0 accent-[var(--primary)]"
+                      checked={picked.includes(m.id)}
+                      onChange={() => togglePicked(m.id)}
+                    />
                     <div
-                      className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm ${
+                      className={`max-w-[75%] rounded-2xl px-4 py-2 text-sm ${
                         m.from === "admin" ? "hero-gradient text-white" : "bg-muted"
                       }`}
                     >
@@ -981,16 +1014,14 @@ function ChatAdmin() {
                         {new Date(m.createdAt).toLocaleTimeString()}
                       </p>
                     </div>
-                    {m.from !== "admin" && (
-                      <button
-                        type="button"
-                        aria-label="Delete message"
-                        onClick={() => void removeMessage(m.id)}
-                        className="text-muted-foreground shrink-0 text-xs opacity-60 hover:opacity-100"
-                      >
-                        🗑
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      aria-label="Delete this message"
+                      onClick={() => void removeMessage(m.id)}
+                      className="bg-destructive grid size-9 shrink-0 place-items-center rounded-xl text-base text-white shadow"
+                    >
+                      🗑
+                    </button>
                   </div>
                 ))}
               </div>
@@ -1737,6 +1768,7 @@ function FoldersAdmin() {
   const [folders, setFolders] = useState<Folder[] | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
   const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
   const [department, setDepartment] = useState<string>(DEPARTMENTS[0]!);
   const [year, setYear] = useState<string>(YEARS[0]!);
   const [semester, setSemester] = useState<string>(SEMESTERS[0]!);
@@ -1766,9 +1798,10 @@ function FoldersAdmin() {
     try {
       await api("/api/admin/folders", {
         method: "POST",
-        body: { name: name.trim(), department, year, semester },
+        body: { name: name.trim(), description: description.trim(), department, year, semester },
       });
       setName("");
+      setDescription("");
       toast.success("Folder created");
       await load();
     } catch (err) {
@@ -1847,6 +1880,14 @@ function FoldersAdmin() {
               placeholder="Mid 1"
             />
           </Field>
+          <Field label="Description (optional)">
+            <input
+              className={inputClass}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Mid 1 question papers and keys"
+            />
+          </Field>
           <Field label="Department">
             <select
               className={inputClass}
@@ -1895,6 +1936,9 @@ function FoldersAdmin() {
                 <p className="text-muted-foreground text-xs">
                   {f.department} · {f.year} · {f.semester} · {inside.length} file(s)
                 </p>
+                {f.description && (
+                  <p className="text-muted-foreground truncate text-xs italic">{f.description}</p>
+                )}
               </div>
               <button
                 type="button"
@@ -1915,6 +1959,17 @@ function FoldersAdmin() {
                       onBlur={(e) =>
                         e.target.value.trim() !== f.name &&
                         void patch(f, { name: e.target.value.trim() })
+                      }
+                    />
+                  </Field>
+                  <Field label="Description (optional)">
+                    <input
+                      className={inputClass}
+                      defaultValue={f.description ?? ""}
+                      placeholder="What is inside this folder?"
+                      onBlur={(e) =>
+                        e.target.value.trim() !== (f.description ?? "") &&
+                        void patch(f, { description: e.target.value.trim() })
                       }
                     />
                   </Field>
@@ -1975,10 +2030,10 @@ function FoldersAdmin() {
                       </div>
                       <button
                         type="button"
-                        className={ghostBtnClass}
+                        className="bg-destructive rounded-xl px-3 py-2 text-xs font-black text-white"
                         onClick={() => void removeFile(n)}
                       >
-                        Delete
+                        🗑 Delete this file only
                       </button>
                     </div>
                   ))}

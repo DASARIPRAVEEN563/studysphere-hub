@@ -103,9 +103,8 @@ function HomeContent() {
 
   return (
     <AppShell title={user ? `Welcome, ${user.fullName}` : "Home"}>
-      {/* Hover the logo to reveal the credit line. */}
       <section className="glass animate-rise mb-6 flex items-center gap-4 rounded-3xl p-5">
-        <Logo3D size={64} credit className="animate-float" />
+        <Logo3D size={64} className="animate-float" />
         <div className="min-w-0">
           <h2 className="gradient-text text-xl font-black">Students Ka Notes Sharing Hub</h2>
           <p className="text-muted-foreground text-xs">

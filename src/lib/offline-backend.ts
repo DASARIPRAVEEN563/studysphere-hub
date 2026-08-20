@@ -89,9 +89,9 @@ function read(): DB {
 let pullInFlight: Promise<DB> | null = null;
 let pulledAt = 0;
 /** Reads that happen within this window reuse the in-memory copy (keeps the UI snappy). */
-const PULL_TTL = 20000;
+const PULL_TTL = 60000;
 /** Writes only re-sync from the server when the local copy is older than this. */
-const WRITE_FRESH_MS = 4000;
+const WRITE_FRESH_MS = 10000;
 
 /**
  * Pull the latest document from the cloud database.
@@ -133,11 +133,14 @@ async function refresh(): Promise<DB> {
 /** Saves are chained so two quick actions never race each other. */
 let saveChain: Promise<void> = Promise.resolve();
 
-/** Push the document to the cloud database. */
+/**
+ * Push the document to the cloud database. The in-memory + mirrored copy is
+ * already up to date, so the caller never waits on the network: the upload is
+ * queued in the background and the screen responds instantly.
+ */
 async function push(db: DB) {
   mirror(db);
   saveChain = saveChain.then(() => pushNow(db)).catch(() => {});
-  return saveChain;
 }
 
 async function pushNow(db: DB) {
@@ -727,6 +730,7 @@ export async function offlineRequest(
         const folder: Folder = {
           id: id(),
           name,
+          description: String(body?.description ?? "").trim().slice(0, 200) || null,
           department,
           year,
           semester,
@@ -765,7 +769,11 @@ export async function offlineRequest(
       const department = String(body?.department ?? folder.department);
       const year = String(body?.year ?? folder.year);
       const semester = String(body?.semester ?? folder.semester);
-      Object.assign(folder, { name, department, year, semester });
+      const description =
+        body && "description" in body
+          ? String((body as any).description ?? "").trim().slice(0, 200) || null
+          : (folder.description ?? null);
+      Object.assign(folder, { name, description, department, year, semester });
       db.notes.forEach((n) => {
         if (n.folderId === fid) Object.assign(n, { department, year, semester });
       });
