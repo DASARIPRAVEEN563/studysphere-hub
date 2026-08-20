@@ -1768,6 +1768,7 @@ function FoldersAdmin() {
   const [folders, setFolders] = useState<Folder[] | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
   const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
   const [department, setDepartment] = useState<string>(DEPARTMENTS[0]!);
   const [year, setYear] = useState<string>(YEARS[0]!);
   const [semester, setSemester] = useState<string>(SEMESTERS[0]!);
