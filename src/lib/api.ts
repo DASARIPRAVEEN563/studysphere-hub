@@ -54,6 +54,8 @@ export type Note = {
   uploadedBy: string;
   uploadedById?: string;
   uploadedAt: string;
+  /** Optional extra note the uploader typed — shown between brackets. */
+  note?: string | null;
   driveFileId?: string | null;
   likes?: number;
   likedByMe?: boolean;
@@ -270,6 +272,32 @@ export async function downloadStudentsExcel() {
     saveBlobUrl(url, "students.csv");
     URL.revokeObjectURL(url);
     return "students.csv";
+  }
+}
+
+/**
+ * Returns a URL that can be rendered inline (in-app viewer). Popup blockers on
+ * mobile and desktop kill `window.open` after an await, so viewing happens in
+ * an in-app modal instead.
+ */
+export async function noteViewUrl(note: Note): Promise<string> {
+  const token = auth.token();
+  if (!API_BASE) {
+    const { dataUrl } = await offlineRequest(`/api/notes/${note.id}/view`, "GET", token, undefined);
+    if (!dataUrl) throw new Error("Could not open this file");
+    return dataUrl as string;
+  }
+  try {
+    const res = await fetch(`${API_BASE}/api/notes/${note.id}/view`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) throw new Error("Could not open this file");
+    return URL.createObjectURL(await res.blob());
+  } catch (err) {
+    if (!isNetworkError(err)) throw err;
+    const { dataUrl } = await offlineRequest(`/api/notes/${note.id}/view`, "GET", token, undefined);
+    if (!dataUrl) throw new Error("Could not open this file");
+    return dataUrl as string;
   }
 }
 

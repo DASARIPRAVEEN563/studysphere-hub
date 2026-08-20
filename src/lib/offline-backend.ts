@@ -80,7 +80,9 @@ function read(): DB {
 let pullInFlight: Promise<DB> | null = null;
 let pulledAt = 0;
 /** Reads that happen within this window reuse the in-memory copy (keeps the UI snappy). */
-const PULL_TTL = 8000;
+const PULL_TTL = 20000;
+/** Writes only re-sync from the server when the local copy is older than this. */
+const WRITE_FRESH_MS = 4000;
 
 /**
  * Pull the latest document from the cloud database.
@@ -337,8 +339,8 @@ export async function offlineRequest(
     }
   }
 
-  // Reads reuse the fresh in-memory copy; writes always start from server truth.
-  const db = await pull(method !== "GET");
+  // Reads reuse the fresh in-memory copy; writes re-sync only when it is stale.
+  const db = await pull(method !== "GET" && Date.now() - pulledAt > WRITE_FRESH_MS);
   seed(db);
   const me = currentUser(db, token);
   /** Returns a promise: await it whenever the next request depends on the write. */
@@ -351,6 +353,10 @@ export async function offlineRequest(
     if (method === "PUT") {
       if (body.email !== undefined) {
         const mail = String(body.email ?? "").trim();
+        const current = String(me.email ?? "").trim();
+        // Once the face + email verification is complete the email is locked.
+        if (me.faceVerified && me.identityConfirmed && mail.toLowerCase() !== current.toLowerCase())
+          throw new OfflineError("Your email ID cannot be changed after face verification");
         if (mail && !EMAIL_RE.test(mail)) throw new OfflineError("Incorrect email ID");
         if (
           mail &&
@@ -557,6 +563,7 @@ export async function offlineRequest(
     const department = String(form.get("department"));
     const year = String(form.get("year"));
     const semester = String(form.get("semester"));
+    const extra = String(form.get("note") ?? "").trim().slice(0, 200);
     const note: Note = {
       id: id(),
       subject: uniqueSubject(db, String(form.get("subject")).trim(), department, year, semester),
@@ -569,6 +576,7 @@ export async function offlineRequest(
       uploadedBy: me.fullName,
       uploadedById: me.id,
       uploadedAt: new Date().toISOString(),
+      note: extra || null,
       driveFileId: null,
       likes: 0,
       views: 0,
@@ -592,6 +600,34 @@ export async function offlineRequest(
     if (note) note.downloads = (note.downloads ?? 0) + 1;
     save();
     return { dataUrl: data };
+  }
+
+  /**
+   * Owner tools: a student can rename or delete only the notes they shared —
+   * never anybody else's files (admins keep their own endpoints below).
+   */
+  if (url.startsWith("/api/notes/") && url.split("/").length === 4) {
+    const nid = url.split("/")[3]!;
+    const idx = db.notes.findIndex((n) => n.id === nid);
+    if (idx < 0) throw new OfflineError("Note not found");
+    const note = db.notes[idx]!;
+    const owns = note.uploadedById === me.id || (!note.uploadedById && note.uploadedBy === me.fullName);
+    if (!owns) throw new OfflineError("You can only manage the notes you shared");
+    if (method === "DELETE") {
+      db.notes.splice(idx, 1);
+      delete db.files[nid];
+      db.filesRemove = [...(db.filesRemove ?? []), nid];
+      await save();
+      return { ok: true };
+    }
+    if (method === "PUT") {
+      const subject = String(body?.subject ?? note.subject).trim();
+      if (!subject) throw new OfflineError("Subject cannot be empty");
+      note.subject = subject;
+      if (body?.note !== undefined) note.note = String(body.note ?? "").trim().slice(0, 200) || null;
+      await save();
+      return { note: shapeNote(db, note, me.id) };
+    }
   }
 
   // ---- admin ----

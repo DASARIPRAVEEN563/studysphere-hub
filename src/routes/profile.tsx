@@ -10,6 +10,7 @@ import { ShareSite } from "@/components/ShareSite";
 import { Leaderboard } from "@/components/Leaderboard";
 import { LikeNotifications } from "@/components/LikeNotifications";
 import { ThemePicker } from "@/components/ThemePicker";
+import { InstallApp } from "@/components/InstallApp";
 import { api, auth, DEPARTMENTS, SEMESTERS, YEARS, type User } from "@/lib/api";
 
 export const Route = createFileRoute("/profile")({
@@ -74,6 +75,9 @@ function ProfilePage() {
     reader.onload = () => setUser({ ...user, profilePicture: String(reader.result) });
     reader.readAsDataURL(file);
   };
+
+  /** Email is frozen once the face + code verification is complete. */
+  const emailLocked = Boolean(user?.faceVerified && user?.identityConfirmed);
 
   if (!user)
     return (
@@ -153,12 +157,19 @@ function ProfilePage() {
           <Field label="Email ID (required for face verification)">
             <input
               type="email"
-              className={inputClass}
+              className={`${inputClass} ${emailLocked ? "opacity-70" : ""}`}
               value={user.email ?? ""}
               onChange={(e) => setUser({ ...user, email: e.target.value })}
               placeholder="you@example.com"
               required
+              readOnly={emailLocked}
+              disabled={emailLocked}
             />
+            {emailLocked && (
+              <span className="text-muted-foreground text-xs">
+                🔒 Locked — your email ID cannot be changed after face verification.
+              </span>
+            )}
           </Field>
           <div className="grid gap-4 sm:grid-cols-3">
             <Field label="Department">
@@ -223,6 +234,7 @@ function ProfilePage() {
         <AdminCreator user={user} />
         <ThemePicker />
         <ShareSite />
+        <InstallApp />
         </div>
       </div>
     </AppShell>
