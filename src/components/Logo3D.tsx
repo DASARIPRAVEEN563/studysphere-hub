@@ -8,10 +8,13 @@ export function Logo3D({
   size = 96,
   className = "",
   spin = false,
+  credit = false,
 }: {
   size?: number;
   className?: string;
   spin?: boolean;
+  /** Shows the "created and ideology by Praveen" line while the cursor is on the logo. */
+  credit?: boolean;
 }) {
   const ref = useRef<HTMLDivElement | null>(null);
   const [tilt, setTilt] = useState({ x: 0, y: 0 });
@@ -45,9 +48,15 @@ export function Logo3D({
         setHover(false);
         setTilt({ x: 0, y: 0 });
       }}
-      className={`shrink-0 select-none ${className}`}
+      className={`relative shrink-0 select-none ${className}`}
       style={{ width: size, height: size, perspective: `${size * 5}px` }}
     >
+      {credit && hover && (
+        <span className="glass animate-rise pointer-events-none absolute top-full left-1/2 z-50 mt-2 -translate-x-1/2 rounded-xl px-3 py-1.5 text-[11px] font-semibold whitespace-nowrap shadow-xl">
+          created and ideology by{" "}
+          <span className="gradient-text animate-shine text-sm font-black">Praveen</span>
+        </span>
+      )}
       {failed ? (
         <span
           className="hero-gradient grid size-full place-items-center rounded-2xl font-black text-white"

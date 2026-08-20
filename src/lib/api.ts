@@ -40,7 +40,13 @@ export type User = {
   accessRequested?: boolean;
   accessRequestedAt?: string | null;
   accessRequestNote?: string | null;
+  /** Features an admin has taken away after misbehaviour. */
+  blocked?: AccessArea[];
 };
+
+/** Areas an admin can reject access to from the "Access reject" tab. */
+export const ACCESS_AREAS = ["chat", "share", "feedback"] as const;
+export type AccessArea = (typeof ACCESS_AREAS)[number];
 
 export type Note = {
   id: string;
@@ -57,10 +63,33 @@ export type Note = {
   /** Optional extra note the uploader typed — shown between brackets. */
   note?: string | null;
   driveFileId?: string | null;
+  /** Set when the file lives inside an admin-managed folder (Mid 1, Mid 2…). */
+  folderId?: string | null;
   likes?: number;
   likedByMe?: boolean;
   views?: number;
   downloads?: number;
+};
+
+/** Admin-managed folder inside a semester. Only admins can put files in it. */
+export type Folder = {
+  id: string;
+  name: string;
+  department: string;
+  year: string;
+  semester: string;
+  createdAt: string;
+};
+
+/** A deleted record kept for 10 days so an admin can restore it. */
+export type TrashItem = {
+  id: string;
+  kind: "note" | "user" | "content" | "feedback" | "chat" | "folder";
+  label: string;
+  detail?: string;
+  deletedAt: string;
+  deletedBy?: string;
+  payload: any;
 };
 
 export type ContentItem = {
@@ -280,13 +309,31 @@ export async function downloadStudentsExcel() {
  * mobile and desktop kill `window.open` after an await, so viewing happens in
  * an in-app modal instead.
  */
+/**
+ * Browsers refuse to render a `data:` URL inside an iframe/object, which is why
+ * the in-app viewer showed a blank white screen. Turning the payload into a
+ * real blob URL first makes PDFs and images display everywhere.
+ */
+function dataUrlToBlobUrl(dataUrl: string): string {
+  const [header = "", body = ""] = dataUrl.split(",");
+  const mime = header.match(/data:([^;]+)/)?.[1] ?? "application/octet-stream";
+  if (!header.includes("base64")) {
+    return URL.createObjectURL(new Blob([decodeURIComponent(body)], { type: mime }));
+  }
+  const binary = atob(body);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  return URL.createObjectURL(new Blob([bytes], { type: mime }));
+}
+
 export async function noteViewUrl(note: Note): Promise<string> {
   const token = auth.token();
-  if (!API_BASE) {
+  const offline = async () => {
     const { dataUrl } = await offlineRequest(`/api/notes/${note.id}/view`, "GET", token, undefined);
     if (!dataUrl) throw new Error("Could not open this file");
-    return dataUrl as string;
-  }
+    return dataUrlToBlobUrl(String(dataUrl));
+  };
+  if (!API_BASE) return offline();
   try {
     const res = await fetch(`${API_BASE}/api/notes/${note.id}/view`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -295,9 +342,7 @@ export async function noteViewUrl(note: Note): Promise<string> {
     return URL.createObjectURL(await res.blob());
   } catch (err) {
     if (!isNetworkError(err)) throw err;
-    const { dataUrl } = await offlineRequest(`/api/notes/${note.id}/view`, "GET", token, undefined);
-    if (!dataUrl) throw new Error("Could not open this file");
-    return dataUrl as string;
+    return offline();
   }
 }
 

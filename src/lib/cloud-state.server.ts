@@ -21,12 +21,23 @@ export const SHARDS = [
   "feedback",
   "notifications",
   "likes",
+  "folders",
+  "trash",
 ] as const;
 
 type Shard = (typeof SHARDS)[number];
 type AnyDoc = any;
 
-const ARRAY_SHARDS: Shard[] = ["users", "notes", "content", "chats", "feedback", "notifications"];
+const ARRAY_SHARDS: Shard[] = [
+  "users",
+  "notes",
+  "content",
+  "chats",
+  "feedback",
+  "notifications",
+  "folders",
+  "trash",
+];
 /**
  * Uploaded file blobs are big, so they never travel with the document and are
  * never kept in one row: each blob lives in its own `file:<id>` row. Reads skip

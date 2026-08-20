@@ -411,7 +411,10 @@ function NotesPage() {
         <NoteViewer
           note={viewing.note}
           url={viewing.url}
-          onClose={() => setViewing(null)}
+          onClose={() => {
+            if (viewing.url.startsWith("blob:")) URL.revokeObjectURL(viewing.url);
+            setViewing(null);
+          }}
         />
       )}
     </AppShell>
@@ -557,9 +560,11 @@ function NoteViewer({ note, url, onClose }: { note: Note; url: string; onClose: 
         </div>
         <div className="min-h-0 flex-1 overflow-auto rounded-2xl bg-white">
           {isPdf ? (
-            <object data={url} type="application/pdf" className="size-full min-h-[60vh]">
-              <iframe src={url} title={note.fileName} className="size-full min-h-[60vh] border-0" />
-            </object>
+            <iframe
+              src={url}
+              title={note.fileName}
+              className="size-full min-h-[70vh] border-0"
+            />
           ) : (
             <img src={url} alt={note.fileName} className="mx-auto max-h-full w-auto object-contain" />
           )}

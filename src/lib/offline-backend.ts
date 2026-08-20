@@ -6,13 +6,16 @@
  */
 import { cloudAuth, cloudCode, cloudFile, cloudLoad, cloudSave } from "./cloud-state.functions";
 import type {
+  AccessArea,
   AppNotification,
   ChatMessage,
   ChatThread,
   ContentItem,
   Feedback,
+  Folder,
   LeaderRow,
   Note,
+  TrashItem,
   User,
 } from "./api";
 
@@ -38,6 +41,10 @@ type DB = {
   fileIds?: string[];
   /** Blobs deleted locally, applied server-side on the next save. */
   filesRemove?: string[];
+  /** Admin-managed folders (Mid 1, Mid 2 …) inside a semester. */
+  folders?: Folder[];
+  /** Recently deleted records, kept for 10 days. */
+  trash?: TrashItem[];
 };
 
 const empty = (): DB => ({
@@ -51,6 +58,8 @@ const empty = (): DB => ({
   notifications: [],
   fileIds: [],
   filesRemove: [],
+  folders: [],
+  trash: [],
 });
 
 /** In-memory copy of the cloud document (mirrored to localStorage for offline use). */
@@ -215,6 +224,54 @@ function shapeNote(db: DB, n: Note, meId: string): Note {
     views: n.views ?? 0,
     downloads: n.downloads ?? 0,
   };
+}
+
+/** Recently-deleted records are recoverable for this long, then purged for good. */
+const TRASH_DAYS = 10;
+
+/** Moves a record to "Recently deleted" instead of destroying it. */
+function toTrash(
+  db: DB,
+  kind: TrashItem["kind"],
+  label: string,
+  payload: any,
+  detail: string,
+  by: string,
+) {
+  db.trash = db.trash ?? [];
+  db.trash.unshift({
+    id: id(),
+    kind,
+    label,
+    detail,
+    deletedAt: new Date().toISOString(),
+    deletedBy: by,
+    payload,
+  });
+}
+
+/** Drops bin entries older than 10 days (and their file blobs), like a phone gallery. */
+function purgeTrash(db: DB) {
+  const list = db.trash ?? [];
+  const cutoff = Date.now() - TRASH_DAYS * 86_400_000;
+  const stale = list.filter((t) => new Date(t.deletedAt).getTime() < cutoff);
+  if (!stale.length) return;
+  db.trash = list.filter((t) => new Date(t.deletedAt).getTime() >= cutoff);
+  const blobs = stale.filter((t) => t.kind === "note").map((t) => String(t.payload?.id));
+  if (blobs.length) db.filesRemove = [...(db.filesRemove ?? []), ...blobs];
+}
+
+/** Throws when an admin has rejected this student's access to a feature. */
+function assertAllowed(user: StoredUser, area: AccessArea) {
+  if (user.role === "admin") return;
+  if ((user.blocked ?? []).includes(area))
+    throw new OfflineError(
+      area === "chat"
+        ? "The admin has removed your access to chat"
+        : area === "share"
+          ? "The admin has removed your access to share notes"
+          : "The admin has removed your access to feedback",
+    );
 }
 
 /** ds -> ds01 -> ds02 when the subject folder already exists in the same scope. */
