@@ -42,7 +42,6 @@ function NotesPage() {
   const me = useRequireVerified();
   const { dept } = Route.useSearch();
   const [notes, setNotes] = useState<Note[] | null>(null);
-  const [viewing, setViewing] = useState<{ note: Note; url: string } | null>(null);
   const [opening, setOpening] = useState<string | null>(null);
   const [department, setDepartment] = useState<string | null>(dept ?? null);
   const [year, setYear] = useState<string | null>(null);
@@ -475,16 +474,6 @@ function NotesPage() {
         </section>
       )}
 
-      {viewing && (
-        <NoteViewer
-          note={viewing.note}
-          url={viewing.url}
-          onClose={() => {
-            if (viewing.url.startsWith("blob:")) URL.revokeObjectURL(viewing.url);
-            setViewing(null);
-          }}
-        />
-      )}
     </AppShell>
   );
 }
@@ -601,46 +590,6 @@ function fileFormat(n: Note) {
   return ext || "FILE";
 }
 
-/** In-app file viewer — popup blockers break `window.open` on phones. */
-function NoteViewer({ note, url, onClose }: { note: Note; url: string; onClose: () => void }) {
-  const isPdf = (note.mimeType ?? "").toLowerCase().includes("pdf");
-  return (
-    <div
-      className="fixed inset-0 z-50 grid place-items-center bg-black/80 p-2 sm:p-6"
-      role="dialog"
-      aria-label={`Viewing ${note.fileName}`}
-    >
-      <div className="glass flex h-full max-h-[92vh] w-full max-w-4xl flex-col rounded-3xl p-3 sm:p-4">
-        <div className="flex items-center gap-3 pb-3">
-          <div className="min-w-0 flex-1">
-            <p className="truncate font-black">{note.subject}</p>
-            <p className="text-muted-foreground truncate text-xs">
-              {note.fileName} · {fileFormat(note)}
-              {note.note ? ` · ( ${note.note} )` : ""}
-            </p>
-          </div>
-          <a href={url} target="_blank" rel="noopener noreferrer" className={ghostBtnClass}>
-            Open tab
-          </a>
-          <button onClick={onClose} className={ghostBtnClass} aria-label="Close viewer">
-            ✕
-          </button>
-        </div>
-        <div className="min-h-0 flex-1 overflow-auto rounded-2xl bg-white">
-          {isPdf ? (
-            <iframe
-              src={url}
-              title={note.fileName}
-              className="size-full min-h-[70vh] border-0"
-            />
-          ) : (
-            <img src={url} alt={note.fileName} className="mx-auto max-h-full w-auto object-contain" />
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function Grid({
   items,
