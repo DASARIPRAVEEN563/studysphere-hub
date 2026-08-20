@@ -8,13 +8,10 @@ export function Logo3D({
   size = 96,
   className = "",
   spin = false,
-  credit = false,
 }: {
   size?: number;
   className?: string;
   spin?: boolean;
-  /** Shows the "created and ideology by Praveen" line while the cursor is on the logo. */
-  credit?: boolean;
 }) {
   const ref = useRef<HTMLDivElement | null>(null);
   const [tilt, setTilt] = useState({ x: 0, y: 0 });
