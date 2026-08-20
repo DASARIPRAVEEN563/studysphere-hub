@@ -89,9 +89,9 @@ function read(): DB {
 let pullInFlight: Promise<DB> | null = null;
 let pulledAt = 0;
 /** Reads that happen within this window reuse the in-memory copy (keeps the UI snappy). */
-const PULL_TTL = 20000;
+const PULL_TTL = 60000;
 /** Writes only re-sync from the server when the local copy is older than this. */
-const WRITE_FRESH_MS = 4000;
+const WRITE_FRESH_MS = 10000;
 
 /**
  * Pull the latest document from the cloud database.
