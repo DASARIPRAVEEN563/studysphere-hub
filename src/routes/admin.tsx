@@ -1926,6 +1926,9 @@ function FoldersAdmin() {
                 <p className="text-muted-foreground text-xs">
                   {f.department} · {f.year} · {f.semester} · {inside.length} file(s)
                 </p>
+                {f.description && (
+                  <p className="text-muted-foreground truncate text-xs italic">{f.description}</p>
+                )}
               </div>
               <button
                 type="button"
