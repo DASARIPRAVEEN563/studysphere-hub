@@ -929,42 +929,53 @@ function ChatAdmin() {
             </p>
           ) : (
             <>
-              <div className="border-border flex items-start gap-2 border-b pb-3">
+              <div className="border-border flex flex-wrap items-start gap-2 border-b pb-3">
                 <div className="min-w-0 flex-1">
                   <p className="font-black">{active.fullName}</p>
                   <p className="text-muted-foreground text-xs">
                     {active.registrationId} · {active.department} · {active.year} · {active.semester}
                   </p>
                 </div>
+                {picked.length > 0 && (
+                  <button
+                    type="button"
+                    className="bg-destructive rounded-xl px-4 py-2 text-sm font-black text-white shadow-lg"
+                    onClick={() => void removePicked()}
+                  >
+                    🗑 Delete {picked.length} selected
+                  </button>
+                )}
                 <button
                   type="button"
-                  className={ghostBtnClass}
+                  className="border-destructive text-destructive rounded-xl border-2 px-4 py-2 text-sm font-black"
                   onClick={() => void clearThread(active.userId, active.fullName)}
                 >
-                  🗑 Clear chat
+                  🗑 Clear whole chat
                 </button>
               </div>
               <div className="flex-1 space-y-2 overflow-y-auto py-3">
                 {!active.messages.length && (
                   <p className="text-muted-foreground text-center text-sm">No messages yet.</p>
                 )}
+                {active.messages.length > 0 && (
+                  <p className="text-muted-foreground text-center text-[11px]">
+                    Tick messages to delete only those ones.
+                  </p>
+                )}
                 {active.messages.map((m) => (
                   <div
                     key={m.id}
-                    className={`group flex items-center gap-1 ${m.from === "admin" ? "justify-end" : "justify-start"}`}
+                    className={`flex items-center gap-2 ${m.from === "admin" ? "justify-end" : "justify-start"}`}
                   >
-                    {m.from === "admin" && (
-                      <button
-                        type="button"
-                        aria-label="Delete message"
-                        onClick={() => void removeMessage(m.id)}
-                        className="text-muted-foreground shrink-0 text-xs opacity-60 hover:opacity-100"
-                      >
-                        🗑
-                      </button>
-                    )}
+                    <input
+                      type="checkbox"
+                      aria-label="Select message"
+                      className="size-5 shrink-0 accent-[var(--primary)]"
+                      checked={picked.includes(m.id)}
+                      onChange={() => togglePicked(m.id)}
+                    />
                     <div
-                      className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm ${
+                      className={`max-w-[75%] rounded-2xl px-4 py-2 text-sm ${
                         m.from === "admin" ? "hero-gradient text-white" : "bg-muted"
                       }`}
                     >
@@ -981,16 +992,14 @@ function ChatAdmin() {
                         {new Date(m.createdAt).toLocaleTimeString()}
                       </p>
                     </div>
-                    {m.from !== "admin" && (
-                      <button
-                        type="button"
-                        aria-label="Delete message"
-                        onClick={() => void removeMessage(m.id)}
-                        className="text-muted-foreground shrink-0 text-xs opacity-60 hover:opacity-100"
-                      >
-                        🗑
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      aria-label="Delete this message"
+                      onClick={() => void removeMessage(m.id)}
+                      className="bg-destructive grid size-9 shrink-0 place-items-center rounded-xl text-base text-white shadow"
+                    >
+                      🗑
+                    </button>
                   </div>
                 ))}
               </div>
