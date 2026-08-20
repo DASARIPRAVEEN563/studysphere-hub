@@ -20,3 +20,15 @@ notes_bp.add_url_rule(
 notes_bp.add_url_rule(
     "/<note_id>/like", view_func=require_auth(notes_controller.like_note), methods=["POST"]
 )
+notes_bp.add_url_rule(
+    "/<note_id>",
+    view_func=require_auth(notes_controller.update_own_note),
+    methods=["PUT"],
+    endpoint="update_own_note",
+)
+notes_bp.add_url_rule(
+    "/<note_id>",
+    view_func=require_auth(notes_controller.delete_own_note),
+    methods=["DELETE"],
+    endpoint="delete_own_note",
+)
