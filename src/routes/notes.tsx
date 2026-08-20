@@ -189,6 +189,7 @@ function NotesPage() {
         (prev ?? []).map((n) => (n.id === note.id ? { ...n, views: (n.views ?? 0) + 1 } : n)),
       );
     } catch (e) {
+      win?.close();
       toast.error((e as Error).message);
     } finally {
       setOpening(null);
