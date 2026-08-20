@@ -682,6 +682,8 @@ function ChatAdmin() {
   const [allUsers, setAllUsers] = useState(true);
   const [replyImage, setReplyImage] = useState<string | null>(null);
   const [requests, setRequests] = useState<User[]>([]);
+  /** Message ids ticked for a bulk delete. */
+  const [picked, setPicked] = useState<string[]>([]);
 
   /** Opening the chat board clears the unread badge straight away. */
   useEffect(() => {
