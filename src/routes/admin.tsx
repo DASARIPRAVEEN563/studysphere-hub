@@ -1949,6 +1949,17 @@ function FoldersAdmin() {
                       }
                     />
                   </Field>
+                  <Field label="Description (optional)">
+                    <input
+                      className={inputClass}
+                      defaultValue={f.description ?? ""}
+                      placeholder="What is inside this folder?"
+                      onBlur={(e) =>
+                        e.target.value.trim() !== (f.description ?? "") &&
+                        void patch(f, { description: e.target.value.trim() })
+                      }
+                    />
+                  </Field>
                   <Field label="Move to department">
                     <select
                       className={inputClass}
