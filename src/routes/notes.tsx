@@ -164,11 +164,27 @@ function NotesPage() {
     }
   };
 
+  /**
+   * Hands the file to the device: the browser / phone opens it with the default
+   * app (PDF reader, photo viewer) instead of an in-app frame.
+   */
   const view = async (note: Note) => {
     setOpening(note.id);
+    // Opened before the await so mobile popup blockers keep it allowed.
+    const win = window.open("", "_blank");
     try {
       const url = await noteViewUrl(note);
-      setViewing({ note, url });
+      if (win) win.location.href = url;
+      else {
+        const a = document.createElement("a");
+        a.href = url;
+        a.target = "_blank";
+        a.rel = "noopener";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
       setNotes((prev) =>
         (prev ?? []).map((n) => (n.id === note.id ? { ...n, views: (n.views ?? 0) + 1 } : n)),
       );
