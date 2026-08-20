@@ -113,7 +113,7 @@ function NotesPage() {
           (folder ? n.folderId === folder.id : !n.folderId) &&
           (!subject || n.subject === subject),
       ),
-    [notes, department, year, semester, semester, subject, folder],
+    [notes, department, year, semester, subject, folder],
   );
 
   /** Admin folders published for the semester the student is browsing. */
@@ -352,21 +352,51 @@ function NotesPage() {
           onPick={setSemester}
           icon="📚"
         />
-      ) : !subject ? (
-        subjects.length ? (
-          <Grid
-            items={subjects.map((s) => ({
-              label: s,
-              sub: `${scoped.filter((n) => n.subject === s).length} file(s) · shared by ${Array.from(
-                new Set(scoped.filter((n) => n.subject === s).map((n) => n.uploadedBy)),
-              ).join(", ")}`,
-            }))}
-            onPick={setSubject}
-            icon="📁"
+      ) : folder ? (
+        scoped.length ? (
+          <FileGrid
+            notes={applySort(scoped)}
+            onView={view}
+            onDownload={download}
+            onLike={like}
+            meId={me?.id}
+            opening={opening}
           />
         ) : (
-          <Empty text="No subjects uploaded here yet." />
+          <Empty text="The admin has not added any file to this folder yet." />
         )
+      ) : !subject ? (
+        <>
+          {semesterFolders.length > 0 && (
+            <section className="mb-8">
+              <h3 className="mb-3 text-lg font-bold">Admin folders</h3>
+              <Grid
+                items={semesterFolders.map((f) => ({
+                  label: f.name,
+                  sub: `${(notes ?? []).filter((n) => n.folderId === f.id).length} file(s) · added by admin`,
+                }))}
+                onPick={(name) =>
+                  setFolder(semesterFolders.find((f) => f.name === name) ?? null)
+                }
+                icon="🗂️"
+              />
+            </section>
+          )}
+          {subjects.length ? (
+            <Grid
+              items={subjects.map((s) => ({
+                label: s,
+                sub: `${scoped.filter((n) => n.subject === s).length} file(s) · shared by ${Array.from(
+                  new Set(scoped.filter((n) => n.subject === s).map((n) => n.uploadedBy)),
+                ).join(", ")}`,
+              }))}
+              onPick={setSubject}
+              icon="📁"
+            />
+          ) : semesterFolders.length ? null : (
+            <Empty text="No subjects uploaded here yet." />
+          )}
+        </>
       ) : scoped.length ? (
         <FileGrid
           notes={applySort(scoped)}
