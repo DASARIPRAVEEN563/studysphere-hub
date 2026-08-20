@@ -766,7 +766,11 @@ export async function offlineRequest(
       const department = String(body?.department ?? folder.department);
       const year = String(body?.year ?? folder.year);
       const semester = String(body?.semester ?? folder.semester);
-      Object.assign(folder, { name, department, year, semester });
+      const description =
+        body && "description" in body
+          ? String((body as any).description ?? "").trim().slice(0, 200) || null
+          : (folder.description ?? null);
+      Object.assign(folder, { name, description, department, year, semester });
       db.notes.forEach((n) => {
         if (n.folderId === fid) Object.assign(n, { department, year, semester });
       });
