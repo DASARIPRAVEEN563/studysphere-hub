@@ -727,6 +727,7 @@ export async function offlineRequest(
         const folder: Folder = {
           id: id(),
           name,
+          description: String(body?.description ?? "").trim().slice(0, 200) || null,
           department,
           year,
           semester,
