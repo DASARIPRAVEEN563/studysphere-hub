@@ -18,6 +18,7 @@ def public_note(note: dict) -> dict:
         "department": note["department"],
         "year": note["year"],
         "semester": note["semester"],
+        "note": note.get("note"),
         "mimeType": note["mimeType"],
         "size": note["size"],
         "uploadedBy": note["uploadedByName"],
@@ -60,6 +61,7 @@ def upload_note():
     department = request.form.get("department")
     year = request.form.get("year")
     semester = request.form.get("semester")
+    extra_note = (request.form.get("note") or "").strip()[:200] or None
     upload = request.files.get("file")
 
     if not subject:
@@ -99,6 +101,7 @@ def upload_note():
         "department": department,
         "year": year,
         "semester": semester,
+        "note": extra_note,
         "mimeType": upload.mimetype,
         "size": len(payload),
         "uploadedById": g.user["id"],
