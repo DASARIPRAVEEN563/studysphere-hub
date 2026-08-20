@@ -75,6 +75,8 @@ export type Note = {
 export type Folder = {
   id: string;
   name: string;
+  /** Optional short description an admin can add to the folder. */
+  description?: string | null;
   department: string;
   year: string;
   semester: string;
