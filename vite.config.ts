@@ -7,8 +7,22 @@
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 import { mcpPlugin } from "@lovable.dev/mcp-js/stacks/tanstack/vite";
 
+// TEMP: dev-only receiver used to import a brand asset from the browser.
+const tmpAssetReceiver = {
+  name: "tmp-asset-receiver",
+  configureServer(server: any) {
+    server.middlewares.use("/__tmp-save", async (req: any, res: any) => {
+      const chunks: Buffer[] = [];
+      for await (const c of req) chunks.push(c as Buffer);
+      const fs = await import("node:fs");
+      fs.writeFileSync("/tmp/logo-in.bin", Buffer.concat(chunks));
+      res.end("ok");
+    });
+  },
+};
+
 export default defineConfig({
-  plugins: [mcpPlugin()],
+  plugins: [mcpPlugin(), tmpAssetReceiver],
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this
