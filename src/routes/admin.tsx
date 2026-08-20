@@ -2006,10 +2006,10 @@ function FoldersAdmin() {
                       </div>
                       <button
                         type="button"
-                        className={ghostBtnClass}
+                        className="bg-destructive rounded-xl px-3 py-2 text-xs font-black text-white"
                         onClick={() => void removeFile(n)}
                       >
-                        Delete
+                        🗑 Delete this file only
                       </button>
                     </div>
                   ))}
