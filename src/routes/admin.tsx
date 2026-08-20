@@ -13,10 +13,14 @@ import {
   downloadStudentsExcel,
   SEMESTERS,
   YEARS,
+  ACCESS_AREAS,
+  type AccessArea,
   type ChatThread,
   type ContentItem,
   type Feedback,
+  type Folder,
   type Note,
+  type TrashItem,
   type User,
 } from "@/lib/api";
 
@@ -45,7 +49,29 @@ const CONTENT_TYPES = [
   "advertisement",
 ] as const;
 
-const TABS = ["notes", "content", "chat", "email", "feedback", "students"] as const;
+const TABS = [
+  "notes",
+  "folders",
+  "content",
+  "chat",
+  "email",
+  "feedback",
+  "students",
+  "access",
+  "bin",
+] as const;
+
+const TAB_LABELS: Record<(typeof TABS)[number], string> = {
+  notes: "Notes",
+  folders: "Folders",
+  content: "Content",
+  chat: "Chat",
+  email: "Email",
+  feedback: "Feedback",
+  students: "Students",
+  access: "Access reject",
+  bin: "Recently deleted",
+};
 
 const BADGES = ["", "NEW", "IMPORTANT", "URGENT", "HOT", "EVENT", "UPDATE"] as const;
 
@@ -67,7 +93,7 @@ function AdminPage() {
                 tab === t ? "hero-gradient text-white shadow-lg" : "glass"
               }`}
             >
-              {t}
+              {TAB_LABELS[t]}
               {t === "chat" && unread > 0 && (
                 <span className="bg-destructive absolute -top-1 -right-1 grid min-w-5 animate-bounce place-items-center rounded-full px-1.5 text-[10px] font-black text-white">
                   {unread}
@@ -79,6 +105,9 @@ function AdminPage() {
       }
     >
       {tab === "notes" && <NotesAdmin />}
+      {tab === "folders" && <FoldersAdmin />}
+      {tab === "access" && <AccessAdmin />}
+      {tab === "bin" && <TrashAdmin />}
       {tab === "content" && <ContentAdmin />}
       {tab === "chat" && <ChatAdmin />}
       {tab === "email" && <EmailAdmin />}
@@ -678,6 +707,28 @@ function ChatAdmin() {
     }
   };
 
+  /** Removes one message, or the whole conversation, into "Recently deleted". */
+  const removeMessage = async (messageId: string) => {
+    try {
+      await api(`/api/admin/chat/message/${messageId}`, { method: "DELETE" });
+      await load();
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
+  };
+
+  const clearThread = async (userId: string, name: string) => {
+    if (!confirm(`Delete the whole conversation with ${name}? You can restore it from the bin.`))
+      return;
+    try {
+      await api(`/api/admin/chat/${userId}`, { method: "DELETE" });
+      setActiveId(null);
+      await load();
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
+  };
+
   const load = () =>
     api<{ threads: ChatThread[] }>("/api/admin/chat")
       .then((r) => setThreads(r.threads))
@@ -878,11 +929,20 @@ function ChatAdmin() {
             </p>
           ) : (
             <>
-              <div className="border-border border-b pb-3">
-                <p className="font-black">{active.fullName}</p>
-                <p className="text-muted-foreground text-xs">
-                  {active.registrationId} · {active.department} · {active.year} · {active.semester}
-                </p>
+              <div className="border-border flex items-start gap-2 border-b pb-3">
+                <div className="min-w-0 flex-1">
+                  <p className="font-black">{active.fullName}</p>
+                  <p className="text-muted-foreground text-xs">
+                    {active.registrationId} · {active.department} · {active.year} · {active.semester}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className={ghostBtnClass}
+                  onClick={() => void clearThread(active.userId, active.fullName)}
+                >
+                  🗑 Clear chat
+                </button>
               </div>
               <div className="flex-1 space-y-2 overflow-y-auto py-3">
                 {!active.messages.length && (
@@ -891,8 +951,18 @@ function ChatAdmin() {
                 {active.messages.map((m) => (
                   <div
                     key={m.id}
-                    className={`flex ${m.from === "admin" ? "justify-end" : "justify-start"}`}
+                    className={`group flex items-center gap-1 ${m.from === "admin" ? "justify-end" : "justify-start"}`}
                   >
+                    {m.from === "admin" && (
+                      <button
+                        type="button"
+                        aria-label="Delete message"
+                        onClick={() => void removeMessage(m.id)}
+                        className="text-muted-foreground shrink-0 text-xs opacity-60 hover:opacity-100"
+                      >
+                        🗑
+                      </button>
+                    )}
                     <div
                       className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm ${
                         m.from === "admin" ? "hero-gradient text-white" : "bg-muted"
@@ -911,6 +981,16 @@ function ChatAdmin() {
                         {new Date(m.createdAt).toLocaleTimeString()}
                       </p>
                     </div>
+                    {m.from !== "admin" && (
+                      <button
+                        type="button"
+                        aria-label="Delete message"
+                        onClick={() => void removeMessage(m.id)}
+                        className="text-muted-foreground shrink-0 text-xs opacity-60 hover:opacity-100"
+                      >
+                        🗑
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -1648,5 +1728,450 @@ function EmailAdmin() {
         {busy ? "Sending..." : `Send to ${recipients.length} student(s)`}
       </button>
     </form>
+  );
+}
+
+/** Admin-only folders (Mid 1, Mid 2 …). Students can browse, view, download and
+ *  like the files inside, but only the admin can put files there. */
+function FoldersAdmin() {
+  const [folders, setFolders] = useState<Folder[] | null>(null);
+  const [notes, setNotes] = useState<Note[]>([]);
+  const [name, setName] = useState("");
+  const [department, setDepartment] = useState<string>(DEPARTMENTS[0]!);
+  const [year, setYear] = useState<string>(YEARS[0]!);
+  const [semester, setSemester] = useState<string>(SEMESTERS[0]!);
+  const [busy, setBusy] = useState(false);
+  const [openId, setOpenId] = useState<string | null>(null);
+
+  const load = async () => {
+    const [f, n] = await Promise.all([
+      api<{ folders: Folder[] }>("/api/admin/folders"),
+      api<{ notes: Note[] }>("/api/admin/notes"),
+    ]);
+    setFolders(f.folders ?? []);
+    setNotes(n.notes ?? []);
+  };
+
+  useEffect(() => {
+    load().catch((e) => {
+      toast.error((e as Error).message);
+      setFolders([]);
+    });
+  }, []);
+
+  const create = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return;
+    setBusy(true);
+    try {
+      await api("/api/admin/folders", {
+        method: "POST",
+        body: { name: name.trim(), department, year, semester },
+      });
+      setName("");
+      toast.success("Folder created");
+      await load();
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const patch = async (folder: Folder, body: Partial<Folder>) => {
+    try {
+      await api(`/api/admin/folders/${folder.id}`, { method: "PATCH", body });
+      await load();
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
+  };
+
+  const remove = async (folder: Folder) => {
+    if (!confirm(`Delete "${folder.name}"? Files inside move to Recently deleted.`)) return;
+    try {
+      await api(`/api/admin/folders/${folder.id}`, { method: "DELETE" });
+      toast.success("Folder moved to Recently deleted");
+      await load();
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
+  };
+
+  const upload = async (folder: Folder, file: File | null) => {
+    if (!file) return;
+    setBusy(true);
+    try {
+      const form = new FormData();
+      form.append("subject", file.name.replace(/\.[^.]+$/, ""));
+      form.append("department", folder.department);
+      form.append("year", folder.year);
+      form.append("semester", folder.semester);
+      form.append("folderId", folder.id);
+      form.append("file", file);
+      await api("/api/notes/upload", { form });
+      toast.success("File added to the folder");
+      await load();
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const removeFile = async (note: Note) => {
+    if (!confirm(`Delete "${note.subject}"? You can restore it from Recently deleted.`)) return;
+    try {
+      await api(`/api/admin/notes/${note.id}`, { method: "DELETE" });
+      await load();
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
+  };
+
+  if (folders === null) return <Skeletons count={3} />;
+
+  return (
+    <div className="space-y-6">
+      <form onSubmit={create} className="glass animate-rise space-y-3 rounded-3xl p-4 sm:p-6">
+        <h3 className="text-lg font-black">🗂️ Create a folder</h3>
+        <p className="text-muted-foreground text-xs">
+          Only you can add files here — students can view, download and like them.
+        </p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Folder name">
+            <input
+              className={inputClass}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Mid 1"
+            />
+          </Field>
+          <Field label="Department">
+            <select
+              className={inputClass}
+              value={department}
+              onChange={(e) => setDepartment(e.target.value)}
+            >
+              {DEPARTMENTS.map((d) => (
+                <option key={d}>{d}</option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Year">
+            <select className={inputClass} value={year} onChange={(e) => setYear(e.target.value)}>
+              {YEARS.map((y) => (
+                <option key={y}>{y}</option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Semester">
+            <select
+              className={inputClass}
+              value={semester}
+              onChange={(e) => setSemester(e.target.value)}
+            >
+              {SEMESTERS.map((sm) => (
+                <option key={sm}>{sm}</option>
+              ))}
+            </select>
+          </Field>
+        </div>
+        <button className={btnClass} disabled={busy}>
+          Create folder
+        </button>
+      </form>
+
+      {!folders.length && <p className="text-muted-foreground text-sm">No folders yet.</p>}
+
+      {folders.map((f) => {
+        const inside = notes.filter((n) => n.folderId === f.id);
+        const open = openId === f.id;
+        return (
+          <section key={f.id} className="glass animate-rise space-y-3 rounded-3xl p-4 sm:p-6">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-lg font-black">🗂️ {f.name}</p>
+                <p className="text-muted-foreground text-xs">
+                  {f.department} · {f.year} · {f.semester} · {inside.length} file(s)
+                </p>
+              </div>
+              <button
+                type="button"
+                className={ghostBtnClass}
+                onClick={() => setOpenId(open ? null : f.id)}
+              >
+                {open ? "Close" : "Manage"}
+              </button>
+            </div>
+
+            {open && (
+              <div className="space-y-3">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field label="Rename">
+                    <input
+                      className={inputClass}
+                      defaultValue={f.name}
+                      onBlur={(e) =>
+                        e.target.value.trim() !== f.name &&
+                        void patch(f, { name: e.target.value.trim() })
+                      }
+                    />
+                  </Field>
+                  <Field label="Move to department">
+                    <select
+                      className={inputClass}
+                      value={f.department}
+                      onChange={(e) => void patch(f, { department: e.target.value })}
+                    >
+                      {DEPARTMENTS.map((d) => (
+                        <option key={d}>{d}</option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="Year">
+                    <select
+                      className={inputClass}
+                      value={f.year}
+                      onChange={(e) => void patch(f, { year: e.target.value })}
+                    >
+                      {YEARS.map((y) => (
+                        <option key={y}>{y}</option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="Semester">
+                    <select
+                      className={inputClass}
+                      value={f.semester}
+                      onChange={(e) => void patch(f, { semester: e.target.value })}
+                    >
+                      {SEMESTERS.map((sm) => (
+                        <option key={sm}>{sm}</option>
+                      ))}
+                    </select>
+                  </Field>
+                </div>
+
+                <label className={`${btnClass} inline-flex cursor-pointer`}>
+                  ⬆️ Add file
+                  <input
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png,.webp"
+                    className="hidden"
+                    onChange={(e) => void upload(f, e.target.files?.[0] ?? null)}
+                  />
+                </label>
+
+                <div className="space-y-2">
+                  {inside.map((n) => (
+                    <div
+                      key={n.id}
+                      className="border-border flex flex-wrap items-center gap-3 rounded-2xl border p-3"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-bold">{n.subject}</p>
+                        <p className="text-muted-foreground truncate text-xs">{n.fileName}</p>
+                      </div>
+                      <button
+                        type="button"
+                        className={ghostBtnClass}
+                        onClick={() => void removeFile(n)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  ))}
+                  {!inside.length && (
+                    <p className="text-muted-foreground text-sm">No files in this folder yet.</p>
+                  )}
+                </div>
+
+                <button type="button" className={ghostBtnClass} onClick={() => void remove(f)}>
+                  🗑 Delete folder
+                </button>
+              </div>
+            )}
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
+const ACCESS_LABELS: Record<AccessArea, string> = {
+  chat: "Chat with admin",
+  share: "Share notes",
+  feedback: "Feedback",
+};
+
+/** Reject a misbehaving student's access to chat, sharing or feedback. */
+function AccessAdmin() {
+  const [students, setStudents] = useState<User[] | null>(null);
+  const [q, setQ] = useState("");
+
+  const load = () =>
+    api<{ students: User[] }>("/api/admin/students")
+      .then((r) => setStudents(r.students))
+      .catch((e) => {
+        toast.error((e as Error).message);
+        setStudents([]);
+      });
+
+  useEffect(() => {
+    void load();
+  }, []);
+
+  const toggle = async (s: User, area: AccessArea) => {
+    const current = s.blocked ?? [];
+    const next = current.includes(area)
+      ? current.filter((a) => a !== area)
+      : [...current, area];
+    try {
+      await api(`/api/admin/students/${s.id}/access`, { method: "POST", body: { blocked: next } });
+      toast.success(
+        next.includes(area)
+          ? `${ACCESS_LABELS[area]} blocked for ${s.fullName}`
+          : `${ACCESS_LABELS[area]} restored for ${s.fullName}`,
+      );
+      await load();
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
+  };
+
+  if (students === null) return <Skeletons count={4} />;
+
+  const term = q.trim().toLowerCase();
+  const list = term
+    ? students.filter(
+        (s) =>
+          s.fullName.toLowerCase().includes(term) ||
+          s.registrationId.toLowerCase().includes(term),
+      )
+    : students;
+
+  return (
+    <div className="space-y-4">
+      <input
+        className={inputClass}
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        placeholder="🔍 Search a student by name or registration ID"
+      />
+      {list.map((s) => (
+        <section key={s.id} className="glass animate-rise space-y-3 rounded-3xl p-4">
+          <div>
+            <p className="font-bold">{s.fullName}</p>
+            <p className="text-muted-foreground text-xs">
+              {s.registrationId} · {s.department} · {s.year} · {s.semester}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {ACCESS_AREAS.map((area) => {
+              const blocked = (s.blocked ?? []).includes(area);
+              return (
+                <button
+                  key={area}
+                  type="button"
+                  onClick={() => void toggle(s, area)}
+                  className={`rounded-full px-4 py-2 text-xs font-bold transition-all ${
+                    blocked ? "bg-destructive text-white" : "glass"
+                  }`}
+                >
+                  {blocked ? "🚫" : "✅"} {ACCESS_LABELS[area]}
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      ))}
+      {!list.length && <p className="text-muted-foreground text-sm">No students found.</p>}
+    </div>
+  );
+}
+
+const TRASH_ICONS: Record<TrashItem["kind"], string> = {
+  note: "📄",
+  user: "👤",
+  content: "🖼️",
+  feedback: "⭐",
+  chat: "💬",
+  folder: "🗂️",
+};
+
+/** Recently deleted bin — everything is recoverable for 10 days. */
+function TrashAdmin() {
+  const [items, setItems] = useState<TrashItem[] | null>(null);
+
+  const load = () =>
+    api<{ trash: TrashItem[] }>("/api/admin/trash")
+      .then((r) => setItems(r.trash ?? []))
+      .catch((e) => {
+        toast.error((e as Error).message);
+        setItems([]);
+      });
+
+  useEffect(() => {
+    void load();
+  }, []);
+
+  const restore = async (item: TrashItem) => {
+    try {
+      await api(`/api/admin/trash/${item.id}`, { method: "POST" });
+      toast.success(`${item.label} restored`);
+      await load();
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
+  };
+
+  const purge = async (item: TrashItem) => {
+    if (!confirm(`Delete "${item.label}" for good? This cannot be undone.`)) return;
+    try {
+      await api(`/api/admin/trash/${item.id}`, { method: "DELETE" });
+      await load();
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
+  };
+
+  if (items === null) return <Skeletons count={4} />;
+
+  return (
+    <div className="space-y-4">
+      <p className="text-muted-foreground text-sm">
+        Deleted notes, students, content, feedback, chats and folders stay here for 10 days, then
+        they are removed automatically.
+      </p>
+      {!items.length && <p className="text-muted-foreground text-sm">The bin is empty.</p>}
+      {items.map((t) => {
+        const daysLeft = Math.max(
+          0,
+          10 - Math.floor((Date.now() - new Date(t.deletedAt).getTime()) / 86_400_000),
+        );
+        return (
+          <section
+            key={t.id}
+            className="glass animate-rise flex flex-wrap items-center gap-3 rounded-3xl p-4"
+          >
+            <span className="text-2xl">{TRASH_ICONS[t.kind]}</span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-bold">{t.label}</p>
+              <p className="text-muted-foreground truncate text-xs">
+                {t.kind} · {t.detail} · deleted by {t.deletedBy} ·{" "}
+                {new Date(t.deletedAt).toLocaleDateString()} · {daysLeft} day(s) left
+              </p>
+            </div>
+            <button type="button" className={btnClass} onClick={() => void restore(t)}>
+              Restore
+            </button>
+            <button type="button" className={ghostBtnClass} onClick={() => void purge(t)}>
+              Delete forever
+            </button>
+          </section>
+        );
+      })}
+    </div>
   );
 }

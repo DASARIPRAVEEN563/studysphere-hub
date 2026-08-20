@@ -25,14 +25,22 @@ export function WelcomeOverlay({
         <p className="text-cyan animate-rise text-xs font-semibold tracking-[0.4em] uppercase">
           Students Ka Notes Sharing Hub
         </p>
-        <h2 className="mt-3 text-4xl font-black sm:text-6xl">
-          {`Welcome ${name}`.split("").map((ch, i) => (
-            <span
-              key={`${ch}-${i}`}
-              className="animate-letter gradient-text animate-shine inline-block"
-              style={{ animationDelay: `${i * 45}ms` }}
-            >
-              {ch === " " ? "\u00A0" : ch}
+        {/* "Welcome" sits on its own line and every word of the name gets a
+            line of its own, so long names stay perfectly readable. */}
+        <h2 className="mt-3 text-4xl leading-tight font-black sm:text-6xl">
+          {["Welcome", ...name.split(/\s+/).filter(Boolean)].map((word, w, all) => (
+            <span key={`${word}-${w}`} className="block">
+              {word.split("").map((ch, i) => (
+                <span
+                  key={`${ch}-${i}`}
+                  className="animate-letter gradient-text animate-shine inline-block"
+                  style={{
+                    animationDelay: `${(all.slice(0, w).join("").length + i) * 45}ms`,
+                  }}
+                >
+                  {ch}
+                </span>
+              ))}
             </span>
           ))}
         </h2>

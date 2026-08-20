@@ -28,7 +28,9 @@ function Index() {
   const [intro, setIntro] = useState(true);
 
   useEffect(() => {
-    const t = setTimeout(() => setIntro(false), 2600);
+    // Held a little longer on purpose: this is the free brand moment where the
+    // hub name is shown before anyone signs in.
+    const t = setTimeout(() => setIntro(false), 6000);
     return () => clearTimeout(t);
   }, []);
 

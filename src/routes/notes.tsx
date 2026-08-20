@@ -12,6 +12,7 @@ import {
   noteViewUrl,
   SEMESTERS,
   YEARS,
+  type Folder,
   type Note,
 } from "@/lib/api";
 import { ensureFaceVerified } from "@/lib/verify";
@@ -47,11 +48,19 @@ function NotesPage() {
   const [year, setYear] = useState<string | null>(null);
   const [semester, setSemester] = useState<string | null>(null);
   const [subject, setSubject] = useState<string | null>(null);
+  const [folders, setFolders] = useState<Folder[]>([]);
+  const [folder, setFolder] = useState<Folder | null>(null);
   const [q, setQ] = useState("");
   const [dDept, setDDept] = useState("");
   const [dYear, setDYear] = useState("");
   const [dSem, setDSem] = useState("");
   const [sort, setSort] = useState<"recent" | "likes" | "downloads" | "views">("recent");
+
+  useEffect(() => {
+    api<{ folders: Folder[] }>("/api/folders")
+      .then((r) => setFolders(r.folders ?? []))
+      .catch(() => setFolders([]));
+  }, []);
 
   useEffect(() => {
     api<{ notes: Note[] }>("/api/notes")
@@ -100,9 +109,20 @@ function NotesPage() {
           (!department || n.department === department) &&
           (!year || n.year === year) &&
           (!semester || n.semester === semester) &&
+          // Files inside an admin folder only show up inside that folder.
+          (folder ? n.folderId === folder.id : !n.folderId) &&
           (!subject || n.subject === subject),
       ),
-    [notes, department, year, semester, subject],
+    [notes, department, year, semester, subject, folder],
+  );
+
+  /** Admin folders published for the semester the student is browsing. */
+  const semesterFolders = useMemo(
+    () =>
+      folders.filter(
+        (f) => f.department === department && f.year === year && f.semester === semester,
+      ),
+    [folders, department, year, semester],
   );
 
   const subjects = useMemo(
@@ -119,10 +139,11 @@ function NotesPage() {
   );
 
   const crumbs = [
-    { label: "Departments", onClick: () => { setDepartment(null); setYear(null); setSemester(null); setSubject(null); } },
-    department && { label: department, onClick: () => { setYear(null); setSemester(null); setSubject(null); } },
-    year && { label: year, onClick: () => { setSemester(null); setSubject(null); } },
-    semester && { label: semester, onClick: () => setSubject(null) },
+    { label: "Departments", onClick: () => { setDepartment(null); setYear(null); setSemester(null); setSubject(null); setFolder(null); } },
+    department && { label: department, onClick: () => { setYear(null); setSemester(null); setSubject(null); setFolder(null); } },
+    year && { label: year, onClick: () => { setSemester(null); setSubject(null); setFolder(null); } },
+    semester && { label: semester, onClick: () => { setSubject(null); setFolder(null); } },
+    folder && { label: `📁 ${folder.name}`, onClick: () => setSubject(null) },
     subject && { label: subject, onClick: () => {} },
   ].filter(Boolean) as { label: string; onClick: () => void }[];
 
@@ -331,21 +352,51 @@ function NotesPage() {
           onPick={setSemester}
           icon="📚"
         />
-      ) : !subject ? (
-        subjects.length ? (
-          <Grid
-            items={subjects.map((s) => ({
-              label: s,
-              sub: `${scoped.filter((n) => n.subject === s).length} file(s) · shared by ${Array.from(
-                new Set(scoped.filter((n) => n.subject === s).map((n) => n.uploadedBy)),
-              ).join(", ")}`,
-            }))}
-            onPick={setSubject}
-            icon="📁"
+      ) : folder ? (
+        scoped.length ? (
+          <FileGrid
+            notes={applySort(scoped)}
+            onView={view}
+            onDownload={download}
+            onLike={like}
+            meId={me?.id}
+            opening={opening}
           />
         ) : (
-          <Empty text="No subjects uploaded here yet." />
+          <Empty text="The admin has not added any file to this folder yet." />
         )
+      ) : !subject ? (
+        <>
+          {semesterFolders.length > 0 && (
+            <section className="mb-8">
+              <h3 className="mb-3 text-lg font-bold">Admin folders</h3>
+              <Grid
+                items={semesterFolders.map((f) => ({
+                  label: f.name,
+                  sub: `${(notes ?? []).filter((n) => n.folderId === f.id).length} file(s) · added by admin`,
+                }))}
+                onPick={(name) =>
+                  setFolder(semesterFolders.find((f) => f.name === name) ?? null)
+                }
+                icon="🗂️"
+              />
+            </section>
+          )}
+          {subjects.length ? (
+            <Grid
+              items={subjects.map((s) => ({
+                label: s,
+                sub: `${scoped.filter((n) => n.subject === s).length} file(s) · shared by ${Array.from(
+                  new Set(scoped.filter((n) => n.subject === s).map((n) => n.uploadedBy)),
+                ).join(", ")}`,
+              }))}
+              onPick={setSubject}
+              icon="📁"
+            />
+          ) : semesterFolders.length ? null : (
+            <Empty text="No subjects uploaded here yet." />
+          )}
+        </>
       ) : scoped.length ? (
         <FileGrid
           notes={applySort(scoped)}
@@ -411,7 +462,10 @@ function NotesPage() {
         <NoteViewer
           note={viewing.note}
           url={viewing.url}
-          onClose={() => setViewing(null)}
+          onClose={() => {
+            if (viewing.url.startsWith("blob:")) URL.revokeObjectURL(viewing.url);
+            setViewing(null);
+          }}
         />
       )}
     </AppShell>
@@ -557,9 +611,11 @@ function NoteViewer({ note, url, onClose }: { note: Note; url: string; onClose: 
         </div>
         <div className="min-h-0 flex-1 overflow-auto rounded-2xl bg-white">
           {isPdf ? (
-            <object data={url} type="application/pdf" className="size-full min-h-[60vh]">
-              <iframe src={url} title={note.fileName} className="size-full min-h-[60vh] border-0" />
-            </object>
+            <iframe
+              src={url}
+              title={note.fileName}
+              className="size-full min-h-[70vh] border-0"
+            />
           ) : (
             <img src={url} alt={note.fileName} className="mx-auto max-h-full w-auto object-contain" />
           )}

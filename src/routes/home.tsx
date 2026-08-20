@@ -5,6 +5,7 @@ import { AppShell, useRequireAuth } from "@/components/AppShell";
 import { BookLoader } from "@/components/BookLoader";
 import { FlipbookViewer } from "@/components/FlipbookViewer";
 import { ContentEffect } from "@/components/ContentEffect";
+import { Logo3D } from "@/components/Logo3D";
 import { btnClass, inputClass } from "@/components/Field";
 import { api, type ContentItem, type Feedback } from "@/lib/api";
 
@@ -102,6 +103,16 @@ function HomeContent() {
 
   return (
     <AppShell title={user ? `Welcome, ${user.fullName}` : "Home"}>
+      {/* Hover the logo to reveal the credit line. */}
+      <section className="glass animate-rise mb-6 flex items-center gap-4 rounded-3xl p-5">
+        <Logo3D size={64} credit className="animate-float" />
+        <div className="min-w-0">
+          <h2 className="gradient-text text-xl font-black">Students Ka Notes Sharing Hub</h2>
+          <p className="text-muted-foreground text-xs">
+            Notices, timetables, gallery and campus updates — all in one place.
+          </p>
+        </div>
+      </section>
       {items === null ? (
         <BookLoader label="Loading updates" />
       ) : (

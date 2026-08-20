@@ -11,6 +11,7 @@ import { Leaderboard } from "@/components/Leaderboard";
 import { LikeNotifications } from "@/components/LikeNotifications";
 import { ThemePicker } from "@/components/ThemePicker";
 import { InstallApp } from "@/components/InstallApp";
+import { Updates } from "@/components/Updates";
 import { api, auth, DEPARTMENTS, SEMESTERS, YEARS, type User } from "@/lib/api";
 
 export const Route = createFileRoute("/profile")({
@@ -232,6 +233,7 @@ function ProfilePage() {
         <LikeNotifications />
         <Leaderboard meId={user.id} />
         <AdminCreator user={user} />
+        <Updates />
         <ThemePicker />
         <ShareSite />
         <InstallApp />

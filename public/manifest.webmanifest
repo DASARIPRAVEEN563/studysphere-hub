@@ -1,7 +1,7 @@
 {
-  "name": "Students Ka Notes Sharing Hub",
+  "name": "SKNSH",
   "short_name": "SKNSH",
-  "description": "Share and download college notes with your department, year and semester.",
+  "description": "Students Ka Notes Sharing Hub — share and download college notes.",
   "start_url": "/home",
   "scope": "/",
   "display": "standalone",

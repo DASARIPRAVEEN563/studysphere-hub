@@ -6,13 +6,16 @@
  */
 import { cloudAuth, cloudCode, cloudFile, cloudLoad, cloudSave } from "./cloud-state.functions";
 import type {
+  AccessArea,
   AppNotification,
   ChatMessage,
   ChatThread,
   ContentItem,
   Feedback,
+  Folder,
   LeaderRow,
   Note,
+  TrashItem,
   User,
 } from "./api";
 
@@ -38,6 +41,10 @@ type DB = {
   fileIds?: string[];
   /** Blobs deleted locally, applied server-side on the next save. */
   filesRemove?: string[];
+  /** Admin-managed folders (Mid 1, Mid 2 …) inside a semester. */
+  folders?: Folder[];
+  /** Recently deleted records, kept for 10 days. */
+  trash?: TrashItem[];
 };
 
 const empty = (): DB => ({
@@ -51,6 +58,8 @@ const empty = (): DB => ({
   notifications: [],
   fileIds: [],
   filesRemove: [],
+  folders: [],
+  trash: [],
 });
 
 /** In-memory copy of the cloud document (mirrored to localStorage for offline use). */
@@ -217,6 +226,54 @@ function shapeNote(db: DB, n: Note, meId: string): Note {
   };
 }
 
+/** Recently-deleted records are recoverable for this long, then purged for good. */
+const TRASH_DAYS = 10;
+
+/** Moves a record to "Recently deleted" instead of destroying it. */
+function toTrash(
+  db: DB,
+  kind: TrashItem["kind"],
+  label: string,
+  payload: any,
+  detail: string,
+  by: string,
+) {
+  db.trash = db.trash ?? [];
+  db.trash.unshift({
+    id: id(),
+    kind,
+    label,
+    detail,
+    deletedAt: new Date().toISOString(),
+    deletedBy: by,
+    payload,
+  });
+}
+
+/** Drops bin entries older than 10 days (and their file blobs), like a phone gallery. */
+function purgeTrash(db: DB) {
+  const list = db.trash ?? [];
+  const cutoff = Date.now() - TRASH_DAYS * 86_400_000;
+  const stale = list.filter((t) => new Date(t.deletedAt).getTime() < cutoff);
+  if (!stale.length) return;
+  db.trash = list.filter((t) => new Date(t.deletedAt).getTime() >= cutoff);
+  const blobs = stale.filter((t) => t.kind === "note").map((t) => String(t.payload?.id));
+  if (blobs.length) db.filesRemove = [...(db.filesRemove ?? []), ...blobs];
+}
+
+/** Throws when an admin has rejected this student's access to a feature. */
+function assertAllowed(user: StoredUser, area: AccessArea) {
+  if (user.role === "admin") return;
+  if ((user.blocked ?? []).includes(area))
+    throw new OfflineError(
+      area === "chat"
+        ? "The admin has removed your access to chat"
+        : area === "share"
+          ? "The admin has removed your access to share notes"
+          : "The admin has removed your access to feedback",
+    );
+}
+
 /** ds -> ds01 -> ds02 when the subject folder already exists in the same scope. */
 function uniqueSubject(db: DB, subject: string, dept: string, year: string, sem: string) {
   const taken = new Set(
@@ -342,6 +399,7 @@ export async function offlineRequest(
   // Reads reuse the fresh in-memory copy; writes re-sync only when it is stale.
   const db = await pull(method !== "GET" && Date.now() - pulledAt > WRITE_FRESH_MS);
   seed(db);
+  purgeTrash(db);
   const me = currentUser(db, token);
   /** Returns a promise: await it whenever the next request depends on the write. */
   const save = () => push(db);
@@ -435,6 +493,7 @@ export async function offlineRequest(
   // ---- feedback ----
   if (url === "/api/feedback") {
     if (method === "POST") {
+      assertAllowed(me, "feedback");
       const item: Feedback = {
         id: id(),
         userName: me.fullName,
@@ -453,6 +512,7 @@ export async function offlineRequest(
   // ---- chat with admin ----
   if (url === "/api/chat") {
     if (method === "POST") {
+      assertAllowed(me, "chat");
       const msg: ChatMessage = {
         id: id(),
         userId: me.id,
@@ -520,6 +580,9 @@ export async function offlineRequest(
     return { given: db.feedback.some((f) => f.registrationId === me.registrationId) };
   }
 
+  // Admin-managed folders are readable by everybody (view / download / like).
+  if (url === "/api/folders") return { folders: db.folders ?? [] };
+
   if (url === "/api/notes") return { notes: db.notes.map((n) => shapeNote(db, n, me.id)) };
 
   if (url.startsWith("/api/notes/") && url.endsWith("/like") && method === "POST") {
@@ -559,6 +622,10 @@ export async function offlineRequest(
   }
 
   if (url === "/api/notes/upload" && form) {
+    assertAllowed(me, "share");
+    const folderId = String(form.get("folderId") ?? "").trim() || null;
+    if (folderId && me.role !== "admin")
+      throw new OfflineError("Only the admin can share notes inside this folder");
     const file = form.get("file") as File;
     const department = String(form.get("department"));
     const year = String(form.get("year"));
@@ -577,6 +644,7 @@ export async function offlineRequest(
       uploadedById: me.id,
       uploadedAt: new Date().toISOString(),
       note: extra || null,
+      folderId,
       driveFileId: null,
       likes: 0,
       views: 0,
@@ -615,8 +683,7 @@ export async function offlineRequest(
     if (!owns) throw new OfflineError("You can only manage the notes you shared");
     if (method === "DELETE") {
       db.notes.splice(idx, 1);
-      delete db.files[nid];
-      db.filesRemove = [...(db.filesRemove ?? []), nid];
+      toTrash(db, "note", note.subject, note, `${note.fileName} · ${note.department}`, me.fullName);
       await save();
       return { ok: true };
     }
@@ -635,6 +702,154 @@ export async function offlineRequest(
     if (me.role !== "admin") throw new OfflineError("Admin access required");
 
     if (url === "/api/admin/notes") return { notes: db.notes };
+
+    // ---- admin-managed folders (Mid 1, Mid 2 …) ----
+    if (url === "/api/admin/folders") {
+      if (method === "POST") {
+        const name = String(body?.name ?? "").trim();
+        if (!name) throw new OfflineError("Folder name is required");
+        const department = String(body?.department ?? "");
+        const year = String(body?.year ?? "");
+        const semester = String(body?.semester ?? "");
+        if (!department || !year || !semester)
+          throw new OfflineError("Pick a department, year and semester");
+        db.folders = db.folders ?? [];
+        if (
+          db.folders.some(
+            (f) =>
+              f.department === department &&
+              f.year === year &&
+              f.semester === semester &&
+              f.name.toLowerCase() === name.toLowerCase(),
+          )
+        )
+          throw new OfflineError("A folder with this name already exists here");
+        const folder: Folder = {
+          id: id(),
+          name,
+          department,
+          year,
+          semester,
+          createdAt: new Date().toISOString(),
+        };
+        db.folders.unshift(folder);
+        await save();
+        return { folder };
+      }
+      return { folders: db.folders ?? [] };
+    }
+
+    if (url.startsWith("/api/admin/folders/")) {
+      const fid = url.split("/")[4]!;
+      db.folders = db.folders ?? [];
+      const folder = db.folders.find((f) => f.id === fid);
+      if (!folder) throw new OfflineError("Folder not found");
+      if (method === "DELETE") {
+        const inside = db.notes.filter((n) => n.folderId === fid);
+        db.notes = db.notes.filter((n) => n.folderId !== fid);
+        db.folders = db.folders.filter((f) => f.id !== fid);
+        toTrash(
+          db,
+          "folder",
+          folder.name,
+          { folder, notes: inside },
+          `${folder.department} · ${folder.year} · ${folder.semester} · ${inside.length} file(s)`,
+          me.fullName,
+        );
+        await save();
+        return { ok: true };
+      }
+      // Rename and/or move the folder — the files inside travel with it.
+      const name = String(body?.name ?? folder.name).trim();
+      if (!name) throw new OfflineError("Folder name is required");
+      const department = String(body?.department ?? folder.department);
+      const year = String(body?.year ?? folder.year);
+      const semester = String(body?.semester ?? folder.semester);
+      Object.assign(folder, { name, department, year, semester });
+      db.notes.forEach((n) => {
+        if (n.folderId === fid) Object.assign(n, { department, year, semester });
+      });
+      await save();
+      return { folder };
+    }
+
+    // ---- recently deleted (10 day recovery bin) ----
+    if (url === "/api/admin/trash") return { trash: db.trash ?? [] };
+
+    if (url.startsWith("/api/admin/trash/")) {
+      const tid = url.split("/")[4]!;
+      db.trash = db.trash ?? [];
+      const entry = db.trash.find((t) => t.id === tid);
+      if (!entry) throw new OfflineError("Item not found in the bin");
+      if (method === "POST") {
+        if (entry.kind === "note") db.notes.unshift(entry.payload);
+        else if (entry.kind === "user") db.users.push(entry.payload);
+        else if (entry.kind === "content") db.content.unshift(entry.payload);
+        else if (entry.kind === "feedback") db.feedback.unshift(entry.payload);
+        else if (entry.kind === "chat")
+          db.chats.push(...(Array.isArray(entry.payload) ? entry.payload : [entry.payload]));
+        else if (entry.kind === "folder") {
+          db.folders = [...(db.folders ?? []), entry.payload.folder];
+          db.notes.unshift(...(entry.payload.notes ?? []));
+        }
+        db.trash = db.trash.filter((t) => t.id !== tid);
+        await save();
+        return { ok: true, restored: entry.kind };
+      }
+      if (method === "DELETE") {
+        if (entry.kind === "note")
+          db.filesRemove = [...(db.filesRemove ?? []), String(entry.payload?.id)];
+        if (entry.kind === "folder")
+          db.filesRemove = [
+            ...(db.filesRemove ?? []),
+            ...(entry.payload?.notes ?? []).map((n: Note) => n.id),
+          ];
+        db.trash = db.trash.filter((t) => t.id !== tid);
+        await save();
+        return { ok: true };
+      }
+    }
+
+    // ---- access reject: take chat / share / feedback away from a student ----
+    if (url.startsWith("/api/admin/students/") && url.endsWith("/access") && method === "POST") {
+      const uid = url.split("/")[4]!;
+      const target = db.users.find((u) => u.id === uid);
+      if (!target) throw new OfflineError("Student not found");
+      const allowed = ["chat", "share", "feedback"];
+      const list = Array.isArray(body?.blocked) ? body.blocked : [];
+      target.blocked = list.filter((a: string) => allowed.includes(a)) as AccessArea[];
+      await save();
+      return { user: publicUser(target) };
+    }
+
+    // ---- admin removes chat messages ----
+    if (url.startsWith("/api/admin/chat/") && method === "DELETE") {
+      const parts = url.split("/");
+      if (parts[4] === "message") {
+        const mid = parts[5]!;
+        const gone = db.chats.find((c) => c.id === mid);
+        if (!gone) throw new OfflineError("Message not found");
+        db.chats = db.chats.filter((c) => c.id !== mid);
+        toTrash(db, "chat", gone.text || "Photo message", gone, `from ${gone.from}`, me.fullName);
+        await save();
+        return { ok: true };
+      }
+      const uid = parts[4]!;
+      const thread = db.chats.filter((c) => c.userId === uid);
+      if (!thread.length) throw new OfflineError("This conversation is already empty");
+      db.chats = db.chats.filter((c) => c.userId !== uid);
+      const owner = db.users.find((u) => u.id === uid);
+      toTrash(
+        db,
+        "chat",
+        `Conversation with ${owner?.fullName ?? "student"}`,
+        thread,
+        `${thread.length} message(s)`,
+        me.fullName,
+      );
+      await save();
+      return { ok: true, removed: thread.length };
+    }
 
     if (url === "/api/admin/chat") {
       const threads: ChatThread[] = db.users
@@ -688,9 +903,10 @@ export async function offlineRequest(
 
     if (url.startsWith("/api/admin/feedback/") && method === "DELETE") {
       const fid = url.split("/").pop();
-      const before = db.feedback.length;
+      const gone = db.feedback.find((f) => f.id === fid);
+      if (!gone) throw new OfflineError("Feedback not found");
       db.feedback = db.feedback.filter((f) => f.id !== fid);
-      if (db.feedback.length === before) throw new OfflineError("Feedback not found");
+      toTrash(db, "feedback", gone.userName, gone, gone.comment.slice(0, 60), me.fullName);
       save();
       return { ok: true };
     }
@@ -715,8 +931,11 @@ export async function offlineRequest(
       const cid = url.split("/")[4]!;
       const idx = db.content.findIndex((c) => c.id === cid);
       if (idx < 0) throw new OfflineError("Content not found");
-      if (method === "DELETE") db.content.splice(idx, 1);
-      else Object.assign(db.content[idx]!, body);
+      if (method === "DELETE") {
+        const gone = db.content[idx]!;
+        db.content.splice(idx, 1);
+        toTrash(db, "content", gone.title, gone, gone.type, me.fullName);
+      } else Object.assign(db.content[idx]!, body);
       save();
       return { ok: true };
     }
@@ -726,9 +945,9 @@ export async function offlineRequest(
       const idx = db.notes.findIndex((n) => n.id === nid);
       if (idx < 0) throw new OfflineError("Note not found");
       if (method === "DELETE") {
+        const gone = db.notes[idx]!;
         db.notes.splice(idx, 1);
-        delete db.files[nid];
-        db.filesRemove = [...(db.filesRemove ?? []), nid];
+        toTrash(db, "note", gone.subject, gone, `${gone.fileName} · ${gone.department}`, me.fullName);
       } else {
         Object.assign(db.notes[idx]!, body);
       }
@@ -842,6 +1061,14 @@ export async function offlineRequest(
           throw new OfflineError("The master admin account cannot be deleted");
       }
       db.users.splice(idx, 1);
+      toTrash(
+        db,
+        "user",
+        target.fullName,
+        target,
+        `${target.registrationId} · ${target.department}`,
+        me.fullName,
+      );
       save();
       return { message: target.role === "admin" ? "Admin deleted" : "Student deleted" };
     }
