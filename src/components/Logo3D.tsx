@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 
-export const LOGO_SRC =
-  "https://static.vecteezy.com/system/resources/thumbnails/054/043/179/small_2x/3d-icon-happy-student-man-icon-with-headphones-using-a-laptop-sitting-on-a-stack-of-books-online-education-studying-and-learning-with-a-transparent-background-png.png";
+/** The project's own brand icon — also used for the favicon and mobile install. */
+export const LOGO_SRC = "/app-icon.png";
 
-/** 3D student mascot that rotates and tilts as the cursor moves over it. */
+/** 3D brand logo that rotates and tilts as the cursor moves over it. */
 export function Logo3D({
   size = 96,
   className = "",
