@@ -13,10 +13,14 @@ import {
   downloadStudentsExcel,
   SEMESTERS,
   YEARS,
+  ACCESS_AREAS,
+  type AccessArea,
   type ChatThread,
   type ContentItem,
   type Feedback,
+  type Folder,
   type Note,
+  type TrashItem,
   type User,
 } from "@/lib/api";
 
@@ -45,7 +49,29 @@ const CONTENT_TYPES = [
   "advertisement",
 ] as const;
 
-const TABS = ["notes", "content", "chat", "email", "feedback", "students"] as const;
+const TABS = [
+  "notes",
+  "folders",
+  "content",
+  "chat",
+  "email",
+  "feedback",
+  "students",
+  "access",
+  "bin",
+] as const;
+
+const TAB_LABELS: Record<(typeof TABS)[number], string> = {
+  notes: "Notes",
+  folders: "Folders",
+  content: "Content",
+  chat: "Chat",
+  email: "Email",
+  feedback: "Feedback",
+  students: "Students",
+  access: "Access reject",
+  bin: "Recently deleted",
+};
 
 const BADGES = ["", "NEW", "IMPORTANT", "URGENT", "HOT", "EVENT", "UPDATE"] as const;
 
@@ -67,7 +93,7 @@ function AdminPage() {
                 tab === t ? "hero-gradient text-white shadow-lg" : "glass"
               }`}
             >
-              {t}
+              {TAB_LABELS[t]}
               {t === "chat" && unread > 0 && (
                 <span className="bg-destructive absolute -top-1 -right-1 grid min-w-5 animate-bounce place-items-center rounded-full px-1.5 text-[10px] font-black text-white">
                   {unread}
@@ -79,6 +105,9 @@ function AdminPage() {
       }
     >
       {tab === "notes" && <NotesAdmin />}
+      {tab === "folders" && <FoldersAdmin />}
+      {tab === "access" && <AccessAdmin />}
+      {tab === "bin" && <TrashAdmin />}
       {tab === "content" && <ContentAdmin />}
       {tab === "chat" && <ChatAdmin />}
       {tab === "email" && <EmailAdmin />}
@@ -678,6 +707,28 @@ function ChatAdmin() {
     }
   };
 
+  /** Removes one message, or the whole conversation, into "Recently deleted". */
+  const removeMessage = async (messageId: string) => {
+    try {
+      await api(`/api/admin/chat/message/${messageId}`, { method: "DELETE" });
+      await load();
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
+  };
+
+  const clearThread = async (userId: string, name: string) => {
+    if (!confirm(`Delete the whole conversation with ${name}? You can restore it from the bin.`))
+      return;
+    try {
+      await api(`/api/admin/chat/${userId}`, { method: "DELETE" });
+      setActiveId(null);
+      await load();
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
+  };
+
   const load = () =>
     api<{ threads: ChatThread[] }>("/api/admin/chat")
       .then((r) => setThreads(r.threads))
@@ -878,11 +929,20 @@ function ChatAdmin() {
             </p>
           ) : (
             <>
-              <div className="border-border border-b pb-3">
-                <p className="font-black">{active.fullName}</p>
-                <p className="text-muted-foreground text-xs">
-                  {active.registrationId} · {active.department} · {active.year} · {active.semester}
-                </p>
+              <div className="border-border flex items-start gap-2 border-b pb-3">
+                <div className="min-w-0 flex-1">
+                  <p className="font-black">{active.fullName}</p>
+                  <p className="text-muted-foreground text-xs">
+                    {active.registrationId} · {active.department} · {active.year} · {active.semester}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className={ghostBtnClass}
+                  onClick={() => void clearThread(active.userId, active.fullName)}
+                >
+                  🗑 Clear chat
+                </button>
               </div>
               <div className="flex-1 space-y-2 overflow-y-auto py-3">
                 {!active.messages.length && (
@@ -891,8 +951,18 @@ function ChatAdmin() {
                 {active.messages.map((m) => (
                   <div
                     key={m.id}
-                    className={`flex ${m.from === "admin" ? "justify-end" : "justify-start"}`}
+                    className={`group flex items-center gap-1 ${m.from === "admin" ? "justify-end" : "justify-start"}`}
                   >
+                    {m.from === "admin" && (
+                      <button
+                        type="button"
+                        aria-label="Delete message"
+                        onClick={() => void removeMessage(m.id)}
+                        className="text-muted-foreground shrink-0 text-xs opacity-60 hover:opacity-100"
+                      >
+                        🗑
+                      </button>
+                    )}
                     <div
                       className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm ${
                         m.from === "admin" ? "hero-gradient text-white" : "bg-muted"
@@ -911,6 +981,16 @@ function ChatAdmin() {
                         {new Date(m.createdAt).toLocaleTimeString()}
                       </p>
                     </div>
+                    {m.from !== "admin" && (
+                      <button
+                        type="button"
+                        aria-label="Delete message"
+                        onClick={() => void removeMessage(m.id)}
+                        className="text-muted-foreground shrink-0 text-xs opacity-60 hover:opacity-100"
+                      >
+                        🗑
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
