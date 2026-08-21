@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { UserImage } from "@/components/UserImage";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AppShell, useRequireAuth } from "@/components/AppShell";
@@ -92,7 +93,7 @@ function ProfilePage() {
         <section className="glass animate-rise rounded-3xl p-8 text-center transition-transform hover:-translate-y-1">
           <div className="hero-gradient glow mx-auto grid size-28 place-items-center overflow-hidden rounded-full text-3xl font-black text-white">
             {user.profilePicture ? (
-              <img src={user.profilePicture} alt={user.fullName} className="size-full object-cover" />
+              <UserImage src={user.profilePicture} alt={user.fullName} className="size-full object-cover" />
             ) : (
               user.fullName.charAt(0).toUpperCase()
             )}
