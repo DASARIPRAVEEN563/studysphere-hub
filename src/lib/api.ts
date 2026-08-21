@@ -261,13 +261,9 @@ function isNetworkError(err: unknown) {
   return err instanceof TypeError || (err as Error)?.message === "Failed to fetch";
 }
 
-function saveBlobUrl(url: string, fileName: string) {
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = fileName;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
+async function saveBlobUrl(url: string, fileName: string) {
+  const { saveFileToDevice } = await import("./native-files");
+  await saveFileToDevice(url, fileName);
 }
 
 async function handle(res: Response) {
@@ -312,7 +308,7 @@ export async function downloadNote(note: Note) {
       token,
       undefined,
     );
-    saveBlobUrl(dataUrl, note.fileName);
+    await saveBlobUrl(dataUrl, note.fileName);
     return;
   }
   try {
@@ -322,7 +318,7 @@ export async function downloadNote(note: Note) {
     if (!res.ok) throw new Error("Download failed");
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
-    saveBlobUrl(url, note.fileName);
+    await saveBlobUrl(url, note.fileName);
     URL.revokeObjectURL(url);
   } catch (err) {
     if (!isNetworkError(err)) throw err;
@@ -332,7 +328,7 @@ export async function downloadNote(note: Note) {
       token,
       undefined,
     );
-    saveBlobUrl(dataUrl, note.fileName);
+    await saveBlobUrl(dataUrl, note.fileName);
   }
 }
 
@@ -341,7 +337,7 @@ export async function downloadStudentsExcel() {
   if (!API_BASE) {
     const csv = offlineStudentsCsv();
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-    saveBlobUrl(url, "students.csv");
+    await saveBlobUrl(url, "students.csv");
     URL.revokeObjectURL(url);
     return "students.csv";
   }
@@ -352,14 +348,14 @@ export async function downloadStudentsExcel() {
     if (!res.ok) throw new Error("Export failed");
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
-    saveBlobUrl(url, "students.xlsx");
+    await saveBlobUrl(url, "students.xlsx");
     URL.revokeObjectURL(url);
     return "students.xlsx";
   } catch (err) {
     if (!isNetworkError(err)) throw err;
     const csv = offlineStudentsCsv();
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-    saveBlobUrl(url, "students.csv");
+    await saveBlobUrl(url, "students.csv");
     URL.revokeObjectURL(url);
     return "students.csv";
   }
