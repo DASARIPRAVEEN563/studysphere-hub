@@ -62,6 +62,15 @@ def main():
 
     logo = Image.open(SOURCE).convert("RGBA")
 
+    # Remove Capacitor's default icons (often .webp) — otherwise Android keeps
+    # showing the OLD logo because .webp wins over the .png we generate.
+    removed = 0
+    for stale in RES_DIR.glob("mipmap-*/ic_launcher*.webp"):
+        stale.unlink()
+        removed += 1
+    if removed:
+        print(f"Removed {removed} old default icon file(s) (.webp)")
+
     for folder, size in DENSITIES.items():
         target_dir = RES_DIR / folder
         target_dir.mkdir(parents=True, exist_ok=True)
@@ -74,9 +83,9 @@ def main():
         legacy = Image.new("RGBA", (size, size), BACKGROUND_COLOR)
         legacy.paste(foreground, (0, 0), foreground)
         legacy.save(target_dir / "ic_launcher.png")
+        legacy.save(target_dir / "ic_launcher_round.png")
 
-        print(f"Generated {folder}/ic_launcher_foreground.png ({size}x{size})")
-        print(f"Generated {folder}/ic_launcher.png ({size}x{size})")
+        print(f"Generated {folder}/ic_launcher*.png ({size}x{size})")
 
     for folder, size in BACKGROUND_DENSITIES.items():
         target_dir = RES_DIR / folder
@@ -85,9 +94,26 @@ def main():
         background.save(target_dir / "ic_launcher_background.png")
         print(f"Generated {folder}/ic_launcher_background.png ({size}x{size})")
 
+    # Adaptive icon definitions so Android 8+ uses our layers
+    anydpi = RES_DIR / "mipmap-anydpi-v26"
+    anydpi.mkdir(parents=True, exist_ok=True)
+    xml = (
+        '<?xml version="1.0" encoding="utf-8"?>\n'
+        '<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">\n'
+        '    <background android:drawable="@mipmap/ic_launcher_background"/>\n'
+        '    <foreground android:drawable="@mipmap/ic_launcher_foreground"/>\n'
+        '</adaptive-icon>\n'
+    )
+    (anydpi / "ic_launcher.xml").write_text(xml)
+    (anydpi / "ic_launcher_round.xml").write_text(xml)
+    print("Generated mipmap-anydpi-v26 adaptive icon XML")
+
+
     print("\nDone! Now rebuild the APK:")
     print("  cd android")
-    print("  ./gradlew assembleDebug   (Windows: gradlew.bat assembleDebug)")
+    print("  gradlew.bat clean assembleDebug   (Mac/Linux: ./gradlew clean assembleDebug)")
+    print("Then UNINSTALL the old app on the phone before installing the new APK.")
+
 
 
 if __name__ == "__main__":
