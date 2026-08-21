@@ -81,7 +81,7 @@ function SignupPage() {
                 required
               />
             </Field>
-            <Field label="Password">
+            <Field label="Create Password">
               <PasswordInput
                 value={form.password}
                 onChange={(v) => set("password", v)}

@@ -1498,39 +1498,192 @@ function StudentCard({
   isMaster: boolean;
   onDelete: (s: User) => void;
 }) {
+  const [open, setOpen] = useState(false);
   return (
-    <article className="glass animate-rise flex gap-3 rounded-2xl p-4 sm:gap-4 sm:p-5">
-      <div className="bg-muted size-16 shrink-0 overflow-hidden rounded-xl">
-        {s.faceImage ? (
-          <img src={s.faceImage} alt={s.fullName} className="size-full object-cover" />
-        ) : (
-          <div className="text-muted-foreground grid size-full place-items-center text-xs">
-            No face
+    <>
+      <article
+        onClick={() => setOpen(true)}
+        className="glass animate-rise flex cursor-pointer gap-3 rounded-2xl p-4 transition-transform hover:-translate-y-1 sm:gap-4 sm:p-5"
+      >
+        <div className="bg-muted size-16 shrink-0 overflow-hidden rounded-xl">
+          {s.profilePicture || s.faceImage ? (
+            <img
+              src={(s.profilePicture || s.faceImage) as string}
+              alt={s.fullName}
+              className="size-full object-cover"
+            />
+          ) : (
+            <div className="text-muted-foreground grid size-full place-items-center text-xs">
+              No photo
+            </div>
+          )}
+        </div>
+        <div className="min-w-0">
+          <p className="truncate font-bold">{s.fullName}</p>
+          <p className="text-muted-foreground text-xs">{s.registrationId}</p>
+          <p className="text-cyan text-xs">
+            {s.department} · {s.year} · {s.semester}
+          </p>
+          <p className="mt-1 text-xs">
+            ⭐ {s.stars ?? 0} · {s.sharedCount} shared · {s.downloadedCount} downloaded ·{" "}
+            {s.faceVerified ? "Verified" : "Unverified"}
+          </p>
+          <p className="text-muted-foreground mt-1 text-[11px] font-semibold">
+            Tap for full details →
+          </p>
+        </div>
+      </article>
+      {open && (
+        <StudentDetails
+          s={s}
+          isMaster={isMaster}
+          onDelete={onDelete}
+          onClose={() => setOpen(false)}
+        />
+      )}
+    </>
+  );
+}
+
+/** Full profile of one student: photo, account cards and their shared notes. */
+function StudentDetails({
+  s,
+  isMaster,
+  onDelete,
+  onClose,
+}: {
+  s: User;
+  isMaster: boolean;
+  onDelete: (s: User) => void;
+  onClose: () => void;
+}) {
+  const [notes, setNotes] = useState<Note[] | null>(null);
+
+  useEffect(() => {
+    api<{ notes: Note[] }>("/api/admin/notes")
+      .then((r) => setNotes(r.notes.filter((n) => n.uploadedById === s.id)))
+      .catch(() => setNotes([]));
+  }, [s.id]);
+
+  const stat = (label: string, value: string | number, icon: string) => (
+    <div key={label} className="glass rounded-2xl p-4 text-center">
+      <p className="text-xl">{icon}</p>
+      <p className="text-lg font-black">{value}</p>
+      <p className="text-muted-foreground text-[11px] font-semibold uppercase">{label}</p>
+    </div>
+  );
+
+  return (
+    <div
+      className="fixed inset-0 z-[140] grid place-items-center overflow-y-auto bg-black/70 px-3 py-8 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="glass animate-rise w-full max-w-2xl space-y-5 rounded-3xl p-5 sm:p-7"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start gap-4">
+          <div className="bg-muted size-20 shrink-0 overflow-hidden rounded-2xl">
+            {s.profilePicture || s.faceImage ? (
+              <img
+                src={(s.profilePicture || s.faceImage) as string}
+                alt={s.fullName}
+                className="size-full object-cover"
+              />
+            ) : (
+              <div className="text-muted-foreground grid size-full place-items-center text-xs">
+                No photo
+              </div>
+            )}
           </div>
-        )}
-      </div>
-      <div className="min-w-0">
-        <p className="truncate font-bold">{s.fullName}</p>
-        <p className="text-muted-foreground text-xs">{s.registrationId}</p>
-        <p className="text-cyan text-xs">
-          {s.department} · {s.year} · {s.semester}
-        </p>
-        <p className="mt-1 text-xs">
-          ⭐ {s.stars ?? 0} · {s.sharedCount} shared · {s.downloadedCount} downloaded ·{" "}
-          {s.faceVerified ? "Verified" : "Unverified"}
-        </p>
+          <div className="min-w-0 flex-1">
+            <h3 className="text-xl font-black break-words">{s.fullName}</h3>
+            <p className="text-muted-foreground text-sm">{s.registrationId}</p>
+            <p className="text-cyan text-sm">
+              {s.department} · {s.year} · {s.semester}
+            </p>
+            <p className="text-muted-foreground text-xs break-all">{s.email ?? "No email saved"}</p>
+          </div>
+          <button type="button" onClick={onClose} className="text-xl leading-none" aria-label="Close">
+            ✕
+          </button>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {stat("Shared", s.sharedCount ?? 0, "⬆️")}
+          {stat("Downloaded", s.downloadedCount ?? 0, "⬇️")}
+          {stat("Stars", s.stars ?? 0, "⭐")}
+          {stat("Role", s.role === "admin" ? "Admin" : "Student", "🎓")}
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="glass rounded-2xl p-4 text-sm">
+            <p className="font-bold">Verification</p>
+            <p className="text-muted-foreground text-xs">
+              Face: {s.faceVerified ? "✅ verified" : "❌ not verified"}
+            </p>
+            <p className="text-muted-foreground text-xs">
+              Email code: {s.identityConfirmed ? "✅ confirmed" : "❌ pending"}
+            </p>
+            {s.faceVerifiedAt && (
+              <p className="text-muted-foreground text-xs">
+                On {new Date(s.faceVerifiedAt).toLocaleString()}
+              </p>
+            )}
+          </div>
+          <div className="glass rounded-2xl p-4 text-sm">
+            <p className="font-bold">Access</p>
+            <p className="text-muted-foreground text-xs">
+              {s.blocked?.length ? `Blocked: ${s.blocked.join(", ")}` : "All features allowed"}
+            </p>
+            {s.accessRequested && (
+              <p className="text-muted-foreground text-xs">
+                Manual verification requested{s.accessRequestNote ? ` — ${s.accessRequestNote}` : ""}
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <p className="text-sm font-bold">Notes shared ({notes?.length ?? 0})</p>
+          {notes === null ? (
+            <p className="text-muted-foreground text-xs">Loading notes...</p>
+          ) : !notes.length ? (
+            <p className="text-muted-foreground text-xs">This user has not shared any notes yet.</p>
+          ) : (
+            <div className="grid max-h-56 gap-2 overflow-y-auto sm:grid-cols-2">
+              {notes.map((n) => (
+                <div key={n.id} className="glass rounded-xl p-3 text-xs">
+                  <p className="truncate font-bold">{n.subject}</p>
+                  <p className="text-muted-foreground truncate">{n.fileName}</p>
+                  <p className="text-muted-foreground">
+                    {n.department} · {n.year} · {n.semester}
+                  </p>
+                  <p className="text-cyan">
+                    ❤️ {n.likes ?? 0} · 👁 {n.views ?? 0} · ⬇️ {n.downloads ?? 0}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         {(s.role !== "admin" || (isMaster && s.registrationId !== SUPER_ADMIN_ID)) && (
           <button
-            onClick={() => onDelete(s)}
-            className="text-destructive mt-2 text-xs font-bold hover:underline"
+            onClick={() => {
+              onClose();
+              onDelete(s);
+            }}
+            className="text-destructive text-sm font-bold hover:underline"
           >
             🗑 Delete {s.role === "admin" ? "admin" : "user"}
           </button>
         )}
       </div>
-    </article>
+    </div>
   );
 }
+
 
 function FeedbackAdmin() {
   const [list, setList] = useState<Feedback[] | null>(null);

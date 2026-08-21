@@ -1,13 +1,31 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
-import { api, auth, type ChatMessage, type User } from "@/lib/api";
+import { api, auth, safeStore, type ChatMessage, type User } from "@/lib/api";
 import { usePoll } from "@/lib/use-poll";
 import { PageName } from "./AnimatedTitle";
 import { Logo3D } from "./Logo3D";
 import { BookLoaderOverlay } from "./BookLoader";
 import { ExitReview } from "./ExitReview";
 import { HowToUse } from "./HowToUse";
+
+/**
+ * The stored session copy can be older than the server (a student verifies on
+ * one device, or a save failed while storage was full). Re-reading the profile
+ * shortly after mount is what keeps Notes / Share / Chat unlocked.
+ */
+let lastProfileSync = 0;
+async function syncProfile() {
+  if (!auth.token()) return;
+  if (Date.now() - lastProfileSync < 20000) return;
+  lastProfileSync = Date.now();
+  try {
+    const r = await api<{ user: User }>("/api/profile");
+    if (r?.user) auth.setUser(r.user);
+  } catch {
+    /* offline — keep the stored copy */
+  }
+}
 
 export function useAuthUser() {
   const [user, setUser] = useState<User | null>(null);
@@ -16,6 +34,7 @@ export function useAuthUser() {
     const sync = () => setUser(auth.user());
     sync();
     setReady(true);
+    void syncProfile();
     window.addEventListener("sknsh-auth", sync);
     window.addEventListener("storage", sync);
     return () => {
@@ -25,6 +44,7 @@ export function useAuthUser() {
   }, []);
   return { user, ready };
 }
+
 
 export function useRequireAuth(role?: "admin") {
   const { user, ready } = useAuthUser();
@@ -46,15 +66,30 @@ export function isUnlocked(user: User | null | undefined) {
 export function useRequireVerified() {
   const user = useRequireAuth();
   const navigate = useNavigate();
+  // Give the fresh profile a moment to arrive before locking anyone out, so a
+  // verified student never gets pushed back by a stale local copy.
+  const [checked, setChecked] = useState(false);
   useEffect(() => {
+    let alive = true;
+    void (async () => {
+      lastProfileSync = 0;
+      await syncProfile();
+      if (alive) setChecked(true);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+  useEffect(() => {
+    if (!checked) return;
     if (user && !isUnlocked(user)) {
       toast.error("You are not verified yet", {
         description:
-          "Finish live face verification and tap \"It's me\" in the email to unlock this page.",
+          "Finish live face verification and enter the emailed code to unlock this page.",
       });
       navigate({ to: "/profile", replace: true });
     }
-  }, [user, navigate]);
+  }, [checked, user, navigate]);
   return user;
 }
 
@@ -70,13 +105,11 @@ export const chatSeenKey = (uid: string) => `sknsh_chat_seen_${uid}`;
 
 /** Marks every admin message as read — called when the student opens the chat. */
 export function markChatSeen(uid: string) {
-  try {
-    localStorage.setItem(chatSeenKey(uid), String(Date.now()));
-  } catch {
-    /* storage full */
-  }
+  safeStore(chatSeenKey(uid), String(Date.now()));
   window.dispatchEvent(new Event("sknsh-chat-seen"));
 }
+
+
 
 /** Unread admin replies for the signed-in student (badge on the Chat tab). */
 function useStudentChatUnread(user: User | null, onChatPage: boolean) {
