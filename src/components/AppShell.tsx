@@ -109,10 +109,7 @@ export function markChatSeen(uid: string) {
   window.dispatchEvent(new Event("sknsh-chat-seen"));
 }
 
-    /* storage full */
-  }
-  window.dispatchEvent(new Event("sknsh-chat-seen"));
-}
+
 
 /** Unread admin replies for the signed-in student (badge on the Chat tab). */
 function useStudentChatUnread(user: User | null, onChatPage: boolean) {
