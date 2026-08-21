@@ -7,8 +7,13 @@
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 import { mcpPlugin } from "@lovable.dev/mcp-js/stacks/tanstack/vite";
 
+// The MCP plugin compares paths with "/" separators, which fails on Windows
+// (backslash paths) during local Android/APK builds. Skip it there.
+const isWindows = process.platform === "win32";
+
 export default defineConfig({
-  plugins: [mcpPlugin()],
+  plugins: isWindows ? [] : [mcpPlugin()],
+
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this
