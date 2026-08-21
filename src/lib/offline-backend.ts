@@ -400,15 +400,26 @@ export async function offlineRequest(
   }
 
   // Reads reuse the fresh in-memory copy; writes re-sync only when it is stale.
-  const db = await pull(method !== "GET" && Date.now() - pulledAt > WRITE_FRESH_MS);
+  let db = await pull(method !== "GET" && Date.now() - pulledAt > WRITE_FRESH_MS);
   seed(db);
   purgeTrash(db);
-  const me = currentUser(db, token);
+  let me = currentUser(db, token);
+  /**
+   * A brand-new account (or one verified on another device) may be missing
+   * from the cached copy. Re-read from the cloud once before deciding the
+   * session is invalid — this is what used to bounce students back to login.
+   */
+  if (!me && token) {
+    db = await pull(true);
+    seed(db);
+    me = currentUser(db, token);
+  }
   /** Returns a promise: await it whenever the next request depends on the write. */
   const save = () => push(db);
 
   // ---- everything below needs a session ----
   if (!me) throw new OfflineError("Please login again");
+
 
   if (url === "/api/profile") {
     if (method === "PUT") {
