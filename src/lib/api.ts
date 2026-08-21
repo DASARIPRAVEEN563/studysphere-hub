@@ -337,7 +337,7 @@ export async function downloadStudentsExcel() {
   if (!API_BASE) {
     const csv = offlineStudentsCsv();
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-    saveBlobUrl(url, "students.csv");
+    await saveBlobUrl(url, "students.csv");
     URL.revokeObjectURL(url);
     return "students.csv";
   }
@@ -348,14 +348,14 @@ export async function downloadStudentsExcel() {
     if (!res.ok) throw new Error("Export failed");
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
-    saveBlobUrl(url, "students.xlsx");
+    await saveBlobUrl(url, "students.xlsx");
     URL.revokeObjectURL(url);
     return "students.xlsx";
   } catch (err) {
     if (!isNetworkError(err)) throw err;
     const csv = offlineStudentsCsv();
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-    saveBlobUrl(url, "students.csv");
+    await saveBlobUrl(url, "students.csv");
     URL.revokeObjectURL(url);
     return "students.csv";
   }
