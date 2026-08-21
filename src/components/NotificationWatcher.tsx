@@ -93,7 +93,11 @@ export function NotificationWatcher() {
         n === 1 ? "Admin posted new content." : `${n} new posts from admin.`,
       ]);
 
-      if (!onChat) {
+      if (onChat) {
+        // Reading the chat board clears both the badge and pending alerts.
+        const stamp = newest(chat.messages ?? []);
+        if (stamp) writeStamp(user.id, "chat", stamp);
+      } else {
         const seen = readStamp(user.id, "chat") || Number(localStorage.getItem(chatSeenKey(user.id)) ?? 0);
         const incoming = (chat.messages ?? []).filter(
           (m) => m.from === "admin" && new Date(m.createdAt).getTime() > seen,
