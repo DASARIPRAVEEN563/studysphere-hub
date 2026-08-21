@@ -72,29 +72,104 @@ icon, name, or native plugins change.
 
 ## App icon and name
 
-- Name: `appName` in `capacitor.config.ts` (currently **SKNSH**).
-- Icon: the easiest way is to use Android Studio's **Image Asset** tool.
+- App name: **SKNSH** (set in `capacitor.config.ts`).
+- App icon: the picture shown on the phone home screen.
 
-### Change the APK icon
+You can change the icon in two ways. Use **Method A** if Android Studio is
+working. Use **Method B** if you only have the project files.
 
-1. Open the project in Android Studio (`npx cap open android`).
-2. In the Project panel, right-click the `android/app` folder (or the `res`
-folder).
-3. Choose **New → Image Asset**.
-4. In the window:
-   - **Icon type**: Launcher Icons (Adaptive and Legacy).
-   - **Asset**: select **Image** and browse to your source icon. The project logo
-     is at `public/logo-3d.png`.
-   - Resize so the logo fits inside the safe zone circle.
-   - Pick a background color (for example `#0b1020` to match the splash).
-5. Click **Next**, then **Finish**. Android Studio will replace all the
-`mipmap-xxx` images automatically.
-6. Rebuild the APK:
+### Method A: Change icon with Android Studio (easiest)
+
+1. Open Android Studio.
+2. Open the project: `File → Open → choose the android folder` (for example
+   `C:\Users\vishu\StudioProjects\studysphere-hub\android`).
+3. Wait for the bottom progress bar to finish.
+4. In the left **Project** panel, find the `app` folder.
+5. Right-click `app` → **New → Image Asset**.
+6. A window called **Asset Studio** opens. Set these:
+   - **Icon Type**: `Launcher Icons (Adaptive and Legacy)`
+   - **Asset Type**: `Image`
+   - **Path**: click the small folder icon and browse to `public/logo-3d.png`
+     inside your main project folder.
+   - **Resize**: drag the slider so the logo fits inside the blue circle.
+   - **Background Layer**: pick a color like `#0b1020` (dark blue-black) or
+     choose `Image` if you have a background image.
+7. Click **Next**.
+8. Click **Finish**.
+9. Android Studio will now create all icon sizes automatically.
+10. Build the APK again:
 
 ```bash
 cd android
 ./gradlew assembleDebug
 ```
 
-The new icon will appear on the phone after installing the rebuilt APK.
+### Method B: Change icon with only files (no Android Studio needed)
+
+If Android Studio's Image Asset does not open, do this:
+
+1. Create one square logo image. Recommended size: **1024 × 1024 pixels**.
+   Save it as `logo-1024.png`.
+2. Resize that image to these sizes and save each one with the correct name:
+
+| Size | File name |
+|------|-----------|
+| 48 × 48 | `ic_launcher_foreground.png` |
+| 72 × 72 | `ic_launcher_foreground.png` |
+| 96 × 96 | `ic_launcher_foreground.png` |
+| 144 × 144 | `ic_launcher_foreground.png` |
+| 192 × 192 | `ic_launcher_foreground.png` |
+| 108 × 108 | `ic_launcher_background.png` (only the background color/image) |
+| 162 × 162 | `ic_launcher_background.png` |
+| 216 × 216 | `ic_launcher_background.png` |
+| 324 × 324 | `ic_launcher_background.png` |
+| 432 × 432 | `ic_launcher_background.png` |
+
+3. Copy the foreground files into these folders (replace existing files):
+
+```
+android/app/src/main/res/mipmap-mdpi/ic_launcher_foreground.png
+android/app/src/main/res/mipmap-hdpi/ic_launcher_foreground.png
+android/app/src/main/res/mipmap-xhdpi/ic_launcher_foreground.png
+android/app/src/main/res/mipmap-xxhdpi/ic_launcher_foreground.png
+android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.png
+```
+
+4. Copy the background files into the same folders but named
+   `ic_launcher_background.png`.
+5. Also replace the simple legacy icons in these folders:
+
+```
+android/app/src/main/res/mipmap-mdpi/ic_launcher.png
+android/app/src/main/res/mipmap-hdpi/ic_launcher.png
+android/app/src/main/res/mipmap-xhdpi/ic_launcher.png
+android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png
+android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
+```
+
+6. Build the APK:
+
+```bash
+cd android
+./gradlew assembleDebug
+```
+
+### Method C: Use a free online icon generator (simplest for beginners)
+
+1. Go to a website like `icon.kitchen` in your browser.
+2. Upload `public/logo-3d.png`.
+3. Choose background color `#0b1020` and shape `circle` or `rounded square`.
+4. Download the Android icon zip.
+5. Unzip it. You will see folders like `mipmap-mdpi`, `mipmap-hdpi`, etc.
+6. Copy each folder's contents into the matching folder inside
+   `android/app/src/main/res/`.
+7. Rebuild the APK.
+
+### Important notes
+
+- You must **uninstall the old app** from your phone before installing the new
+  APK, or the old icon may stay.
+- The icon change only shows after you install a freshly built APK. Website
+  updates do not change the icon.
+- If the icon looks blurry, use a bigger source image (at least 1024 × 1024).
 
