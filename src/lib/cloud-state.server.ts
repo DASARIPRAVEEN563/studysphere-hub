@@ -98,9 +98,31 @@ export async function readDoc(): Promise<AnyDoc> {
   return doc;
 }
 
+/**
+ * Profile photos are base64 and used to be stored inline in the `users` row,
+ * which grew to megabytes and made every read hit the database timeout.
+ * Anything big is moved to its own row and replaced by a `ref:` marker.
+ */
+const INLINE_IMAGE_LIMIT = 20_000;
+
+async function externalizeAvatars(doc: AnyDoc) {
+  const users: AnyDoc[] = Array.isArray(doc?.users) ? doc.users : [];
+  const blobs: Record<string, string> = {};
+  doc.users = users.map((u) => {
+    const pic = u?.profilePicture;
+    if (typeof pic !== "string" || pic.length <= INLINE_IMAGE_LIMIT) return u;
+    if (pic.startsWith("ref:")) return u;
+    const key = `userpic:${u.id}`;
+    blobs[key] = pic;
+    return { ...u, profilePicture: `ref:${key}` };
+  });
+  await writeFiles(blobs);
+}
+
 /** Upsert only the collections whose content actually changed (blobs excluded). */
 async function writeShards(doc: AnyDoc, previous: AnyDoc) {
   const db = await admin();
+  await externalizeAvatars(doc);
   const now = new Date().toISOString();
   const rows = DOC_SHARDS.filter(
     (s) => JSON.stringify(doc[s] ?? emptyShard(s)) !== JSON.stringify(previous?.[s]),
