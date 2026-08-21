@@ -75,7 +75,9 @@ export function NotificationWatcher() {
         await pushNotify(title, body);
       };
 
-      const others = (notes.notes ?? []).filter((n) => n.uploadedById !== user.id);
+      const others = (notes.notes ?? [])
+        .filter((n) => n.uploadedById !== user.id)
+        .map((n) => ({ createdAt: n.uploadedAt }));
       await fire("notes", others, (n) => [
         "New notes shared 📚",
         n === 1 ? "A classmate just shared a new note." : `${n} new notes were shared.`,
