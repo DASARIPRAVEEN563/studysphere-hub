@@ -16,28 +16,42 @@ npx cap add android
 npx cap sync android
 ```
 
-## Run it on your phone
+## Connect your mobile phone
 
-```bash
-npx cap run android
-```
+You can either run the app directly from Android Studio or install the APK file
+you build.
 
-Enable **Developer options → USB debugging** on the phone and plug it in.
+### Option A: Run straight from Android Studio (fastest for testing)
 
-## Build the shareable APK
+1. On your phone, open **Settings → About phone** and tap **Build number** 7
+times until it says "You are now a developer".
+2. Go back to **Settings → System → Developer options** and turn on
+**USB debugging**.
+3. Connect the phone to your laptop with a USB cable.
+4. In Android Studio, click the run button (green triangle) or choose the phone
+from the device dropdown and press **Run**.
+
+### Option B: Build and share the APK file
 
 ```bash
 cd android
 ./gradlew assembleDebug          # Windows: gradlew.bat assembleDebug
 ```
 
-The file appears at:
+The APK appears at:
 
 ```
 android/app/build/outputs/apk/debug/app-debug.apk
 ```
 
-Send that file to students — they install it once and it stays on the phone.
+Send `app-debug.apk` to students via WhatsApp, Telegram, Google Drive, or USB.
+They tap the file on their phone and tap **Install**. If it warns about
+"unknown sources", allow installation from that app.
+
+## Build the shareable APK
+
+Same as Option B above. Use this whenever you want a file you can send to
+others.
 
 ## Play Store / signed release
 
@@ -59,5 +73,28 @@ icon, name, or native plugins change.
 ## App icon and name
 
 - Name: `appName` in `capacitor.config.ts` (currently **SKNSH**).
-- Icon: replace the `mipmap` images in `android/app/src/main/res/` — Android
-  Studio's **Image Asset** tool can generate all sizes from `public/logo-3d.png`.
+- Icon: the easiest way is to use Android Studio's **Image Asset** tool.
+
+### Change the APK icon
+
+1. Open the project in Android Studio (`npx cap open android`).
+2. In the Project panel, right-click the `android/app` folder (or the `res`
+folder).
+3. Choose **New → Image Asset**.
+4. In the window:
+   - **Icon type**: Launcher Icons (Adaptive and Legacy).
+   - **Asset**: select **Image** and browse to your source icon. The project logo
+     is at `public/logo-3d.png`.
+   - Resize so the logo fits inside the safe zone circle.
+   - Pick a background color (for example `#0b1020` to match the splash).
+5. Click **Next**, then **Finish**. Android Studio will replace all the
+`mipmap-xxx` images automatically.
+6. Rebuild the APK:
+
+```bash
+cd android
+./gradlew assembleDebug
+```
+
+The new icon will appear on the phone after installing the rebuilt APK.
+
