@@ -111,7 +111,9 @@ def main():
 
     print("\nDone! Now rebuild the APK:")
     print("  cd android")
-    print("  ./gradlew assembleDebug   (Windows: gradlew.bat assembleDebug)")
+    print("  gradlew.bat clean assembleDebug   (Mac/Linux: ./gradlew clean assembleDebug)")
+    print("Then UNINSTALL the old app on the phone before installing the new APK.")
+
 
 
 if __name__ == "__main__":
