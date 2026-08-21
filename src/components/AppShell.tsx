@@ -1,13 +1,31 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
-import { api, auth, type ChatMessage, type User } from "@/lib/api";
+import { api, auth, safeStore, type ChatMessage, type User } from "@/lib/api";
 import { usePoll } from "@/lib/use-poll";
 import { PageName } from "./AnimatedTitle";
 import { Logo3D } from "./Logo3D";
 import { BookLoaderOverlay } from "./BookLoader";
 import { ExitReview } from "./ExitReview";
 import { HowToUse } from "./HowToUse";
+
+/**
+ * The stored session copy can be older than the server (a student verifies on
+ * one device, or a save failed while storage was full). Re-reading the profile
+ * shortly after mount is what keeps Notes / Share / Chat unlocked.
+ */
+let lastProfileSync = 0;
+async function syncProfile() {
+  if (!auth.token()) return;
+  if (Date.now() - lastProfileSync < 20000) return;
+  lastProfileSync = Date.now();
+  try {
+    const r = await api<{ user: User }>("/api/profile");
+    if (r?.user) auth.setUser(r.user);
+  } catch {
+    /* offline — keep the stored copy */
+  }
+}
 
 export function useAuthUser() {
   const [user, setUser] = useState<User | null>(null);
@@ -16,6 +34,7 @@ export function useAuthUser() {
     const sync = () => setUser(auth.user());
     sync();
     setReady(true);
+    void syncProfile();
     window.addEventListener("sknsh-auth", sync);
     window.addEventListener("storage", sync);
     return () => {
@@ -25,6 +44,7 @@ export function useAuthUser() {
   }, []);
   return { user, ready };
 }
+
 
 export function useRequireAuth(role?: "admin") {
   const { user, ready } = useAuthUser();
