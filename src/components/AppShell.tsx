@@ -167,7 +167,7 @@ export function AppShell({
   const isRouterLoading = useRouterState({ select: (s) => s.status === "pending" });
   const [exiting, setExiting] = useState(false);
   const [guide, setGuide] = useState(false);
-  const chatUnread = useStudentChatUnread(user, pathname === "/chat");
+  useStudentChatUnread(user, pathname === "/chat");
 
   // Step-by-step "how to use" walkthrough — shown once per account, right
   // after signup or login.
@@ -223,11 +223,6 @@ export function AppShell({
                   }`}
                 >
                   {locked ? `🔒 ${n.label}` : n.label}
-                  {n.to === "/chat" && chatUnread > 0 && (
-                    <span className="bg-destructive absolute -top-1 -right-1 grid min-w-4.5 place-items-center rounded-full px-1.5 text-[10px] font-black text-white">
-                      {chatUnread}
-                    </span>
-                  )}
                 </Link>
               );
             })}
@@ -302,11 +297,6 @@ export function AppShell({
               >
                 <span className="text-base leading-none">{locked ? "🔒" : n.icon}</span>
                 {n.short}
-                {n.to === "/chat" && chatUnread > 0 && (
-                  <span className="bg-destructive absolute top-0.5 right-3 grid min-w-4 place-items-center rounded-full px-1 text-[9px] font-black text-white">
-                    {chatUnread}
-                  </span>
-                )}
               </Link>
             );
           })}
