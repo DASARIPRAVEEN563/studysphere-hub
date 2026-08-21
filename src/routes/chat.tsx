@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { AppShell, markChatSeen, useRequireVerified } from "@/components/AppShell";
+import { AppShell, useRequireVerified } from "@/components/AppShell";
 import { btnClass, inputClass } from "@/components/Field";
 import { api, type ChatMessage } from "@/lib/api";
 import { usePoll } from "@/lib/use-poll";
@@ -32,10 +32,7 @@ function ChatPage() {
 
   const load = () =>
     api<{ messages: ChatMessage[] }>("/api/chat")
-      .then((r) => {
-        setMessages(r.messages);
-        if (user) markChatSeen(user.id);
-      })
+      .then((r) => setMessages(r.messages))
       .catch(() => {});
 
   usePoll(load, 20000);

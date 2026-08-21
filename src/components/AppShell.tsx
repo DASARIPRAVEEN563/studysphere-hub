@@ -1,7 +1,7 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
-import { api, auth, safeStore, type User } from "@/lib/api";
+import { api, auth, type User } from "@/lib/api";
 import { PageName } from "./AnimatedTitle";
 import { Logo3D } from "./Logo3D";
 import { BookLoaderOverlay } from "./BookLoader";
@@ -99,17 +99,6 @@ const NAV = [
   { to: "/chat", label: "Chat with Admin", short: "Chat", icon: "💬" },
   { to: "/profile", label: "Profile", short: "Profile", icon: "👤" },
 ] as const;
-
-export const chatSeenKey = (uid: string) => `sknsh_chat_seen_${uid}`;
-
-/** Marks every admin message as read — called when the student opens the chat. */
-export function markChatSeen(uid: string) {
-  safeStore(chatSeenKey(uid), String(Date.now()));
-  window.dispatchEvent(new Event("sknsh-chat-seen"));
-}
-
-
-
 
 export function AppShell({
   title,
