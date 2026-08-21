@@ -302,11 +302,6 @@ export function AppShell({
               >
                 <span className="text-base leading-none">{locked ? "🔒" : n.icon}</span>
                 {n.short}
-                {n.to === "/chat" && chatUnread > 0 && (
-                  <span className="bg-destructive absolute top-0.5 right-3 grid min-w-4 place-items-center rounded-full px-1 text-[9px] font-black text-white">
-                    {chatUnread}
-                  </span>
-                )}
               </Link>
             );
           })}
