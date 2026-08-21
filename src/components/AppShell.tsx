@@ -167,7 +167,7 @@ export function AppShell({
   const isRouterLoading = useRouterState({ select: (s) => s.status === "pending" });
   const [exiting, setExiting] = useState(false);
   const [guide, setGuide] = useState(false);
-  const chatUnread = useStudentChatUnread(user, pathname === "/chat");
+  useStudentChatUnread(user, pathname === "/chat");
 
   // Step-by-step "how to use" walkthrough — shown once per account, right
   // after signup or login.
