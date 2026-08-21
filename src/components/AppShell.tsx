@@ -2,6 +2,7 @@ import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { api, auth, type User } from "@/lib/api";
+import { useHydrated } from "@/lib/use-hydrated";
 import { PageName } from "./AnimatedTitle";
 import { Logo3D } from "./Logo3D";
 import { BookLoaderOverlay } from "./BookLoader";
@@ -136,9 +137,11 @@ export function AppShell({
     navigate({ to: "/login", replace: true });
   };
 
+  const hydrated = useHydrated();
+
   return (
     <div className="min-h-screen">
-      {isRouterLoading && <BookLoaderOverlay label={title} />}
+      {hydrated && isRouterLoading && <BookLoaderOverlay label={title} />}
       <header className="glass sticky top-0 z-40 rounded-none border-x-0 border-t-0">
         <div className="mx-auto flex max-w-7xl items-center gap-2 px-3 py-2 sm:gap-3 sm:px-4 sm:py-3">
           <Link to="/home" className="flex min-w-0 items-center gap-2">
