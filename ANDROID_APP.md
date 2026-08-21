@@ -193,3 +193,69 @@ Then rebuild the APK. Android asks the user once to allow notifications.
 The APK icon uses the original 3D student logo at `public/logo-3d.png`.
 Run `python scripts/generate-android-icons.py` from the project root and
 rebuild — nothing about the website logo changes.
+
+---
+
+## Saving notes into internal app storage (WhatsApp style)
+
+Downloads inside the APK are written with the Capacitor Filesystem plugin to:
+
+```
+Android/data/app.lovable.sknsh/files/Documents/SKNSH/
+```
+
+This is private app storage, so files survive app restarts, need no internet to
+reopen, and are removed automatically if the app is uninstalled. In a browser
+the same button falls back to a normal download.
+
+After pulling this code on your laptop:
+
+```bash
+npm install
+npx cap sync android
+cd android && ./gradlew assembleDebug
+```
+
+## Publishing the APK on the profile page
+
+1. Build a release APK (see below) and rename it `sknsh.apk`.
+2. Put it in the `public/` folder of this project (or upload it anywhere public).
+3. If you host it elsewhere, set `VITE_APK_URL=https://.../sknsh.apk` in `.env`.
+4. Bump `APK_VERSION` / `APK_UPDATED` in `src/lib/apk.ts`.
+5. Publish the site. Every student now sees the new version in Profile → SKNSH
+   Android app and can download the replacement build.
+
+## Uploading to Google Play Store
+
+1. **Create a developer account** — https://play.google.com/console, one-time
+   $25 fee, verify identity (takes 1–3 days).
+2. **Set a real app id and version** in `android/app/build.gradle`
+   (`applicationId`, `versionCode`, `versionName`). Play requires a unique id.
+3. **Create an upload key**:
+   ```bash
+   keytool -genkey -v -keystore sknsh.keystore -alias sknsh \
+     -keyalg RSA -keysize 2048 -validity 10000
+   ```
+   Keep this file and passwords safe — losing them means you can never update
+   the app.
+4. **Build a signed AAB** (Play needs `.aab`, not `.apk`):
+   ```bash
+   cd android
+   ./gradlew bundleRelease
+   ```
+   Output: `android/app/build/outputs/bundle/release/app-release.aab`
+5. **In Play Console** → Create app → fill: app name (SKNSH), default language,
+   app type (App), free.
+6. **Complete the required forms**: privacy policy URL (host one page on the
+   site), data safety, content rating questionnaire, target audience, ads
+   declaration.
+7. **Upload the AAB** in Production → Create new release, add release notes.
+8. **Add store listing assets**: short + full description, app icon 512×512,
+   feature graphic 1024×500, at least 2 phone screenshots.
+9. **Submit for review** — first review usually takes a few days. Updates =
+   increase `versionCode`, rebuild the AAB, upload a new release.
+
+Note: because the app loads the published website inside a WebView, Play may
+ask for extra justification. Keeping native features (notifications, internal
+file storage, offline browsing) in the app satisfies their "minimum
+functionality" policy.
