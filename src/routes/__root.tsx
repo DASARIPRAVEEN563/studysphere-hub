@@ -14,6 +14,7 @@ import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
 import { NativeBridge } from "@/components/NativeBridge";
 import { OfflineOverlay } from "@/components/OfflineOverlay";
+import { NotificationWatcher } from "@/components/NotificationWatcher";
 
 function NotFoundComponent() {
   return (
@@ -146,6 +147,7 @@ function RootComponent() {
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
       <NativeBridge />
+      <NotificationWatcher />
       <OfflineOverlay />
       <Toaster position="top-right" richColors />
     </QueryClientProvider>

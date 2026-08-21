@@ -1,11 +1,13 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { LOGO_SRC } from "./Logo3D";
 
-/** Full-screen "you are offline" state with a tap-to-spin 3D globe-style mascot. */
+/**
+ * Slim offline banner. Everything already loaded stays usable (browsing notes,
+ * profile, chat history); only uploads and downloads are blocked, which the
+ * action buttons themselves explain.
+ */
 export function OfflineOverlay() {
   const [offline, setOffline] = useState(false);
-  const [angle, setAngle] = useState(0);
-  const spinning = useRef(false);
 
   useEffect(() => {
     const on = () => setOffline(false);
@@ -21,41 +23,15 @@ export function OfflineOverlay() {
 
   if (!offline) return null;
 
-  const spin = () => {
-    if (spinning.current) return;
-    spinning.current = true;
-    setAngle((a) => a + 720);
-    window.setTimeout(() => {
-      spinning.current = false;
-    }, 1200);
-  };
-
   return (
-    <div className="bg-background/95 fixed inset-0 z-[200] grid place-items-center px-6 text-center backdrop-blur-xl">
-      <div>
-        <button
-          type="button"
-          onClick={spin}
-          aria-label="Spin the mascot"
-          className="mx-auto block"
-          style={{ perspective: "800px" }}
-        >
-          <img
-            src={LOGO_SRC}
-            alt="Offline mascot"
-            draggable={false}
-            className="size-40 object-contain sm:size-48"
-            style={{
-              transform: `rotateY(${angle}deg)`,
-              transformStyle: "preserve-3d",
-              transition: "transform 1.2s cubic-bezier(.2,.8,.2,1)",
-              filter: "drop-shadow(0 18px 30px rgba(0,0,0,.45))",
-            }}
-          />
-        </button>
-        <h2 className="gradient-text mt-6 text-3xl font-black">You are offline</h2>
-        <p className="text-muted-foreground mt-2 text-sm">
-          Tap the mascot to spin it while we wait for your connection to come back.
+    <div className="fixed inset-x-0 top-0 z-[200] px-3 pt-[max(0.4rem,env(safe-area-inset-top))]">
+      <div className="glass mx-auto flex max-w-lg items-center gap-3 rounded-2xl px-3 py-2 shadow-lg">
+        <img src={LOGO_SRC} alt="" className="size-8 shrink-0 object-contain" draggable={false} />
+        <p className="text-xs font-semibold">
+          You are offline — you can still browse.
+          <span className="text-muted-foreground block font-normal">
+            Uploading and downloading notes will work again once you reconnect.
+          </span>
         </p>
       </div>
     </div>

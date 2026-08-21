@@ -173,3 +173,23 @@ cd android
   updates do not change the icon.
 - If the icon looks blurry, use a bigger source image (at least 1024 × 1024).
 
+
+## Phone notifications (WhatsApp style)
+
+The app sends tray notifications for new shared notes, likes on your notes,
+admin chat replies and new admin content.
+
+After `npx cap sync android`, add this line inside `<manifest>` in
+`android/app/src/main/AndroidManifest.xml` (needed on Android 13+):
+
+```xml
+<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+```
+
+Then rebuild the APK. Android asks the user once to allow notifications.
+
+## App icon
+
+The APK icon uses the original 3D student logo at `public/logo-3d.png`.
+Run `python scripts/generate-android-icons.py` from the project root and
+rebuild — nothing about the website logo changes.
