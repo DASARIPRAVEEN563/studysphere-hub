@@ -2,6 +2,7 @@ import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { api, auth, type User } from "@/lib/api";
+import { useHydrated } from "@/lib/use-hydrated";
 import { PageName } from "./AnimatedTitle";
 import { Logo3D } from "./Logo3D";
 import { BookLoaderOverlay } from "./BookLoader";
