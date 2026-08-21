@@ -646,11 +646,6 @@ function ChatAdmin() {
   /** Message ids ticked for a bulk delete. */
   const [picked, setPicked] = useState<string[]>([]);
 
-  /** Opening the chat board clears the unread badge straight away. */
-  useEffect(() => {
-    localStorage.setItem(SEEN_KEY, String(Date.now()));
-  }, []);
-
   const loadRequests = () =>
     api<{ students: User[] }>("/api/admin/students")
       .then((r) => setRequests(r.students.filter((s) => s.accessRequested && !s.faceVerified)))
