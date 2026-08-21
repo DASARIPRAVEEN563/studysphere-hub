@@ -66,15 +66,30 @@ export function isUnlocked(user: User | null | undefined) {
 export function useRequireVerified() {
   const user = useRequireAuth();
   const navigate = useNavigate();
+  // Give the fresh profile a moment to arrive before locking anyone out, so a
+  // verified student never gets pushed back by a stale local copy.
+  const [checked, setChecked] = useState(false);
   useEffect(() => {
+    let alive = true;
+    void (async () => {
+      lastProfileSync = 0;
+      await syncProfile();
+      if (alive) setChecked(true);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+  useEffect(() => {
+    if (!checked) return;
     if (user && !isUnlocked(user)) {
       toast.error("You are not verified yet", {
         description:
-          "Finish live face verification and tap \"It's me\" in the email to unlock this page.",
+          "Finish live face verification and enter the emailed code to unlock this page.",
       });
       navigate({ to: "/profile", replace: true });
     }
-  }, [user, navigate]);
+  }, [checked, user, navigate]);
   return user;
 }
 
@@ -90,9 +105,10 @@ export const chatSeenKey = (uid: string) => `sknsh_chat_seen_${uid}`;
 
 /** Marks every admin message as read — called when the student opens the chat. */
 export function markChatSeen(uid: string) {
-  try {
-    localStorage.setItem(chatSeenKey(uid), String(Date.now()));
-  } catch {
+  safeStore(chatSeenKey(uid), String(Date.now()));
+  window.dispatchEvent(new Event("sknsh-chat-seen"));
+}
+
     /* storage full */
   }
   window.dispatchEvent(new Event("sknsh-chat-seen"));
