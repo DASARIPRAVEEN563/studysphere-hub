@@ -154,28 +154,81 @@ export type ChatThread = {
 
 const TOKEN_KEY = "sknsh_token";
 const USER_KEY = "sknsh_user";
+/** Cached app document — dropped first when the browser storage runs out. */
+const CACHE_KEY = "sknsh_offline_db";
 
 /** Never keep heavy payloads (base64 face photo) in the session copy — it blows the storage quota. */
 function slimUser(user: User): User {
-  return { ...user, faceImage: null };
+  return { ...user, faceImage: null, profilePicture: user.profilePicture ?? null };
 }
 
+/**
+ * The session must survive even when localStorage is full (this is what made
+ * some students bounce straight back to the login page): we keep an in-memory
+ * copy, mirror it into sessionStorage, and free the cached document before
+ * giving up on localStorage.
+ */
+const memory: Record<string, string | null> = {};
+
 function safeSet(key: string, value: string) {
+  memory[key] = value;
+  try {
+    sessionStorage.setItem(key, value);
+  } catch {
+    /* ignore */
+  }
   try {
     localStorage.setItem(key, value);
   } catch {
-    console.warn("Local storage is full — session data was not persisted.");
+    try {
+      localStorage.removeItem(CACHE_KEY);
+      localStorage.setItem(key, value);
+    } catch {
+      console.warn("Local storage is full — the session is kept in memory for this tab.");
+    }
+  }
+}
+
+function safeGet(key: string): string | null {
+  if (typeof window === "undefined") return null;
+  if (memory[key]) return memory[key] ?? null;
+  let value: string | null = null;
+  try {
+    value = localStorage.getItem(key);
+  } catch {
+    /* ignore */
+  }
+  if (!value) {
+    try {
+      value = sessionStorage.getItem(key);
+    } catch {
+      /* ignore */
+    }
+  }
+  if (value) memory[key] = value;
+  return value;
+}
+
+function safeRemove(key: string) {
+  delete memory[key];
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    /* ignore */
+  }
+  try {
+    sessionStorage.removeItem(key);
+  } catch {
+    /* ignore */
   }
 }
 
 export const auth = {
   token(): string | null {
-    if (typeof window === "undefined") return null;
-    return localStorage.getItem(TOKEN_KEY);
+    return safeGet(TOKEN_KEY);
   },
   user(): User | null {
-    if (typeof window === "undefined") return null;
-    const raw = localStorage.getItem(USER_KEY);
+    const raw = safeGet(USER_KEY);
     try {
       return raw ? (JSON.parse(raw) as User) : null;
     } catch {
@@ -192,11 +245,17 @@ export const auth = {
     window.dispatchEvent(new Event("sknsh-auth"));
   },
   clear() {
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(USER_KEY);
+    safeRemove(TOKEN_KEY);
+    safeRemove(USER_KEY);
     window.dispatchEvent(new Event("sknsh-auth"));
   },
 };
+
+/** Storage-safe writer other modules can reuse (chat "seen" markers, themes…). */
+export function safeStore(key: string, value: string) {
+  safeSet(key, value);
+}
+
 
 function isNetworkError(err: unknown) {
   return err instanceof TypeError || (err as Error)?.message === "Failed to fetch";
