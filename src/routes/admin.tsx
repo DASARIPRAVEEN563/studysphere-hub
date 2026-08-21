@@ -78,7 +78,6 @@ const BADGES = ["", "NEW", "IMPORTANT", "URGENT", "HOT", "EVENT", "UPDATE"] as c
 function AdminPage() {
   const me = useRequireAuth("admin");
   const [tab, setTab] = useState<(typeof TABS)[number]>("notes");
-  const unread = useUnreadChat(tab === "chat");
 
   return (
     <AppShell
@@ -94,11 +93,6 @@ function AdminPage() {
               }`}
             >
               {TAB_LABELS[t]}
-              {t === "chat" && unread > 0 && (
-                <span className="bg-destructive absolute -top-1 -right-1 grid min-w-5 animate-bounce place-items-center rounded-full px-1.5 text-[10px] font-black text-white">
-                  {unread}
-                </span>
-              )}
             </button>
           ))}
         </div>
@@ -117,39 +111,6 @@ function AdminPage() {
   );
 }
 
-const SEEN_KEY = "sknsh_admin_chat_seen";
-
-/** Polls student chat and notifies the admin about new incoming messages. */
-function useUnreadChat(viewing: boolean) {
-  const [unread, setUnread] = useState(0);
-  const knownRef = useRef(-1);
-  const tick = async () => {
-    try {
-        const r = await api<{ threads: ChatThread[] }>("/api/admin/chat");
-        const seen = Number(localStorage.getItem(SEEN_KEY) ?? 0);
-        const incoming = r.threads.flatMap((t) =>
-          t.messages.filter((m) => m.from === "user" && new Date(m.createdAt).getTime() > seen),
-        );
-        if (viewing) {
-          localStorage.setItem(SEEN_KEY, String(Date.now()));
-          setUnread(0);
-          knownRef.current = 0;
-          return;
-        }
-        if (knownRef.current >= 0 && incoming.length > knownRef.current) {
-          toast.message(`New chat message from ${incoming[incoming.length - 1]?.userId ? "a student" : "a student"}`, {
-            description: incoming[incoming.length - 1]?.text.slice(0, 80),
-          });
-        }
-        knownRef.current = incoming.length;
-        setUnread(incoming.length);
-    } catch {
-      /* offline */
-    }
-  };
-  usePoll(tick, 60000);
-  return unread;
-}
 
 function NotesAdmin() {
   const [notes, setNotes] = useState<Note[] | null>(null);
@@ -684,11 +645,6 @@ function ChatAdmin() {
   const [requests, setRequests] = useState<User[]>([]);
   /** Message ids ticked for a bulk delete. */
   const [picked, setPicked] = useState<string[]>([]);
-
-  /** Opening the chat board clears the unread badge straight away. */
-  useEffect(() => {
-    localStorage.setItem(SEEN_KEY, String(Date.now()));
-  }, []);
 
   const loadRequests = () =>
     api<{ students: User[] }>("/api/admin/students")

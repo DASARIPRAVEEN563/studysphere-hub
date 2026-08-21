@@ -1,22 +1,19 @@
 import { useRef } from "react";
-import { useRouterState } from "@tanstack/react-router";
 import {
   api,
   auth,
   safeStore,
   type AppNotification,
-  type ChatMessage,
   type ContentItem,
   type Note,
 } from "@/lib/api";
 import { usePoll } from "@/lib/use-poll";
 import { pushNotify } from "@/lib/native-notify";
-import { chatSeenKey } from "./AppShell";
 
 /**
  * Background watcher that turns hub activity into phone notifications:
- * new shared notes, likes on your notes, admin chat replies and new admin
- * content (notices, gallery, promotions).
+ * new shared notes, likes on your notes and new admin content
+ * (notices, gallery, promotions).
  */
 const seenKey = (uid: string, kind: string) => `sknsh_notify_${kind}_${uid}`;
 
@@ -37,8 +34,6 @@ function newest(items: { createdAt?: string }[]) {
 }
 
 export function NotificationWatcher() {
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const onChat = pathname === "/chat";
   const first = useRef(true);
 
   usePoll(
@@ -46,13 +41,10 @@ export function NotificationWatcher() {
       const user = auth.user();
       if (!user || typeof navigator === "undefined" || navigator.onLine === false) return;
 
-      const [notes, notifs, chat, content] = await Promise.all([
+      const [notes, notifs, content] = await Promise.all([
         api<{ notes: Note[] }>("/api/notes").catch(() => ({ notes: [] as Note[] })),
         api<{ notifications: AppNotification[] }>("/api/notifications").catch(() => ({
           notifications: [] as AppNotification[],
-        })),
-        api<{ messages: ChatMessage[] }>("/api/chat").catch(() => ({
-          messages: [] as ChatMessage[],
         })),
         api<{ content: ContentItem[] }>("/api/content").catch(() => ({
           content: [] as ContentItem[],
@@ -92,27 +84,6 @@ export function NotificationWatcher() {
         "New update from admin 📢",
         n === 1 ? "Admin posted new content." : `${n} new posts from admin.`,
       ]);
-
-      if (onChat) {
-        // Reading the chat board clears both the badge and pending alerts.
-        const stamp = newest(chat.messages ?? []);
-        if (stamp) writeStamp(user.id, "chat", stamp);
-      } else {
-        const seen = readStamp(user.id, "chat") || Number(localStorage.getItem(chatSeenKey(user.id)) ?? 0);
-        const incoming = (chat.messages ?? []).filter(
-          (m) => m.from === "admin" && new Date(m.createdAt).getTime() > seen,
-        );
-        const stamp = newest(chat.messages ?? []);
-        if (stamp) writeStamp(user.id, "chat", stamp);
-        if (!quiet && seen && incoming.length) {
-          await pushNotify(
-            "Message from admin 💬",
-            incoming.length === 1
-              ? incoming[incoming.length - 1]!.text.slice(0, 120)
-              : `${incoming.length} new messages from admin.`,
-          );
-        }
-      }
     },
     60000,
     true,

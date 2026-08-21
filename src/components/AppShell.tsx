@@ -1,8 +1,7 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
-import { api, auth, safeStore, type ChatMessage, type User } from "@/lib/api";
-import { usePoll } from "@/lib/use-poll";
+import { api, auth, type User } from "@/lib/api";
 import { PageName } from "./AnimatedTitle";
 import { Logo3D } from "./Logo3D";
 import { BookLoaderOverlay } from "./BookLoader";
@@ -101,57 +100,6 @@ const NAV = [
   { to: "/profile", label: "Profile", short: "Profile", icon: "👤" },
 ] as const;
 
-export const chatSeenKey = (uid: string) => `sknsh_chat_seen_${uid}`;
-
-/** Marks every admin message as read — called when the student opens the chat. */
-export function markChatSeen(uid: string) {
-  safeStore(chatSeenKey(uid), String(Date.now()));
-  window.dispatchEvent(new Event("sknsh-chat-seen"));
-}
-
-
-
-/** Unread admin replies for the signed-in student (badge on the Chat tab). */
-function useStudentChatUnread(user: User | null, onChatPage: boolean) {
-  const [unread, setUnread] = useState(0);
-  const enabled = !!user && user.role !== "admin" && isUnlocked(user);
-
-  usePoll(
-    async () => {
-      if (!user) return;
-      if (onChatPage) {
-        setUnread(0);
-        return;
-      }
-      try {
-        const r = await api<{ messages: ChatMessage[] }>("/api/chat");
-        const seen = Number(localStorage.getItem(chatSeenKey(user.id)) ?? 0);
-        setUnread(
-          r.messages.filter(
-            (m) => m.from === "admin" && new Date(m.createdAt).getTime() > seen,
-          ).length,
-        );
-      } catch {
-        /* offline */
-      }
-    },
-    45000,
-    enabled,
-  );
-
-  useEffect(() => {
-    const clear = () => setUnread(0);
-    window.addEventListener("sknsh-chat-seen", clear);
-    return () => window.removeEventListener("sknsh-chat-seen", clear);
-  }, []);
-
-  useEffect(() => {
-    if (onChatPage) setUnread(0);
-  }, [onChatPage]);
-
-  return unread;
-}
-
 export function AppShell({
   title,
   children,
@@ -167,7 +115,6 @@ export function AppShell({
   const isRouterLoading = useRouterState({ select: (s) => s.status === "pending" });
   const [exiting, setExiting] = useState(false);
   const [guide, setGuide] = useState(false);
-  const chatUnread = useStudentChatUnread(user, pathname === "/chat");
 
   // Step-by-step "how to use" walkthrough — shown once per account, right
   // after signup or login.
@@ -223,11 +170,6 @@ export function AppShell({
                   }`}
                 >
                   {locked ? `🔒 ${n.label}` : n.label}
-                  {n.to === "/chat" && chatUnread > 0 && (
-                    <span className="bg-destructive absolute -top-1 -right-1 grid min-w-4.5 place-items-center rounded-full px-1.5 text-[10px] font-black text-white">
-                      {chatUnread}
-                    </span>
-                  )}
                 </Link>
               );
             })}
@@ -302,11 +244,6 @@ export function AppShell({
               >
                 <span className="text-base leading-none">{locked ? "🔒" : n.icon}</span>
                 {n.short}
-                {n.to === "/chat" && chatUnread > 0 && (
-                  <span className="bg-destructive absolute top-0.5 right-3 grid min-w-4 place-items-center rounded-full px-1 text-[9px] font-black text-white">
-                    {chatUnread}
-                  </span>
-                )}
               </Link>
             );
           })}
