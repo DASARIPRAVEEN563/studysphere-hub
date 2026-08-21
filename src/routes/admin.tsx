@@ -1,3 +1,4 @@
+import { UserImage } from "@/components/UserImage";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -925,7 +926,7 @@ function ChatAdmin() {
               >
                 <span className="hero-gradient grid size-10 shrink-0 place-items-center overflow-hidden rounded-full font-black text-white">
                   {t.profilePicture ? (
-                    <img src={t.profilePicture} alt={t.fullName} className="size-full object-cover" />
+                    <UserImage src={t.profilePicture} alt={t.fullName} className="size-full object-cover" />
                   ) : (
                     t.fullName.charAt(0).toUpperCase()
                   )}
@@ -1507,7 +1508,7 @@ function StudentCard({
       >
         <div className="bg-muted size-16 shrink-0 overflow-hidden rounded-xl">
           {s.profilePicture || s.faceImage ? (
-            <img
+            <UserImage
               src={(s.profilePicture || s.faceImage) as string}
               alt={s.fullName}
               className="size-full object-cover"
@@ -1585,7 +1586,7 @@ function StudentDetails({
         <div className="flex items-start gap-4">
           <div className="bg-muted size-20 shrink-0 overflow-hidden rounded-2xl">
             {s.profilePicture || s.faceImage ? (
-              <img
+              <UserImage
                 src={(s.profilePicture || s.faceImage) as string}
                 alt={s.fullName}
                 className="size-full object-cover"

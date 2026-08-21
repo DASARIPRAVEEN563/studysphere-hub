@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { UserImage } from "@/components/UserImage";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AppShell, useRequireAuth } from "@/components/AppShell";
@@ -69,10 +70,27 @@ function ProfilePage() {
     }
   };
 
+  /** Photos are shrunk to a small square before saving so the profile stays fast. */
   const pickPicture = (file: File | null) => {
     if (!file || !user) return;
     const reader = new FileReader();
-    reader.onload = () => setUser({ ...user, profilePicture: String(reader.result) });
+    reader.onload = () => {
+      const raw = String(reader.result);
+      const img = new Image();
+      img.onload = () => {
+        const size = 256;
+        const canvas = document.createElement("canvas");
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return setUser({ ...user, profilePicture: raw });
+        const side = Math.min(img.width, img.height);
+        ctx.drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, size, size);
+        setUser({ ...user, profilePicture: canvas.toDataURL("image/jpeg", 0.8) });
+      };
+      img.onerror = () => setUser({ ...user, profilePicture: raw });
+      img.src = raw;
+    };
     reader.readAsDataURL(file);
   };
 
@@ -92,7 +110,7 @@ function ProfilePage() {
         <section className="glass animate-rise rounded-3xl p-8 text-center transition-transform hover:-translate-y-1">
           <div className="hero-gradient glow mx-auto grid size-28 place-items-center overflow-hidden rounded-full text-3xl font-black text-white">
             {user.profilePicture ? (
-              <img src={user.profilePicture} alt={user.fullName} className="size-full object-cover" />
+              <UserImage src={user.profilePicture} alt={user.fullName} className="size-full object-cover" />
             ) : (
               user.fullName.charAt(0).toUpperCase()
             )}
