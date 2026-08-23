@@ -6,11 +6,23 @@ export async function requestAllPermissions() {
   if (localStorage.getItem(KEY)) return;
   localStorage.setItem(KEY, "1");
 
+  // Installed Android app: ask the system for the notification permission so
+  // chat replies and new-note alerts can reach the phone's tray.
+  try {
+    const { Capacitor } = await import("@capacitor/core");
+    if (Capacitor.isNativePlatform()) {
+      const { LocalNotifications } = await import("@capacitor/local-notifications");
+      await LocalNotifications.requestPermissions();
+    }
+  } catch {
+    /* web build or plugin unavailable */
+  }
   try {
     await Notification?.requestPermission?.();
   } catch {
     /* unsupported */
   }
+
   try {
     const stream = await navigator.mediaDevices?.getUserMedia({ video: true });
     stream?.getTracks().forEach((t) => t.stop());

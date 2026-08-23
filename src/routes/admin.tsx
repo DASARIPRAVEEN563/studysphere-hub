@@ -675,6 +675,11 @@ function StudentsAdmin({ isMaster }: { isMaster: boolean }) {
 
 function ChatAdmin() {
   const [threads, setThreads] = useState<ChatThread[] | null>(null);
+  /** Every student, used only for targeted announcements. */
+  const [recipients, setRecipients] = useState<
+    { userId: string; fullName: string; registrationId: string }[]
+  >([]);
+  const [search, setSearch] = useState("");
   const [activeId, setActiveId] = useState<string | null>(null);
   const [text, setText] = useState("");
   const [announcement, setAnnouncement] = useState("");
@@ -753,8 +758,18 @@ function ChatAdmin() {
   };
 
   const load = () =>
-    api<{ threads: ChatThread[] }>("/api/admin/chat")
-      .then((r) => setThreads(r.threads))
+    api<{
+      threads: ChatThread[];
+      recipients?: { userId: string; fullName: string; registrationId: string }[];
+    }>("/api/admin/chat")
+      .then((r) => {
+        setThreads(r.threads);
+        setRecipients(r.recipients ?? r.threads.map((t) => ({
+          userId: t.userId,
+          fullName: t.fullName,
+          registrationId: t.registrationId,
+        })));
+      })
       .catch((e) => {
         toast.error((e as Error).message);
         setThreads([]);
@@ -802,7 +817,7 @@ function ChatAdmin() {
   const broadcast = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!announcement.trim()) return;
-    const list = threads ?? [];
+    const list = recipients;
     if (!allUsers && !selected.length) {
       toast.error("Tick at least one student, or choose all students");
       return;
@@ -883,7 +898,7 @@ function ChatAdmin() {
         </label>
         {!allUsers && (
           <div className="max-h-40 space-y-1 overflow-y-auto rounded-2xl border border-border p-2">
-            {threads.map((t) => (
+            {recipients.map((t) => (
               <label key={t.userId} className="flex items-center gap-2 rounded-xl p-1.5 text-sm">
                 <input
                   type="checkbox"
@@ -896,7 +911,9 @@ function ChatAdmin() {
                 </span>
               </label>
             ))}
-            {!threads.length && <p className="text-muted-foreground text-sm">No students yet.</p>}
+            {!recipients.length && (
+              <p className="text-muted-foreground text-sm">No students yet.</p>
+            )}
           </div>
         )}
         <textarea
@@ -912,9 +929,32 @@ function ChatAdmin() {
       </form>
 
       <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
-        <div className="max-h-64 space-y-2 overflow-y-auto lg:max-h-none lg:overflow-visible">
-          {!threads.length && <p className="text-muted-foreground text-sm">No students yet.</p>}
-          {threads.map((t) => {
+        <div className="max-h-72 space-y-2 overflow-y-auto lg:max-h-none lg:overflow-visible">
+          <div className="glass sticky top-0 z-10 flex items-center gap-2 rounded-2xl px-3 py-2">
+            <span className="text-base">🔍</span>
+            <input
+              className="w-full bg-transparent text-sm outline-none"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search a student by name or ID"
+            />
+          </div>
+          <p className="text-muted-foreground px-1 text-xs font-bold">
+            {threads.length} student(s) chatting with us
+          </p>
+          {!threads.length && (
+            <p className="text-muted-foreground text-sm">Nobody has messaged the admin yet.</p>
+          )}
+          {threads
+            .filter((t) => {
+              const q = search.trim().toLowerCase();
+              if (!q) return true;
+              return (
+                t.fullName.toLowerCase().includes(q) ||
+                t.registrationId.toLowerCase().includes(q)
+              );
+            })
+            .map((t) => {
             const last = t.messages[t.messages.length - 1];
             return (
               <button
@@ -1426,7 +1466,13 @@ function StudentsAdminBody({ isMaster }: { isMaster: boolean }) {
           <p className="text-muted-foreground text-sm">{matches.length} student(s) found</p>
           <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
             {matches.map((s) => (
-              <StudentCard key={s.id} s={s} isMaster={isMaster} onDelete={removeStudent} />
+              <StudentCard
+              key={s.id}
+              s={s}
+              isMaster={isMaster}
+              onDelete={removeStudent}
+              onChanged={loadStudents}
+            />
             ))}
           </div>
         </div>
@@ -1479,7 +1525,13 @@ function StudentsAdminBody({ isMaster }: { isMaster: boolean }) {
         </button>
         <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
           {shown.map((s) => (
-            <StudentCard key={s.id} s={s} isMaster={isMaster} onDelete={removeStudent} />
+            <StudentCard
+              key={s.id}
+              s={s}
+              isMaster={isMaster}
+              onDelete={removeStudent}
+              onChanged={loadStudents}
+            />
           ))}
         </div>
         </div>
@@ -1494,10 +1546,12 @@ function StudentCard({
   s,
   isMaster,
   onDelete,
+  onChanged,
 }: {
   s: User;
   isMaster: boolean;
   onDelete: (s: User) => void;
+  onChanged?: (() => void) | undefined;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -1540,6 +1594,7 @@ function StudentCard({
           isMaster={isMaster}
           onDelete={onDelete}
           onClose={() => setOpen(false)}
+          onChanged={onChanged}
         />
       )}
     </>
@@ -1552,13 +1607,34 @@ function StudentDetails({
   isMaster,
   onDelete,
   onClose,
+  onChanged,
 }: {
   s: User;
   isMaster: boolean;
   onDelete: (s: User) => void;
   onClose: () => void;
+  onChanged?: (() => void) | undefined;
 }) {
   const [notes, setNotes] = useState<Note[] | null>(null);
+  const [starring, setStarring] = useState(false);
+
+  /** Hand out (or take back) a bonus star for this student. */
+  const award = async (delta: number) => {
+    setStarring(true);
+    try {
+      const r = await api<{ stars: number }>(`/api/admin/students/${s.id}/stars`, {
+        body: { delta },
+      });
+      toast.success(delta > 0 ? "Star awarded ⭐" : "Star removed", {
+        description: `${s.fullName} now has ${r.stars} star(s).`,
+      });
+      onChanged?.();
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setStarring(false);
+    }
+  };
 
   useEffect(() => {
     api<{ notes: Note[] }>("/api/admin/notes")
@@ -1615,6 +1691,27 @@ function StudentDetails({
           {stat("Downloaded", s.downloadedCount ?? 0, "⬇️")}
           {stat("Stars", s.stars ?? 0, "⭐")}
           {stat("Role", s.role === "admin" ? "Admin" : "Student", "🎓")}
+        </div>
+
+        {/* Admins can reward a student whose sharing impressed them. */}
+        <div className="glass flex flex-wrap items-center gap-2 rounded-2xl p-3">
+          <p className="mr-auto text-sm font-bold">Reward stars</p>
+          <button
+            type="button"
+            className={ghostBtnClass}
+            disabled={starring}
+            onClick={() => void award(-1)}
+          >
+            − 1
+          </button>
+          <button
+            type="button"
+            className={btnClass}
+            disabled={starring}
+            onClick={() => void award(1)}
+          >
+            ⭐ Give a star
+          </button>
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
@@ -2300,6 +2397,49 @@ function AccessAdmin() {
   );
 }
 
+
+/** Human-readable facts about a deleted item, taken from its stored payload. */
+function trashFacts(t: TrashItem): [string, string][] {
+  const p = (t.payload ?? {}) as Record<string, any>;
+  const rows: [string, string][] = [
+    ["Deleted by", t.deletedBy ?? "admin"],
+    ["Deleted on", new Date(t.deletedAt).toLocaleString()],
+  ];
+  if (t.detail) rows.unshift(["Details", t.detail]);
+  if (t.kind === "note") {
+    rows.unshift(["File", String(p["fileName"] ?? "-")]);
+    rows.unshift(["Shared by", String(p["uploadedBy"] ?? "-")]);
+    rows.push(["Scope", [p["department"], p["year"], p["semester"]].filter(Boolean).join(" · ")]);
+    rows.push(["Engagement", `${p["views"] ?? 0} views · ${p["downloads"] ?? 0} downloads`]);
+  }
+  if (t.kind === "user") {
+    rows.unshift(["Registration ID", String(p["registrationId"] ?? "-")]);
+    rows.push(["Email", String(p["email"] ?? "not added")]);
+    rows.push(["Shared / downloaded", `${p["sharedCount"] ?? 0} / ${p["downloadedCount"] ?? 0}`]);
+  }
+  if (t.kind === "feedback") {
+    rows.unshift(["Rating", "⭐".repeat(Number(p["rating"] ?? 0)) || "-"]);
+    rows.push(["Comment", String(p["comment"] ?? "-")]);
+  }
+  if (t.kind === "chat") {
+    const list = Array.isArray(t.payload) ? t.payload : [t.payload];
+    rows.push(["Messages", `${list.length}`]);
+    rows.push(["Last text", String(list[list.length - 1]?.text ?? "photo message")]);
+  }
+  if (t.kind === "content") {
+    rows.push(["Type", String(p["type"] ?? "-")]);
+    rows.push(["Description", String(p["description"] ?? "-")]);
+  }
+  return rows;
+}
+
+/** Thumbnail for deleted photos so the admin recognises them instantly. */
+function trashPreview(t: TrashItem): string | null {
+  const p: any = Array.isArray(t.payload) ? t.payload[t.payload.length - 1] : t.payload;
+  const src = p?.image ?? p?.url ?? p?.profilePicture ?? null;
+  return typeof src === "string" && src.startsWith("data:image/") ? src : null;
+}
+
 const TRASH_ICONS: Record<TrashItem["kind"], string> = {
   note: "📄",
   user: "👤",
@@ -2354,33 +2494,65 @@ function TrashAdmin() {
         they are removed automatically.
       </p>
       {!items.length && <p className="text-muted-foreground text-sm">The bin is empty.</p>}
-      {items.map((t) => {
-        const daysLeft = Math.max(
-          0,
-          10 - Math.floor((Date.now() - new Date(t.deletedAt).getTime()) / 86_400_000),
-        );
-        return (
-          <section
-            key={t.id}
-            className="glass animate-rise flex flex-wrap items-center gap-3 rounded-3xl p-4"
-          >
-            <span className="text-2xl">{TRASH_ICONS[t.kind]}</span>
-            <div className="min-w-0 flex-1">
-              <p className="truncate font-bold">{t.label}</p>
-              <p className="text-muted-foreground truncate text-xs">
-                {t.kind} · {t.detail} · deleted by {t.deletedBy} ·{" "}
-                {new Date(t.deletedAt).toLocaleDateString()} · {daysLeft} day(s) left
-              </p>
-            </div>
-            <button type="button" className={btnClass} onClick={() => void restore(t)}>
-              Restore
-            </button>
-            <button type="button" className={ghostBtnClass} onClick={() => void purge(t)}>
-              Delete forever
-            </button>
-          </section>
-        );
-      })}
+      <div className="grid gap-4 lg:grid-cols-2">
+        {items.map((t) => {
+          const daysLeft = Math.max(
+            0,
+            10 - Math.floor((Date.now() - new Date(t.deletedAt).getTime()) / 86_400_000),
+          );
+          return (
+            <section key={t.id} className="glass animate-rise space-y-3 rounded-3xl p-5">
+              <div className="flex items-start gap-3">
+                <span className="hero-gradient grid size-11 shrink-0 place-items-center rounded-2xl text-xl">
+                  {TRASH_ICONS[t.kind]}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="font-black break-words">{t.label}</p>
+                  <p className="text-cyan text-xs font-bold uppercase">{t.kind}</p>
+                </div>
+                <span
+                  className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-black ${
+                    daysLeft <= 2 ? "bg-destructive text-white" : "bg-primary/20 text-cyan"
+                  }`}
+                >
+                  {daysLeft} day(s) left
+                </span>
+              </div>
+
+              {/* Full detail so the admin can be sure before deleting for good. */}
+              <dl className="grid gap-2 sm:grid-cols-2">
+                {trashFacts(t).map(([k, v]) => (
+                  <div key={k} className="glass rounded-2xl px-3 py-2">
+                    <dt className="text-muted-foreground text-[10px] font-bold uppercase">{k}</dt>
+                    <dd className="mt-0.5 text-sm font-semibold break-words">{v}</dd>
+                  </div>
+                ))}
+              </dl>
+
+              {trashPreview(t) && (
+                <img
+                  src={trashPreview(t)!}
+                  alt={t.label}
+                  className="max-h-44 w-full rounded-2xl object-cover"
+                />
+              )}
+
+              <div className="flex flex-wrap gap-2">
+                <button type="button" className={btnClass} onClick={() => void restore(t)}>
+                  ♻️ Restore
+                </button>
+                <button
+                  type="button"
+                  className={`${ghostBtnClass} text-destructive`}
+                  onClick={() => void purge(t)}
+                >
+                  🗑 Delete forever
+                </button>
+              </div>
+            </section>
+          );
+        })}
+      </div>
     </div>
   );
 }

@@ -134,14 +134,17 @@ async function refresh(): Promise<DB> {
 let saveChain: Promise<void> = Promise.resolve();
 
 /**
- * Push the document to the cloud database. The in-memory + mirrored copy is
- * already up to date, so the caller never waits on the network: the upload is
- * queued in the background and the screen responds instantly.
+ * Push the document to the cloud database. Saves are chained so two quick
+ * actions never race. The returned promise resolves once this write reached
+ * the cloud, so `await save()` really means "it is stored" — that is what
+ * keeps a freshly uploaded note visible after a refresh.
  */
-async function push(db: DB) {
+function push(db: DB): Promise<void> {
   mirror(db);
   saveChain = saveChain.then(() => pushNow(db)).catch(() => {});
+  return saveChain;
 }
+
 
 async function pushNow(db: DB) {
   try {
@@ -520,8 +523,26 @@ export async function offlineRequest(
       save();
       return { item };
     }
-    return { feedback: db.feedback };
+    return {
+      feedback: [...db.feedback].sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+    };
   }
+
+  /**
+   * Live counters for the home page: everybody (students + admins) plus the
+   * total shares and downloads across the whole hub.
+   */
+  if (url === "/api/stats") {
+    return {
+      stats: {
+        users: db.users.length,
+        shares: db.notes.length,
+        downloads: db.notes.reduce((sum, n) => sum + (n.downloads ?? 0), 0),
+        views: db.notes.reduce((sum, n) => sum + (n.views ?? 0), 0),
+      },
+    };
+  }
+
 
   // ---- chat with admin ----
   if (url === "/api/chat") {
@@ -680,9 +701,13 @@ export async function offlineRequest(
     me.downloadedCount += 1;
     const note = db.notes.find((n) => n.id === noteId);
     if (note) note.downloads = (note.downloads ?? 0) + 1;
+    // Every 5 downloads earns one extra star, same as sharing a note.
+    const earnedStar = me.downloadedCount % 5 === 0;
+    if (earnedStar) me.stars = (me.stars ?? 0) + 1;
     save();
-    return { dataUrl: data };
+    return { dataUrl: data, stars: me.stars ?? 0, earnedStar };
   }
+
 
   /**
    * Owner tools: a student can rename or delete only the notes they shared —
@@ -829,7 +854,28 @@ export async function offlineRequest(
       }
     }
 
+    /** Admin can hand out bonus stars when a student's sharing impresses them. */
+    if (url.startsWith("/api/admin/students/") && url.endsWith("/stars") && method === "POST") {
+      const uid = url.split("/")[4]!;
+      const target = db.users.find((u) => u.id === uid);
+      if (!target) throw new OfflineError("Student not found");
+      const delta = Math.max(-50, Math.min(50, Number(body?.delta ?? 1) || 1));
+      target.stars = Math.max(0, (target.stars ?? 0) + delta);
+      db.notifications = db.notifications ?? [];
+      if (delta > 0)
+        db.notifications.push({
+          id: id(),
+          userId: target.id,
+          text: `The admin awarded you ${delta} star${delta > 1 ? "s" : ""} ⭐ — great work!`,
+          createdAt: new Date().toISOString(),
+          read: false,
+        });
+      await save();
+      return { user: publicUser(target) };
+    }
+
     // ---- access reject: take chat / share / feedback away from a student ----
+
     if (url.startsWith("/api/admin/students/") && url.endsWith("/access") && method === "POST") {
       const uid = url.split("/")[4]!;
       const target = db.users.find((u) => u.id === uid);
@@ -870,6 +916,10 @@ export async function offlineRequest(
       return { ok: true, removed: thread.length };
     }
 
+    /**
+     * WhatsApp-style chat list: only students who actually wrote to the admin
+     * appear here, and the newest conversation sits on top.
+     */
     if (url === "/api/admin/chat") {
       const threads: ChatThread[] = db.users
         .filter((u) => u.role !== "admin")
@@ -881,10 +931,27 @@ export async function offlineRequest(
           year: u.year,
           semester: u.semester,
           profilePicture: u.profilePicture ?? null,
-          messages: db.chats.filter((c) => c.userId === u.id),
+          messages: db.chats
+            .filter((c) => c.userId === u.id)
+            .sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
+        }))
+        .filter((t) => t.messages.length > 0)
+        .sort((a, b) =>
+          (b.messages[b.messages.length - 1]?.createdAt ?? "").localeCompare(
+            a.messages[a.messages.length - 1]?.createdAt ?? "",
+          ),
+        );
+      /** Every student is still reachable for a targeted announcement. */
+      const recipients = db.users
+        .filter((u) => u.role !== "admin")
+        .map((u) => ({
+          userId: u.id,
+          fullName: u.fullName,
+          registrationId: u.registrationId,
         }));
-      return { threads };
+      return { threads, recipients };
     }
+
 
     if (url.startsWith("/api/admin/chat/") && method === "POST") {
       if (url === "/api/admin/chat/broadcast") {
