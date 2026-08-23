@@ -1,6 +1,6 @@
 {
-  "version": "1.0.0",
+  "version": "1.0.1",
   "updated": "Aug 2026",
   "url": "https://drive.usercontent.google.com/download?id=1vPWYvyVG3zo9SH8U43WD4gMdd_GR9Bv2&export=download",
-  "notes": "First public release of the SKNSH Android app. Hosted on Google Drive."
+  "notes": "Faster, more reliable file viewing and downloads: slow loads now retry automatically instead of showing a blank screen."
 }
