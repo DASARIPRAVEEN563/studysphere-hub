@@ -207,21 +207,45 @@ export function sanitize(doc: AnyDoc): AnyDoc {
   };
 }
 
-/** One uploaded file, fetched only when a note is viewed or downloaded. */
-export async function readFile(fileId: string): Promise<string | null> {
+/**
+ * One uploaded file, fetched only when a note is viewed or downloaded.
+ *
+ * The database can cancel a slow statement ("statement timeout") when it is
+ * busy; that used to throw and blank the screen. Instead we retry briefly and
+ * then return null so the caller can show a friendly message.
+ */
+async function fetchRow(id: string): Promise<unknown> {
   const db = await admin();
-  const { data, error } = await db
-    .from("app_state")
-    .select("data")
-    .eq("id", FILE_PREFIX + fileId)
-    .maybeSingle();
-  if (error) throw new Error(error.message);
-  if (typeof data?.data === "string") return data.data;
-  // Older uploads still live inside the single legacy blob row.
-  const legacy = await db.from("app_state").select("data").eq("id", FILES).maybeSingle();
-  const files = (legacy.data?.data as Record<string, string>) ?? {};
-  return files[fileId] ?? null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const { data, error } = await db
+      .from("app_state")
+      .select("data")
+      .eq("id", id)
+      .maybeSingle();
+    if (!error) return data?.data ?? null;
+    if (attempt === 2) return null;
+    await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
+  }
+  return null;
 }
+
+/** True once the legacy single-blob file row is known to be gone/unusable. */
+let legacyFilesMissing = false;
+
+export async function readFile(fileId: string): Promise<string | null> {
+  const direct = await fetchRow(FILE_PREFIX + fileId);
+  if (typeof direct === "string") return direct;
+  // Older uploads still live inside the single legacy blob row (very large,
+  // so it is only consulted once per server instance).
+  if (legacyFilesMissing) return null;
+  const legacy = await fetchRow(FILES);
+  if (!legacy || typeof legacy !== "object") {
+    legacyFilesMissing = true;
+    return null;
+  }
+  return (legacy as Record<string, string>)[fileId] ?? null;
+}
+
 
 /**
  * Verification codes live in their own row (`code:<kind>:<userId>`) and never
