@@ -7,6 +7,7 @@ import {
   type AppNotification,
   type ChatMessage,
   type ContentItem,
+  sharerName,
   type Note,
 } from "@/lib/api";
 import { usePoll } from "@/lib/use-poll";
@@ -77,11 +78,18 @@ export function NotificationWatcher() {
 
       const others = (notes.notes ?? [])
         .filter((n) => n.uploadedById !== user.id)
-        .map((n) => ({ createdAt: n.uploadedAt }));
-      await fire("notes", others, (n) => [
-        "New notes shared 📚",
-        n === 1 ? "A classmate just shared a new note." : `${n} new notes were shared.`,
-      ]);
+        .map((n) => ({ createdAt: n.uploadedAt, by: n.uploadedBy, subject: n.subject }))
+        .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+      await fire("notes", others, (n) => {
+        const last = others[others.length - 1];
+        const who = sharerName(last?.by ?? "", user.role === "admin");
+        return [
+          "New notes shared 📚",
+          n === 1
+            ? `Shared a note by ${who}${last?.subject ? ` · ${last.subject}` : ""}`
+            : `${n} new notes were shared, latest by ${who}.`,
+        ];
+      });
 
       await fire("likes", notifs.notifications ?? [], (n) => [
         "Someone liked your notes ❤️",
