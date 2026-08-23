@@ -1599,6 +1599,25 @@ function StudentDetails({
   onClose: () => void;
 }) {
   const [notes, setNotes] = useState<Note[] | null>(null);
+  const [starring, setStarring] = useState(false);
+
+  /** Hand out (or take back) a bonus star for this student. */
+  const award = async (delta: number) => {
+    setStarring(true);
+    try {
+      const r = await api<{ stars: number }>(`/api/admin/students/${s.id}/stars`, {
+        body: { delta },
+      });
+      toast.success(delta > 0 ? "Star awarded ⭐" : "Star removed", {
+        description: `${s.fullName} now has ${r.stars} star(s).`,
+      });
+      onChanged?.();
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setStarring(false);
+    }
+  };
 
   useEffect(() => {
     api<{ notes: Note[] }>("/api/admin/notes")
@@ -1655,6 +1674,27 @@ function StudentDetails({
           {stat("Downloaded", s.downloadedCount ?? 0, "⬇️")}
           {stat("Stars", s.stars ?? 0, "⭐")}
           {stat("Role", s.role === "admin" ? "Admin" : "Student", "🎓")}
+        </div>
+
+        {/* Admins can reward a student whose sharing impressed them. */}
+        <div className="glass flex flex-wrap items-center gap-2 rounded-2xl p-3">
+          <p className="mr-auto text-sm font-bold">Reward stars</p>
+          <button
+            type="button"
+            className={ghostBtnClass}
+            disabled={starring}
+            onClick={() => void award(-1)}
+          >
+            − 1
+          </button>
+          <button
+            type="button"
+            className={btnClass}
+            disabled={starring}
+            onClick={() => void award(1)}
+          >
+            ⭐ Give a star
+          </button>
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
