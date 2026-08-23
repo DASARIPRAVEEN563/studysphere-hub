@@ -10,6 +10,7 @@ import {
   DEPARTMENTS,
   downloadNote,
   noteViewUrl,
+  sharerName,
   SEMESTERS,
   YEARS,
   type Folder,
@@ -70,6 +71,7 @@ function NotesPage() {
       });
   }, []);
 
+  const isAdmin = me?.role === "admin";
   const term = q.trim();
 
   /** Applies the "most liked / downloaded / viewed" dropdown to any list of files. */
@@ -149,9 +151,18 @@ function NotesPage() {
   const download = async (note: Note) => {
     if (!ensureFaceVerified("download")) return;
     try {
-      await downloadNote(note);
+      const res = await downloadNote(note);
       const u = auth.user();
-      if (u) auth.setUser({ ...u, downloadedCount: u.downloadedCount + 1 });
+      if (u)
+        auth.setUser({
+          ...u,
+          downloadedCount: u.downloadedCount + 1,
+          stars: res.stars || u.stars || 0,
+        });
+      if (res.earnedStar)
+        toast.success("\u2B50 You earned a star!", {
+          description: "Five downloads completed — keep using the hub.",
+        });
       setNotes((prev) =>
         (prev ?? []).map((n) =>
           n.id === note.id ? { ...n, downloads: (n.downloads ?? 0) + 1 } : n,
@@ -345,6 +356,8 @@ function NotesPage() {
               onDownload={download}
               onLike={like}
               meId={me?.id}
+              isAdmin={isAdmin}
+
               onRename={rename}
               onDelete={remove}
               opening={opening}
@@ -376,6 +389,7 @@ function NotesPage() {
             onDownload={download}
             onLike={like}
             meId={me?.id}
+          isAdmin={isAdmin}
             opening={opening}
           />
         ) : (
@@ -404,7 +418,9 @@ function NotesPage() {
                 label: s,
                 sub: `${scoped.filter((n) => n.subject === s).length} file(s) · shared by ${Array.from(
                   new Set(scoped.filter((n) => n.subject === s).map((n) => n.uploadedBy)),
-                ).join(", ")}`,
+                )
+                  .map((name) => sharerName(name, isAdmin))
+                  .join(", ")}`,
               }))}
               onPick={setSubject}
               icon="📁"
@@ -420,6 +436,7 @@ function NotesPage() {
           onDownload={download}
           onLike={like}
           meId={me?.id}
+          isAdmin={isAdmin}
           onRename={rename}
           onDelete={remove}
           opening={opening}
@@ -448,7 +465,7 @@ function NotesPage() {
                       {n.department} · {n.year} · {n.semester}
                     </p>
                     <p className="text-cyan truncate text-xs">
-                      Shared by {n.uploadedBy} · {new Date(n.uploadedAt).toLocaleDateString()}
+                      Shared by {sharerName(n.uploadedBy, isAdmin)} · {new Date(n.uploadedAt).toLocaleDateString()}
                     </p>
                     {n.note && (
                       <p className="text-muted-foreground truncate text-xs italic">( {n.note} )</p>
@@ -488,6 +505,8 @@ function FileGrid({
   onDelete,
   opening,
   highlight,
+  isAdmin,
+  folders,
 }: {
   notes: Note[];
   onView: (n: Note) => void;
@@ -498,6 +517,8 @@ function FileGrid({
   onDelete?: ((n: Note) => void) | undefined;
   opening?: string | null | undefined;
   highlight?: string | undefined;
+  isAdmin?: boolean | undefined;
+  folders?: Folder[] | undefined;
 }) {
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -531,7 +552,13 @@ function FileGrid({
               {fileFormat(n)}
             </span>
           </p>
-          <p className="text-pink mt-1 text-xs font-semibold">Shared by {n.uploadedBy}</p>
+          <p className="text-pink mt-1 text-xs font-semibold">Shared by {sharerName(n.uploadedBy, isAdmin)}</p>
+          {n.folderId && (
+            <p className="text-muted-foreground mt-0.5 text-xs">
+              🗂️ Inside admin folder “
+              {(folders ?? []).find((f) => f.id === n.folderId)?.name ?? "folder"}”
+            </p>
+          )}
           <div className="text-muted-foreground mt-3 flex flex-wrap items-center gap-3 text-xs font-semibold">
             <button
               onClick={() => onLike(n)}

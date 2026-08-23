@@ -152,6 +152,25 @@ export type ChatThread = {
   messages: ChatMessage[];
 };
 
+/** Live hub-wide counters shown on the home page. */
+export type HubStats = {
+  users: number;
+  shares: number;
+  downloads: number;
+  views: number;
+};
+
+/**
+ * Students see a sharer's name without the part before the first space
+ * (e.g. "DASARI PRAVEEN" → "PRAVEEN"). Admins always see the full name.
+ */
+export function sharerName(fullName: string, isAdmin = false) {
+  if (isAdmin) return fullName;
+  const rest = fullName.trim().split(/\s+/).slice(1).join(" ");
+  return rest || fullName;
+}
+
+
 const TOKEN_KEY = "sknsh_token";
 const USER_KEY = "sknsh_user";
 /** Cached app document — dropped first when the browser storage runs out. */
@@ -299,18 +318,15 @@ export async function api<T = any>(
   }
 }
 
-export async function downloadNote(note: Note) {
+/** Downloads a file and reports back any star the student just earned. */
+export async function downloadNote(note: Note): Promise<{ earnedStar: boolean; stars: number }> {
   const token = auth.token();
-  if (!API_BASE) {
-    const { dataUrl } = await offlineRequest(
-      `/api/notes/${note.id}/download`,
-      "GET",
-      token,
-      undefined,
-    );
-    await saveBlobUrl(dataUrl, note.fileName);
-    return;
-  }
+  const offline = async () => {
+    const r = await offlineRequest(`/api/notes/${note.id}/download`, "GET", token, undefined);
+    await saveBlobUrl(r.dataUrl, note.fileName);
+    return { earnedStar: !!r.earnedStar, stars: Number(r.stars ?? 0) };
+  };
+  if (!API_BASE) return offline();
   try {
     const res = await fetch(`${API_BASE}/api/notes/${note.id}/download`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -320,17 +336,13 @@ export async function downloadNote(note: Note) {
     const url = URL.createObjectURL(blob);
     await saveBlobUrl(url, note.fileName);
     URL.revokeObjectURL(url);
+    return { earnedStar: false, stars: 0 };
   } catch (err) {
     if (!isNetworkError(err)) throw err;
-    const { dataUrl } = await offlineRequest(
-      `/api/notes/${note.id}/download`,
-      "GET",
-      token,
-      undefined,
-    );
-    await saveBlobUrl(dataUrl, note.fileName);
+    return offline();
   }
 }
+
 
 export async function downloadStudentsExcel() {
   const token = auth.token();

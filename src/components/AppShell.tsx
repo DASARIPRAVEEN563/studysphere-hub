@@ -1,5 +1,5 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { api, auth, safeStore, type ChatMessage, type User } from "@/lib/api";
 import { usePoll } from "@/lib/use-poll";
@@ -114,23 +114,32 @@ export function markChatSeen(uid: string) {
 /** Unread admin replies for the signed-in student (badge on the Chat tab). */
 function useStudentChatUnread(user: User | null, onChatPage: boolean) {
   const [unread, setUnread] = useState(0);
+  const known = useRef(-1);
   const enabled = !!user && user.role !== "admin" && isUnlocked(user);
 
   usePoll(
     async () => {
       if (!user) return;
       if (onChatPage) {
+        known.current = 0;
         setUnread(0);
         return;
       }
       try {
         const r = await api<{ messages: ChatMessage[] }>("/api/chat");
         const seen = Number(localStorage.getItem(chatSeenKey(user.id)) ?? 0);
-        setUnread(
-          r.messages.filter(
-            (m) => m.from === "admin" && new Date(m.createdAt).getTime() > seen,
-          ).length,
+        const incoming = r.messages.filter(
+          (m) => m.from === "admin" && new Date(m.createdAt).getTime() > seen,
         );
+        // Popup only for messages that arrived since the previous poll.
+        if (known.current >= 0 && incoming.length > known.current) {
+          const last = incoming[incoming.length - 1];
+          toast.message("New message from admin 💬", {
+            description: last?.text?.slice(0, 90) || "Open the chat board to read it.",
+          });
+        }
+        known.current = incoming.length;
+        setUnread(incoming.length);
       } catch {
         /* offline */
       }
@@ -140,7 +149,10 @@ function useStudentChatUnread(user: User | null, onChatPage: boolean) {
   );
 
   useEffect(() => {
-    const clear = () => setUnread(0);
+    const clear = () => {
+      known.current = 0;
+      setUnread(0);
+    };
     window.addEventListener("sknsh-chat-seen", clear);
     return () => window.removeEventListener("sknsh-chat-seen", clear);
   }, []);
@@ -169,7 +181,7 @@ export function AppShell({
   const [guide, setGuide] = useState(false);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
-  useStudentChatUnread(user, pathname === "/chat");
+  const chatUnread = useStudentChatUnread(user, pathname === "/chat");
 
 
   // Step-by-step "how to use" walkthrough — shown once per account, right
@@ -197,7 +209,19 @@ export function AppShell({
       {mounted && isRouterLoading && <BookLoaderOverlay label={title} />}
       <header className="glass sticky top-0 z-40 rounded-none border-x-0 border-t-0">
         <div className="mx-auto flex max-w-7xl items-center gap-2 px-3 py-2 sm:gap-3 sm:px-4 sm:py-3">
-          <Link to="/home" className="flex min-w-0 items-center gap-2">
+          <Link
+            to="/home"
+            onClick={(e) => {
+              // Tapping the logo reloads the app — the quickest way to pull in
+              // fresh notes and messages inside the installed Android app.
+              if (pathname === "/home") {
+                e.preventDefault();
+                window.location.reload();
+              }
+            }}
+            title="Tap the logo to refresh"
+            className="flex min-w-0 items-center gap-2"
+          >
             <Logo3D size={34} className="sm:!h-10 sm:!w-10" />
             <span className="gradient-text text-sm font-black tracking-wide">
               SKNSH
@@ -226,6 +250,11 @@ export function AppShell({
                   }`}
                 >
                   {locked ? `🔒 ${n.label}` : n.label}
+                  {n.to === "/chat" && !locked && chatUnread > 0 && (
+                    <span className="bg-destructive absolute -top-1 -right-1 grid min-w-4 animate-bounce place-items-center rounded-full px-1 text-[9px] font-black text-white">
+                      {chatUnread}
+                    </span>
+                  )}
                 </Link>
               );
             })}
@@ -300,7 +329,13 @@ export function AppShell({
               >
                 <span className="text-base leading-none">{locked ? "🔒" : n.icon}</span>
                 {n.short}
+                {n.to === "/chat" && !locked && chatUnread > 0 && (
+                  <span className="bg-destructive absolute top-0.5 right-3 grid min-w-4 animate-bounce place-items-center rounded-full px-1 text-[9px] font-black text-white">
+                    {chatUnread}
+                  </span>
+                )}
               </Link>
+
             );
           })}
         </nav>

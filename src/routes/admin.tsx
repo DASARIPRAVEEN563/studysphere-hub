@@ -675,6 +675,11 @@ function StudentsAdmin({ isMaster }: { isMaster: boolean }) {
 
 function ChatAdmin() {
   const [threads, setThreads] = useState<ChatThread[] | null>(null);
+  /** Every student, used only for targeted announcements. */
+  const [recipients, setRecipients] = useState<
+    { userId: string; fullName: string; registrationId: string }[]
+  >([]);
+  const [search, setSearch] = useState("");
   const [activeId, setActiveId] = useState<string | null>(null);
   const [text, setText] = useState("");
   const [announcement, setAnnouncement] = useState("");
@@ -753,8 +758,18 @@ function ChatAdmin() {
   };
 
   const load = () =>
-    api<{ threads: ChatThread[] }>("/api/admin/chat")
-      .then((r) => setThreads(r.threads))
+    api<{
+      threads: ChatThread[];
+      recipients?: { userId: string; fullName: string; registrationId: string }[];
+    }>("/api/admin/chat")
+      .then((r) => {
+        setThreads(r.threads);
+        setRecipients(r.recipients ?? r.threads.map((t) => ({
+          userId: t.userId,
+          fullName: t.fullName,
+          registrationId: t.registrationId,
+        })));
+      })
       .catch((e) => {
         toast.error((e as Error).message);
         setThreads([]);
@@ -802,7 +817,7 @@ function ChatAdmin() {
   const broadcast = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!announcement.trim()) return;
-    const list = threads ?? [];
+    const list = recipients;
     if (!allUsers && !selected.length) {
       toast.error("Tick at least one student, or choose all students");
       return;
@@ -883,7 +898,7 @@ function ChatAdmin() {
         </label>
         {!allUsers && (
           <div className="max-h-40 space-y-1 overflow-y-auto rounded-2xl border border-border p-2">
-            {threads.map((t) => (
+            {recipients.map((t) => (
               <label key={t.userId} className="flex items-center gap-2 rounded-xl p-1.5 text-sm">
                 <input
                   type="checkbox"
@@ -896,7 +911,9 @@ function ChatAdmin() {
                 </span>
               </label>
             ))}
-            {!threads.length && <p className="text-muted-foreground text-sm">No students yet.</p>}
+            {!recipients.length && (
+              <p className="text-muted-foreground text-sm">No students yet.</p>
+            )}
           </div>
         )}
         <textarea
@@ -912,9 +929,32 @@ function ChatAdmin() {
       </form>
 
       <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
-        <div className="max-h-64 space-y-2 overflow-y-auto lg:max-h-none lg:overflow-visible">
-          {!threads.length && <p className="text-muted-foreground text-sm">No students yet.</p>}
-          {threads.map((t) => {
+        <div className="max-h-72 space-y-2 overflow-y-auto lg:max-h-none lg:overflow-visible">
+          <div className="glass sticky top-0 z-10 flex items-center gap-2 rounded-2xl px-3 py-2">
+            <span className="text-base">🔍</span>
+            <input
+              className="w-full bg-transparent text-sm outline-none"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search a student by name or ID"
+            />
+          </div>
+          <p className="text-muted-foreground px-1 text-xs font-bold">
+            {threads.length} student(s) chatting with us
+          </p>
+          {!threads.length && (
+            <p className="text-muted-foreground text-sm">Nobody has messaged the admin yet.</p>
+          )}
+          {threads
+            .filter((t) => {
+              const q = search.trim().toLowerCase();
+              if (!q) return true;
+              return (
+                t.fullName.toLowerCase().includes(q) ||
+                t.registrationId.toLowerCase().includes(q)
+              );
+            })
+            .map((t) => {
             const last = t.messages[t.messages.length - 1];
             return (
               <button

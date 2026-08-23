@@ -6,8 +6,8 @@ import { BookLoader } from "@/components/BookLoader";
 import { FlipbookViewer } from "@/components/FlipbookViewer";
 import { ContentEffect } from "@/components/ContentEffect";
 import { Logo3D } from "@/components/Logo3D";
-import { btnClass, inputClass } from "@/components/Field";
-import { api, type ContentItem, type Feedback } from "@/lib/api";
+import { api, type Feedback, type HubStats, type ContentItem } from "@/lib/api";
+
 
 export const Route = createFileRoute("/home")({
   head: () => ({
@@ -268,7 +268,9 @@ function HomeContent() {
         </>
       )}
 
-      <FeedbackSection />
+      <HubCounters />
+      <LatestReviews />
+
       {book && <FlipbookViewer pages={book} onClose={() => setBook(null)} />}
       {lightbox && (
         <div
@@ -321,88 +323,99 @@ function HomeContent() {
   );
 }
 
-function FeedbackSection() {
-  const [list, setList] = useState<Feedback[] | null>(null);
-  const [rating, setRating] = useState(5);
-  const [hover, setHover] = useState(0);
-  const [comment, setComment] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  const load = () =>
-    api<{ feedback: Feedback[] }>("/api/feedback")
-      .then((r) => setList(r.feedback))
-      .catch(() => setList([]));
+/** Smoothly counts up to a number — used for the live hub counters. */
+function CountUp({ value }: { value: number }) {
+  const [shown, setShown] = useState(0);
 
   useEffect(() => {
-    void load();
+    if (value <= 0) return setShown(0);
+    const start = performance.now();
+    const duration = 1200;
+    let frame = 0;
+    const tick = (now: number) => {
+      const p = Math.min(1, (now - start) / duration);
+      // Ease-out so the number slows down as it lands.
+      setShown(Math.round(value * (1 - Math.pow(1 - p, 3))));
+      if (p < 1) frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [value]);
+
+  return <>{shown.toLocaleString()}</>;
+}
+
+/** Live totals for the whole hub — members, shares and downloads. */
+function HubCounters() {
+  const [stats, setStats] = useState<HubStats | null>(null);
+
+  useEffect(() => {
+    api<{ stats: HubStats }>("/api/stats")
+      .then((r) => setStats(r.stats))
+      .catch(() => setStats(null));
   }, []);
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setBusy(true);
-    try {
-      await api("/api/feedback", { body: { rating, comment } });
-      toast.success("Thanks for your feedback!");
-      setComment("");
-      setRating(5);
-      await load();
-    } catch (err) {
-      toast.error((err as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  };
+  const cards = [
+    { label: "Members", icon: "\u{1F465}", value: stats?.users ?? 0, accent: "from-violet to-blue" },
+    { label: "Notes shared", icon: "\u{1F4DA}", value: stats?.shares ?? 0, accent: "from-blue to-cyan" },
+    { label: "Downloads", icon: "\u{2B07}\uFE0F", value: stats?.downloads ?? 0, accent: "from-cyan to-pink" },
+    { label: "File views", icon: "\u{1F441}\uFE0F", value: stats?.views ?? 0, accent: "from-pink to-violet" },
+  ];
 
   return (
-    <section className="mt-4 grid gap-6 lg:grid-cols-[1fr_1.2fr]">
-      <form onSubmit={submit} className="glass animate-rise space-y-4 rounded-3xl p-8">
-        <h3 className="text-lg font-black">Rate this hub</h3>
-        <div className="flex gap-1 text-3xl">
-          {[1, 2, 3, 4, 5].map((s) => (
-            <button
-              type="button"
-              key={s}
-              onClick={() => setRating(s)}
-              onMouseEnter={() => setHover(s)}
-              onMouseLeave={() => setHover(0)}
-              className="transition-transform hover:scale-125"
-              aria-label={`${s} star`}
-            >
-              <span className={(hover || rating) >= s ? "" : "opacity-30 grayscale"}>⭐</span>
-            </button>
-          ))}
-        </div>
-        <textarea
-          className={inputClass}
-          rows={3}
-          value={comment}
-          onChange={(e) => setComment(e.target.value)}
-          placeholder="Share your experience..."
-          required
-        />
-        <button className={`${btnClass} w-full`} disabled={busy}>
-          {busy ? "Sending..." : "Submit Feedback"}
-        </button>
-      </form>
+    <section className="mt-8">
+      <h3 className="mb-3 text-lg font-black">Our hub right now</h3>
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {cards.map((c, i) => (
+          <article
+            key={c.label}
+            className="glass animate-rise rounded-3xl p-5 text-center"
+            style={{ animationDelay: `${i * 70}ms` }}
+          >
+            <div className={`mx-auto mb-2 h-1 w-10 rounded-full bg-gradient-to-r ${c.accent}`} />
+            <p className="text-2xl">{c.icon}</p>
+            <p className="gradient-text mt-1 text-3xl font-black tabular-nums">
+              <CountUp value={c.value} />
+            </p>
+            <p className="text-muted-foreground text-xs font-semibold">{c.label}</p>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
 
-      <div className="space-y-3">
-        <h3 className="text-lg font-bold">What students say</h3>
-        {list === null ? (
-          <BookLoader label="Loading feedback" />
-        ) : list.length ? (
-          list.slice(0, 8).map((f) => (
-            <article key={f.id} className="glass animate-rise rounded-2xl p-5">
-              <div className="flex items-center justify-between gap-3">
-                <p className="font-bold">{f.userName}</p>
-                <p className="text-sm">{"⭐".repeat(f.rating)}</p>
-              </div>
-              <p className="text-muted-foreground text-xs">{f.registrationId}</p>
-              <p className="mt-2 text-sm">{f.comment}</p>
-            </article>
-          ))
-        ) : (
-          <p className="text-muted-foreground text-sm">No feedback yet — be the first!</p>
-        )}
+/** The five most recent student reviews (reviews are collected at logout). */
+function LatestReviews() {
+  const [list, setList] = useState<Feedback[] | null>(null);
+
+  useEffect(() => {
+    api<{ feedback: Feedback[] }>("/api/feedback")
+      .then((r) => setList(r.feedback ?? []))
+      .catch(() => setList([]));
+  }, []);
+
+  if (list === null) return <BookLoader label="Loading reviews" />;
+  if (!list.length) return null;
+
+  return (
+    <section className="mt-8">
+      <h3 className="mb-3 text-lg font-black">What students say \u00b7 latest 5</h3>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {list.slice(0, 5).map((f, i) => (
+          <article
+            key={f.id}
+            className="glass animate-rise rounded-2xl p-5"
+            style={{ animationDelay: `${i * 60}ms` }}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <p className="truncate font-bold">{f.userName}</p>
+              <p className="shrink-0 text-sm">{"\u2B50".repeat(f.rating)}</p>
+            </div>
+            <p className="text-muted-foreground text-xs">{f.registrationId}</p>
+            <p className="mt-2 text-sm">{f.comment}</p>
+          </article>
+        ))}
       </div>
     </section>
   );
