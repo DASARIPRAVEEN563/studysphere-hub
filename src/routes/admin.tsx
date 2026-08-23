@@ -2340,6 +2340,49 @@ function AccessAdmin() {
   );
 }
 
+
+/** Human-readable facts about a deleted item, taken from its stored payload. */
+function trashFacts(t: TrashItem): [string, string][] {
+  const p = (t.payload ?? {}) as Record<string, any>;
+  const rows: [string, string][] = [
+    ["Deleted by", t.deletedBy ?? "admin"],
+    ["Deleted on", new Date(t.deletedAt).toLocaleString()],
+  ];
+  if (t.detail) rows.unshift(["Details", t.detail]);
+  if (t.kind === "note") {
+    rows.unshift(["File", String(p["fileName"] ?? "-")]);
+    rows.unshift(["Shared by", String(p["uploadedBy"] ?? "-")]);
+    rows.push(["Scope", [p["department"], p["year"], p["semester"]].filter(Boolean).join(" · ")]);
+    rows.push(["Engagement", `${p["views"] ?? 0} views · ${p["downloads"] ?? 0} downloads`]);
+  }
+  if (t.kind === "user") {
+    rows.unshift(["Registration ID", String(p["registrationId"] ?? "-")]);
+    rows.push(["Email", String(p["email"] ?? "not added")]);
+    rows.push(["Shared / downloaded", `${p["sharedCount"] ?? 0} / ${p["downloadedCount"] ?? 0}`]);
+  }
+  if (t.kind === "feedback") {
+    rows.unshift(["Rating", "⭐".repeat(Number(p["rating"] ?? 0)) || "-"]);
+    rows.push(["Comment", String(p["comment"] ?? "-")]);
+  }
+  if (t.kind === "chat") {
+    const list = Array.isArray(t.payload) ? t.payload : [t.payload];
+    rows.push(["Messages", `${list.length}`]);
+    rows.push(["Last text", String(list[list.length - 1]?.text ?? "photo message")]);
+  }
+  if (t.kind === "content") {
+    rows.push(["Type", String(p["type"] ?? "-")]);
+    rows.push(["Description", String(p["description"] ?? "-")]);
+  }
+  return rows;
+}
+
+/** Thumbnail for deleted photos so the admin recognises them instantly. */
+function trashPreview(t: TrashItem): string | null {
+  const p: any = Array.isArray(t.payload) ? t.payload[t.payload.length - 1] : t.payload;
+  const src = p?.image ?? p?.url ?? p?.profilePicture ?? null;
+  return typeof src === "string" && src.startsWith("data:image/") ? src : null;
+}
+
 const TRASH_ICONS: Record<TrashItem["kind"], string> = {
   note: "📄",
   user: "👤",
@@ -2394,33 +2437,65 @@ function TrashAdmin() {
         they are removed automatically.
       </p>
       {!items.length && <p className="text-muted-foreground text-sm">The bin is empty.</p>}
-      {items.map((t) => {
-        const daysLeft = Math.max(
-          0,
-          10 - Math.floor((Date.now() - new Date(t.deletedAt).getTime()) / 86_400_000),
-        );
-        return (
-          <section
-            key={t.id}
-            className="glass animate-rise flex flex-wrap items-center gap-3 rounded-3xl p-4"
-          >
-            <span className="text-2xl">{TRASH_ICONS[t.kind]}</span>
-            <div className="min-w-0 flex-1">
-              <p className="truncate font-bold">{t.label}</p>
-              <p className="text-muted-foreground truncate text-xs">
-                {t.kind} · {t.detail} · deleted by {t.deletedBy} ·{" "}
-                {new Date(t.deletedAt).toLocaleDateString()} · {daysLeft} day(s) left
-              </p>
-            </div>
-            <button type="button" className={btnClass} onClick={() => void restore(t)}>
-              Restore
-            </button>
-            <button type="button" className={ghostBtnClass} onClick={() => void purge(t)}>
-              Delete forever
-            </button>
-          </section>
-        );
-      })}
+      <div className="grid gap-4 lg:grid-cols-2">
+        {items.map((t) => {
+          const daysLeft = Math.max(
+            0,
+            10 - Math.floor((Date.now() - new Date(t.deletedAt).getTime()) / 86_400_000),
+          );
+          return (
+            <section key={t.id} className="glass animate-rise space-y-3 rounded-3xl p-5">
+              <div className="flex items-start gap-3">
+                <span className="hero-gradient grid size-11 shrink-0 place-items-center rounded-2xl text-xl">
+                  {TRASH_ICONS[t.kind]}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="font-black break-words">{t.label}</p>
+                  <p className="text-cyan text-xs font-bold uppercase">{t.kind}</p>
+                </div>
+                <span
+                  className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-black ${
+                    daysLeft <= 2 ? "bg-destructive text-white" : "bg-primary/20 text-cyan"
+                  }`}
+                >
+                  {daysLeft} day(s) left
+                </span>
+              </div>
+
+              {/* Full detail so the admin can be sure before deleting for good. */}
+              <dl className="grid gap-2 sm:grid-cols-2">
+                {trashFacts(t).map(([k, v]) => (
+                  <div key={k} className="glass rounded-2xl px-3 py-2">
+                    <dt className="text-muted-foreground text-[10px] font-bold uppercase">{k}</dt>
+                    <dd className="mt-0.5 text-sm font-semibold break-words">{v}</dd>
+                  </div>
+                ))}
+              </dl>
+
+              {trashPreview(t) && (
+                <img
+                  src={trashPreview(t)!}
+                  alt={t.label}
+                  className="max-h-44 w-full rounded-2xl object-cover"
+                />
+              )}
+
+              <div className="flex flex-wrap gap-2">
+                <button type="button" className={btnClass} onClick={() => void restore(t)}>
+                  ♻️ Restore
+                </button>
+                <button
+                  type="button"
+                  className={`${ghostBtnClass} text-destructive`}
+                  onClick={() => void purge(t)}
+                >
+                  🗑 Delete forever
+                </button>
+              </div>
+            </section>
+          );
+        })}
+      </div>
     </div>
   );
 }
