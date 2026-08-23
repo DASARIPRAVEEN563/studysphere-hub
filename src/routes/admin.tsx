@@ -1471,7 +1471,7 @@ function StudentsAdminBody({ isMaster }: { isMaster: boolean }) {
               s={s}
               isMaster={isMaster}
               onDelete={removeStudent}
-              onChanged={load}
+              onChanged={loadStudents}
             />
             ))}
           </div>
@@ -1530,7 +1530,7 @@ function StudentsAdminBody({ isMaster }: { isMaster: boolean }) {
               s={s}
               isMaster={isMaster}
               onDelete={removeStudent}
-              onChanged={load}
+              onChanged={loadStudents}
             />
           ))}
         </div>
@@ -1551,7 +1551,7 @@ function StudentCard({
   s: User;
   isMaster: boolean;
   onDelete: (s: User) => void;
-  onChanged?: () => void;
+  onChanged?: (() => void) | undefined;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -1613,7 +1613,7 @@ function StudentDetails({
   isMaster: boolean;
   onDelete: (s: User) => void;
   onClose: () => void;
-  onChanged?: () => void;
+  onChanged?: (() => void) | undefined;
 }) {
   const [notes, setNotes] = useState<Note[] | null>(null);
   const [starring, setStarring] = useState(false);
