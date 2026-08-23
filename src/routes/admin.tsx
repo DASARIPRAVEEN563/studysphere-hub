@@ -1592,11 +1592,13 @@ function StudentDetails({
   isMaster,
   onDelete,
   onClose,
+  onChanged,
 }: {
   s: User;
   isMaster: boolean;
   onDelete: (s: User) => void;
   onClose: () => void;
+  onChanged?: () => void;
 }) {
   const [notes, setNotes] = useState<Note[] | null>(null);
   const [starring, setStarring] = useState(false);
