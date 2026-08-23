@@ -1466,7 +1466,13 @@ function StudentsAdminBody({ isMaster }: { isMaster: boolean }) {
           <p className="text-muted-foreground text-sm">{matches.length} student(s) found</p>
           <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
             {matches.map((s) => (
-              <StudentCard key={s.id} s={s} isMaster={isMaster} onDelete={removeStudent} />
+              <StudentCard
+              key={s.id}
+              s={s}
+              isMaster={isMaster}
+              onDelete={removeStudent}
+              onChanged={load}
+            />
             ))}
           </div>
         </div>
@@ -1519,7 +1525,13 @@ function StudentsAdminBody({ isMaster }: { isMaster: boolean }) {
         </button>
         <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
           {shown.map((s) => (
-            <StudentCard key={s.id} s={s} isMaster={isMaster} onDelete={removeStudent} />
+            <StudentCard
+              key={s.id}
+              s={s}
+              isMaster={isMaster}
+              onDelete={removeStudent}
+              onChanged={load}
+            />
           ))}
         </div>
         </div>
@@ -1534,10 +1546,12 @@ function StudentCard({
   s,
   isMaster,
   onDelete,
+  onChanged,
 }: {
   s: User;
   isMaster: boolean;
   onDelete: (s: User) => void;
+  onChanged?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -1580,6 +1594,7 @@ function StudentCard({
           isMaster={isMaster}
           onDelete={onDelete}
           onClose={() => setOpen(false)}
+          onChanged={onChanged}
         />
       )}
     </>
