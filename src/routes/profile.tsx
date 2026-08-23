@@ -12,6 +12,7 @@ import { Leaderboard } from "@/components/Leaderboard";
 import { LikeNotifications } from "@/components/LikeNotifications";
 import { ThemePicker } from "@/components/ThemePicker";
 import { DownloadApk } from "@/components/DownloadApk";
+import { StarShare } from "@/components/StarShare";
 import { api, auth, DEPARTMENTS, SEMESTERS, YEARS, type User } from "@/lib/api";
 
 export const Route = createFileRoute("/profile")({
@@ -252,6 +253,7 @@ function ProfilePage() {
         <AdminCreator user={user} />
         <ThemePicker />
         <ShareSite />
+        <StarShare user={user} />
         <DownloadApk />
         </div>
       </div>
