@@ -49,8 +49,16 @@ export const cloudFile = createServerFn({ method: "POST" })
   .inputValidator((input: { id: string }) => input)
   .handler(async ({ data }) => {
     const { readFile } = await import("./cloud-state.server");
-    return { dataUrl: await readFile(String(data.id)) };
+    try {
+      const dataUrl = await readFile(String(data.id));
+      return dataUrl
+        ? { dataUrl }
+        : { dataUrl: null, error: "File is taking too long to load. Please try again." };
+    } catch (err) {
+      return { dataUrl: null, error: (err as Error).message || "Could not load this file" };
+    }
   });
+
 
 /**
  * Issue / verify a one-time code (face verification today).
