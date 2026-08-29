@@ -19,6 +19,8 @@ const pwa = VitePWA({
   registerType: "autoUpdate",
   injectRegister: null,
   filename: "sw.js",
+  // The client bundle (what the browser actually loads) is emitted to dist/client.
+  outDir: "dist/client",
   devOptions: { enabled: false },
   manifest: false,
   workbox: {
