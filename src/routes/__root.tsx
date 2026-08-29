@@ -140,7 +140,9 @@ function RootComponent() {
   useEffect(() => {
     void import("@/lib/theme").then((m) => m.applyTheme(m.getTheme()));
     void import("@/lib/permissions").then((m) => m.requestAllPermissions());
+    void import("@/lib/register-sw").then((m) => m.registerOfflineWorker());
   }, []);
+
 
   return (
     <QueryClientProvider client={queryClient}>
