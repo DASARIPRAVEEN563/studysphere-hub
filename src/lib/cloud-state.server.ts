@@ -229,20 +229,14 @@ async function fetchRow(id: string): Promise<unknown> {
   return null;
 }
 
-/** True once the legacy single-blob file row is known to be gone/unusable. */
-let legacyFilesMissing = false;
-
 export async function readFile(fileId: string): Promise<string | null> {
   const direct = await fetchRow(FILE_PREFIX + fileId);
   if (typeof direct === "string") return direct;
-  // Older uploads still live inside the single legacy blob row (very large,
-  // so it is only consulted once per server instance).
-  if (legacyFilesMissing) return null;
+  // Older uploads still live inside the single legacy blob row (very large).
+  // Never cache a failure here: a transient timeout must not permanently
+  // hide every legacy file until the server restarts — just retry next time.
   const legacy = await fetchRow(FILES);
-  if (!legacy || typeof legacy !== "object") {
-    legacyFilesMissing = true;
-    return null;
-  }
+  if (!legacy || typeof legacy !== "object") return null;
   return (legacy as Record<string, string>)[fileId] ?? null;
 }
 
