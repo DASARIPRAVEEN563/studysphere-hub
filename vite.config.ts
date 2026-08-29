@@ -25,8 +25,8 @@ const pwa = VitePWA({
   manifest: false,
   workbox: {
     globPatterns: ["**/*.{js,css,png,svg,webp,woff2}"],
-    navigateFallback: "/",
-    navigateFallbackDenylist: [/^\/~oauth/, /^\/api\//, /^\/_serverFn/],
+    // No navigateFallback: pages are server-rendered, so visited pages are
+    // served from the NetworkFirst cache when the connection drops.
     runtimeCaching: [
       {
         urlPattern: ({ request }: any) => request.mode === "navigate",
