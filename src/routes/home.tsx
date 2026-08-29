@@ -400,7 +400,7 @@ function LatestReviews() {
 
   return (
     <section className="mt-8">
-      <h3 className="mb-3 text-lg font-black">What students say \u00b7 latest 5</h3>
+      <h3 className="mb-3 text-lg font-black">What students say · latest 5</h3>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {list.slice(0, 5).map((f, i) => (
           <article
