@@ -78,6 +78,33 @@ MASTER_ADMIN_PASSWORD=PRAVEEN2204
 
 ---
 
+## 1b. When Railway expires → switch to Render
+
+Your data is safe — it lives in Lovable Cloud (metadata) and Google Drive (files), **not** in Railway. Railway only runs the code, so you can move the backend anytime without losing anything.
+
+Steps (about 10 minutes):
+
+1. Go to [render.com](https://render.com) → **New** → **Web Service** → connect your GitHub repo.
+   (Or **New** → **Blueprint** — it will read `backend/render.yaml`, which is already in the repo.)
+2. Set **Root Directory** to `backend`.
+   - Build Command: `pip install -r requirements.txt`
+   - Start Command: `gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120`
+3. Copy **every variable** from Railway's Variables tab into Render's **Environment** tab (same names, same values — `JWT_SECRET`, `BACKEND_BRIDGE_SECRET`, `LOVABLE_API_KEY`, `GOOGLE_DRIVE_API_KEY`, SMTP, master admin, etc.).
+4. Deploy. Render gives you a URL like `https://sknsh-backend.onrender.com`. Test:
+   ```bash
+   curl https://sknsh-backend.onrender.com/api/health
+   ```
+5. In **Lovable → Project Settings → Environment Variables**, update:
+   ```env
+   VITE_API_URL=https://sknsh-backend.onrender.com
+   ```
+6. Re-publish the frontend (Publish → Update) so the new backend URL is baked in.
+7. Delete or pause the Railway service so you are not charged.
+
+**Free-tier note:** the Render free service sleeps after ~15 minutes of inactivity. The first request after sleep takes ~30–60 seconds to wake; after that it is fast until it idles again. All users, notes and chats still work — just slower on the first visit of an idle period.
+
+---
+
 ## 2. Frontend → Lovable Publish
 
 1. In the Lovable editor, click **Publish** (top right on desktop, bottom-right in preview).
