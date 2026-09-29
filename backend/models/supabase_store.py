@@ -1,4 +1,4 @@
-"""Supabase-backed data store for Railway deployment.
+"""Supabase-backed data store for Render deployment.
 
 Mirrors the interface of models/store.py so the rest of the Flask app does not
 need to change. Uses the same public.app_state shards that the frontend cloud
