@@ -47,7 +47,7 @@ Frontend: http://localhost:8080 — Backend: http://localhost:5000
 
 | Variable | Notes |
 |---|---|
-| `VITE_API_URL` | `http://localhost:5000` locally; the Railway URL in production |
+| `VITE_API_URL` | `http://localhost:5000` locally; `https://sknsh-backend.onrender.com` in production |
 | `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `VITE_SUPABASE_PROJECT_ID` | auto-written by Lovable when Cloud is enabled in that workspace |
 
 ---
