@@ -47,7 +47,7 @@ Frontend: http://localhost:8080 — Backend: http://localhost:5000
 
 | Variable | Notes |
 |---|---|
-| `VITE_API_URL` | `http://localhost:5000` locally; the Railway URL in production |
+| `VITE_API_URL` | `http://localhost:5000` locally; `https://sknsh-backend.onrender.com` in production |
 | `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `VITE_SUPABASE_PROJECT_ID` | auto-written by Lovable when Cloud is enabled in that workspace |
 
 ---
@@ -73,7 +73,7 @@ These live in Lovable, not in Git, and must be redone in the new workspace:
 3. **Google Drive connector** — Connectors → Google Drive → connect + link.
    Only the project owner can link a connection they have access to.
 4. **Published URL / custom domain** — republish from the new workspace.
-5. **Railway backend** — redeploy and re-enter the same env vars there
+5. **Render backend** — redeploy and re-enter the same env vars there
    (see `DEPLOY.md`), then update `VITE_API_URL` and `CORS_ORIGINS`.
 
 ---
@@ -86,4 +86,4 @@ These live in Lovable, not in Git, and must be redone in the new workspace:
 - [ ] Friend fills the admin + SMTP values in `backend/.env`
 - [ ] `bash scripts/start.sh` → app runs locally
 - [ ] (Cloud) enable Lovable Cloud + link Gmail and Google Drive connectors
-- [ ] (Production) redeploy backend on Railway, set `VITE_API_URL`, republish
+- [ ] (Production) redeploy backend on Render, set `VITE_API_URL`, republish

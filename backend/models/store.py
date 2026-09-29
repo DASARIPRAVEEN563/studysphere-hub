@@ -1,7 +1,7 @@
-"""Data store with automatic Supabase persistence on Railway.
+"""Data store with automatic Supabase persistence on Render.
 
 Locally (or whenever SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY are missing) it
-falls back to JSON files in backend/data/. On Railway it uses the same
+falls back to JSON files in backend/data/. On Render it uses the same
 public.app_state shards that the frontend cloud functions use.
 """
 import json
