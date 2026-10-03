@@ -2,7 +2,7 @@ import { defineTool } from "@lovable.dev/mcp-js";
 import { z } from "zod";
 import { requireSignedIn } from "../auth-guard";
 
-const DEPARTMENTS = ["AMIL & CSM", "CSE", "ECE", "EEE", "MECH", "CIVIL"] as const;
+const DEPARTMENTS = ["AIML & CSM", "CSE", "ECE", "EEE", "MECH", "CIVIL"] as const;
 const YEARS = ["1 Year", "2 Year", "3 Year", "4 Year"] as const;
 const SEMESTERS = ["1 Sem", "2 Sem"] as const;
 

@@ -6,7 +6,7 @@ from models import store
 from models.user import public_user
 from services.security_service import create_token, hash_value, verify_value
 
-DEPARTMENTS = ["AMIL & CSM", "CSE", "ECE", "EEE", "MECH", "CIVIL"]
+DEPARTMENTS = ["AIML & CSM", "CSE", "ECE", "EEE", "MECH", "CIVIL"]
 YEARS = ["1 Year", "2 Year", "3 Year", "4 Year"]
 SEMESTERS = ["1 Sem", "2 Sem"]
 
