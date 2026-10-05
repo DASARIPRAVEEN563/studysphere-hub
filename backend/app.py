@@ -1,3 +1,4 @@
+import re
 """STUDENTS KA NOTES SHARING HUB - Flask API server."""
 import os
 
@@ -57,6 +58,12 @@ def create_app() -> Flask:
         o.strip()
         for o in os.environ.get("CORS_ORIGINS", "http://localhost:5173").split(",")
         if o.strip()
+    ]
+    origins += [
+        "capacitor://localhost",
+        "https://localhost",
+        "http://localhost",
+        re.compile(r"^https://[a-z0-9-]+\.lovable\.app$"),
     ]
     CORS(
         app,
