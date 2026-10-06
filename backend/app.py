@@ -92,6 +92,26 @@ def create_app() -> Flask:
             }
         )
 
+    @app.get("/api/stats")
+    def stats():
+        from models import store as _store
+        users = _store.read("users") or []
+        notes = _store.read("notes") or []
+        students = [u for u in users if (u.get("role") or "student") == "student"]
+        downloads = sum(int(n.get("downloads") or 0) for n in notes)
+        views = sum(int(n.get("views") or 0) for n in notes)
+        return jsonify(
+            {
+                "stats": {"users": len(users), "shares": len(notes), "downloads": downloads, "views": views},
+                "members": len(users),
+                "students": len(students),
+                "notes": len(notes),
+                "notesShared": len(notes),
+                "downloads": sum(int(n.get("downloads") or 0) for n in notes),
+                "views": sum(int(n.get("views") or 0) for n in notes),
+            }
+        )
+
     @app.errorhandler(404)
     def not_found(_err):
         return jsonify({"error": "Endpoint not found"}), 404

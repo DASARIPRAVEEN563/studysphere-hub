@@ -94,3 +94,19 @@ def delete(collection: str, row_id: str) -> bool:
         return False
     write(collection, remaining)
     return True
+
+
+def read_file(note_id: str):
+    """Return the stored data-URL / base64 string for an uploaded note, or None."""
+    res = requests.get(
+        f"{_base()}/api/public/state",
+        params={"shard": f"file:{note_id}"},
+        headers=_headers(),
+        timeout=60,
+    )
+    if not res.ok:
+        return None
+    data = res.json().get("data")
+    if isinstance(data, dict):
+        data = data.get("data") or data.get("dataUrl") or data.get("content")
+    return data if isinstance(data, str) else None

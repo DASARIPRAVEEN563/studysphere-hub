@@ -37,7 +37,8 @@ export const Route = createFileRoute("/api/public/state")({
       GET: async ({ request }) => {
         if (!authorized(request)) return new Response("Unauthorized", { status: 401 });
         const shard = new URL(request.url).searchParams.get("shard") ?? "";
-        if (!(SHARDS as readonly string[]).includes(shard)) return json({ error: "Unknown shard" }, 400);
+        const isFile = /^file:[A-Za-z0-9_-]{1,80}$/.test(shard);
+        if (!isFile && !(SHARDS as readonly string[]).includes(shard)) return json({ error: "Unknown shard" }, 400);
         const db = await admin();
         const { data, error } = await db
           .from("app_state")
@@ -45,7 +46,7 @@ export const Route = createFileRoute("/api/public/state")({
           .eq("id", shard)
           .maybeSingle();
         if (error) return json({ error: error.message }, 500);
-        return json({ data: data?.data ?? [] });
+        return json({ data: data?.data ?? (isFile ? null : []) });
       },
       // POST /api/public/state  { shard, data }
       POST: async ({ request }) => {

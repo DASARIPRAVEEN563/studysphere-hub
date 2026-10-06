@@ -1,0 +1,22 @@
+[
+  {
+    "id": "f1f16c61519146a892c86d2750cb2685",
+    "fullName": "Portal Administrator",
+    "registrationId": "ADMIN001",
+    "passwordHash": "$2b$12$Et3L8kY/RDQ4vDI0BAWSfu0vyZgTadWRLJv.uD1oTkCb54oI3G0Hu",
+    "securityQuestion": "What is your nickname?",
+    "securityAnswerHash": "$2b$12$5UDm9c9/Ue4Ouy.mxCZkJuF7oDFH52nUECy8C6biJ8N0DRjK/DimO",
+    "department": "CSE",
+    "year": "1 Year",
+    "semester": "1 Sem",
+    "role": "admin",
+    "profilePicture": null,
+    "sharedCount": 0,
+    "downloadedCount": 0,
+    "stars": 0,
+    "faceVerified": true,
+    "faceImage": null,
+    "faceVerifiedAt": null,
+    "createdAt": "2026-10-06T11:47:17.457667+00:00"
+  }
+]
