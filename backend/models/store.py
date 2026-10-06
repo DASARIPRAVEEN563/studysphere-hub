@@ -39,8 +39,12 @@ def _supabase_enabled() -> bool:
 
 
 def _bridge_enabled() -> bool:
-    """Lovable Cloud hides the service-role key; persist through the app bridge."""
-    return bool(os.environ.get("APP_BRIDGE_URL") and os.environ.get("BACKEND_BRIDGE_SECRET"))
+    """Lovable Cloud hides the service-role key; persist through the app bridge.
+
+    Falls back to the published site URL and the master admin password so the
+    live data is used even when the bridge variables are missing on Render.
+    """
+    return bool(os.environ.get("BACKEND_BRIDGE_SECRET") or os.environ.get("MASTER_ADMIN_PASSWORD"))
 
 
 def _remote():
