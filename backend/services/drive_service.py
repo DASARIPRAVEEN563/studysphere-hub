@@ -129,11 +129,27 @@ def download_file(note: dict) -> bytes:
         )
         return resp.content
 
-    path = os.path.join(BASE_DIR, note.get("storagePath") or "")
-    if not os.path.exists(path):
-        raise FileNotFoundError("Stored file is missing")
-    with open(path, "rb") as fh:
-        return fh.read()
+    storage = note.get("storagePath")
+    if storage:
+        path = os.path.join(BASE_DIR, storage)
+        if os.path.isfile(path):
+            with open(path, "rb") as fh:
+                return fh.read()
+
+    # Fallback: file saved in the cloud database as a base64 data URL.
+    try:
+        from models import bridge_store
+        raw = bridge_store.read_file(note.get("id", "")) if bridge_store.enabled() else None
+    except Exception:
+        raw = None
+    if raw:
+        import base64
+        b64 = raw.split(",", 1)[1] if raw.startswith("data:") and "," in raw else raw
+        try:
+            return base64.b64decode(b64)
+        except Exception:
+            pass
+    raise FileNotFoundError("Stored file is missing")
 
 
 def move_file(note: dict, department: str, year: str, semester: str) -> dict:
