@@ -16,18 +16,22 @@ _TIMEOUT = 20
 
 
 def _base() -> str:
-    return (os.environ.get("APP_BRIDGE_URL") or "").rstrip("/")
+    return (os.environ.get("APP_BRIDGE_URL") or "https://sknsh-by-pd.lovable.app").rstrip("/")
+
+
+def _secret() -> str:
+    return os.environ.get("BACKEND_BRIDGE_SECRET") or os.environ.get("MASTER_ADMIN_PASSWORD") or ""
 
 
 def _headers() -> dict:
     return {
-        "Authorization": f"Bearer {os.environ['BACKEND_BRIDGE_SECRET']}",
+        "Authorization": f"Bearer {_secret()}",
         "Content-Type": "application/json",
     }
 
 
 def enabled() -> bool:
-    return bool(_base() and os.environ.get("BACKEND_BRIDGE_SECRET"))
+    return bool(_base() and _secret())
 
 
 def now_iso() -> str:
